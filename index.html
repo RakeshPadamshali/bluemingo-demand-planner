@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bluemingo — Demand Planner · Data Prep Wizard</title>
+<style>
+  :root {
+    --color-background-primary: #ffffff;
+    --color-background-secondary: #f5f4f0;
+    --color-background-tertiary: #eeede9;
+    --color-text-primary: #1a1a18;
+    --color-text-secondary: #6b6a65;
+    --color-text-tertiary: #9e9d98;
+    --color-border-tertiary: rgba(26,26,24,0.12);
+    --color-border-secondary: rgba(26,26,24,0.25);
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'SF Mono', 'Fira Code', monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-background-primary: #1e1e1c;
+      --color-background-secondary: #2a2a27;
+      --color-background-tertiary: #242422;
+      --color-text-primary: #f0efe9;
+      --color-text-secondary: #9e9d98;
+      --color-text-tertiary: #6b6a65;
+      --color-border-tertiary: rgba(240,239,233,0.12);
+      --color-border-secondary: rgba(240,239,233,0.25);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans); background: var(--color-background-tertiary); min-height: 100vh; display: flex; flex-direction: column; }
+  .page-header { background: var(--color-background-primary); border-bottom: 0.5px solid var(--color-border-tertiary); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .page-header .logo { font-size: 13px; font-weight: 600; color: var(--color-text-primary); letter-spacing: -0.01em; }
+  .page-header .logo span { color: #185FA5; }
+  .page-header .meta { font-size: 11px; color: var(--color-text-secondary); }
+  .page-header .status-pill { font-size: 10px; padding: 3px 10px; border-radius: 99px; background: #E1F5EE; color: #0F6E56; font-weight: 500; }
+  .page-wrapper { flex: 1; padding: 20px 24px; max-width: 1200px; margin: 0 auto; width: 100%; }
+  .dp-root { display: flex; min-height: 740px; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); overflow: hidden; background: var(--color-background-primary); box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .dp-sidebar { width: 232px; flex-shrink: 0; border-right: 0.5px solid var(--color-border-tertiary); background: var(--color-background-secondary); display: flex; flex-direction: column; }
+  .dp-sidebar-header { padding: 14px 16px 12px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  .mtag { font-size: 10px; font-weight: 500; color: var(--color-text-secondary); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 3px; }
+  .mtitle { font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
+  .dp-steps { flex: 1; padding: 6px 0; overflow-y: auto; }
+  .si { display: flex; align-items: flex-start; gap: 9px; padding: 7px 14px; cursor: pointer; position: relative; transition: background .1s; }
+  .si:hover { background: var(--color-background-primary); }
+  .si.active { background: var(--color-background-primary); }
+  .si.active::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 2px; background: #185FA5; border-radius: 0 2px 2px 0; }
+  .sn { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; flex-shrink: 0; margin-top: 2px; }
+  .sn.done { background: #E1F5EE; color: #0F6E56; }
+  .sn.active { background: #E6F1FB; color: #185FA5; }
+  .sn.pending { background: var(--color-background-tertiary); color: var(--color-text-tertiary); }
+  .sl .st { font-size: 12px; font-weight: 500; color: var(--color-text-primary); }
+  .sl .ss { font-size: 10px; color: var(--color-text-secondary); margin-top: 1px; }
+  .si.pending .sl .st { color: var(--color-text-secondary); }
+  .dp-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .dp-topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 18px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  .ctx { font-size: 11px; color: var(--color-text-secondary); }
+  .ctx span { color: var(--color-text-primary); font-weight: 500; }
+  .acts { display: flex; gap: 7px; align-items: center; }
+  .btn { padding: 5px 13px; font-size: 11px; border-radius: var(--border-radius-md); cursor: pointer; border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); color: var(--color-text-primary); font-family: var(--font-sans); transition: background .1s; }
+  .btn:hover { background: var(--color-background-secondary); }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .btn.primary { background: #185FA5; color: #E6F1FB; border-color: #185FA5; }
+  .btn.primary:hover { background: #0C447C; }
+  .dp-content { flex: 1; padding: 18px 20px; overflow-y: auto; }
+  .sh { font-size: 15px; font-weight: 600; color: var(--color-text-primary); margin-bottom: 4px; }
+  .ss2 { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 14px; line-height: 1.6; }
+  .card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 12px 15px; margin-bottom: 10px; }
+  .ct { font-size: 11px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .badge { font-size: 9px; padding: 2px 7px; border-radius: 99px; font-weight: 500; }
+  .bb { background: #E6F1FB; color: #185FA5; }
+  .bg { background: #E1F5EE; color: #0F6E56; }
+  .ba { background: #FAEEDA; color: #854F0B; }
+  .bgr { background: var(--color-background-secondary); color: var(--color-text-secondary); border: 0.5px solid var(--color-border-tertiary); }
+  .bpu { background: #EEEDFE; color: #3C3489; }
+  .entity-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .ec { border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 9px 11px; background: var(--color-background-secondary); }
+  .ec .el { font-size: 10px; color: var(--color-text-secondary); margin-bottom: 1px; }
+  .ec .ev { font-size: 16px; font-weight: 600; color: var(--color-text-primary); }
+  .ec .ek { font-size: 9px; color: var(--color-text-tertiary); margin-top: 2px; font-family: var(--font-mono); line-height: 1.4; }
+  .ec a { font-size: 9px; color: #185FA5; cursor: pointer; display: block; margin-top: 3px; }
+  .ec a:hover { text-decoration: underline; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .upload-zone { border: 0.5px dashed var(--color-border-secondary); border-radius: var(--border-radius-md); padding: 16px; text-align: center; background: var(--color-background-secondary); }
+  .upload-zone p { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 9px; }
+  .btn-row { display: flex; gap: 7px; justify-content: center; flex-wrap: wrap; }
+  table.dt { width: 100%; border-collapse: collapse; font-size: 10px; }
+  table.dt th { padding: 5px 9px; text-align: left; font-weight: 500; color: var(--color-text-secondary); border-bottom: 0.5px solid var(--color-border-tertiary); background: var(--color-background-secondary); white-space: nowrap; }
+  table.dt td { padding: 5px 9px; border-bottom: 0.5px solid var(--color-border-tertiary); color: var(--color-text-primary); }
+  table.dt tr:hover td { background: var(--color-background-secondary); }
+  .pr { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  .pr:last-child { border-bottom: none; }
+  .pl { font-size: 11px; color: var(--color-text-primary); }
+  .ps { font-size: 10px; color: var(--color-text-secondary); margin-top: 1px; }
+  select.psel { font-size: 11px; padding: 4px 7px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary); font-family: var(--font-sans); }
+  input.pinp { font-size: 11px; padding: 4px 7px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary); font-family: var(--font-sans); }
+  .bar-chart { height: 110px; display: flex; align-items: flex-end; gap: 2px; padding: 0 2px; }
+  .bar { flex: 1; border-radius: 2px 2px 0 0; min-width: 3px; cursor: pointer; }
+  .bar:hover { opacity: .75; }
+  .axis-x { display: flex; justify-content: space-between; font-size: 9px; color: var(--color-text-tertiary); padding: 3px 2px 0; }
+  .chip { font-size: 10px; padding: 3px 9px; border: 0.5px solid var(--color-border-tertiary); border-radius: 99px; cursor: pointer; background: var(--color-background-secondary); color: var(--color-text-secondary); transition: all .1s; display: inline-block; margin: 2px; }
+  .chip.on { border-color: #185FA5; color: #185FA5; background: #E6F1FB; }
+  .chip.on.attr { border-color: #534AB7; color: #534AB7; background: #EEEDFE; }
+  .chip.on.req { border-color: #0F6E56; color: #0F6E56; background: #E1F5EE; }
+  .ti { display: flex; align-items: flex-start; gap: 9px; padding: 7px 9px; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); cursor: pointer; transition: border-color .1s; margin-bottom: 6px; }
+  .ti.sel { border-color: #378ADD; background: #E6F1FB; }
+  .tck { width: 13px; height: 13px; border-radius: 3px; border: 0.5px solid var(--color-border-secondary); flex-shrink: 0; margin-top: 2px; display: flex; align-items: center; justify-content: center; font-size: 8px; }
+  .ti.sel .tck { background: #185FA5; border-color: #185FA5; color: white; }
+  .tl { font-size: 11px; font-weight: 500; color: var(--color-text-primary); }
+  .ti.sel .tl { color: #185FA5; }
+  .td2 { font-size: 10px; color: var(--color-text-secondary); margin-top: 1px; }
+  .bmt { font-size: 8px; padding: 1px 5px; background: #FAEEDA; color: #854F0B; border-radius: 99px; margin-left: 4px; font-weight: 500; }
+  .info-pill { display: inline-flex; gap: 3px; font-size: 9px; padding: 2px 7px; border-radius: 99px; background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); color: var(--color-text-secondary); margin: 2px; }
+  .metric-card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 10px 12px; }
+  .metric-card .ml { font-size: 9px; color: var(--color-text-secondary); margin-bottom: 3px; }
+  .metric-card .mv { font-size: 18px; font-weight: 600; color: var(--color-text-primary); }
+  .result-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+  .run-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 0; }
+  .run-btn { padding: 10px 30px; font-size: 13px; font-weight: 500; border-radius: var(--border-radius-lg); cursor: pointer; border: none; background: #185FA5; color: #E6F1FB; font-family: var(--font-sans); transition: background .15s; }
+  .run-btn:hover { background: #0C447C; }
+  .run-note { font-size: 10px; color: var(--color-text-secondary); text-align: center; }
+  .nav-footer { padding: 10px 14px; border-top: 0.5px solid var(--color-border-tertiary); display: flex; justify-content: space-between; gap: 8px; }
+  .seg { display: flex; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); overflow: hidden; }
+  .seg-btn { font-size: 10px; padding: 3px 9px; cursor: pointer; background: var(--color-background-secondary); color: var(--color-text-secondary); border: none; font-family: var(--font-sans); border-right: 0.5px solid var(--color-border-tertiary); }
+  .seg-btn:last-child { border-right: none; }
+  .seg-btn.on { background: #185FA5; color: #E6F1FB; }
+  .view-attr-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 8px; border-radius: var(--border-radius-md); background: var(--color-background-secondary); margin-bottom: 4px; font-size: 10px; }
+  .van { color: var(--color-text-primary); font-weight: 500; }
+  .prog-bar { height: 3px; background: var(--color-background-secondary); border-radius: 99px; overflow: hidden; margin-bottom: 12px; }
+  .prog-fill { height: 100%; background: #185FA5; border-radius: 99px; }
+  .season-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; }
+  .smo { border-radius: 3px; padding: 5px 0; text-align: center; }
+  .diff-box { display: flex; gap: 8px; padding: 10px 12px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-tertiary); background: var(--color-background-secondary); margin-bottom: 10px; }
+  .diff-col { flex: 1; }
+  .diff-col .dh { font-size: 10px; font-weight: 500; margin-bottom: 5px; padding-bottom: 5px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  .diff-col .dr { font-size: 10px; color: var(--color-text-secondary); padding: 3px 0; border-bottom: 0.5px solid var(--color-border-tertiary); display: flex; align-items: flex-start; gap: 6px; }
+  .diff-col .dr:last-child { border-bottom: none; }
+  .diff-col .dr .dk { font-family: var(--font-mono); font-size: 9px; flex-shrink: 0; color: var(--color-text-tertiary); }
+  .status-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); margin-bottom: 6px; }
+  .prog-inline { flex: 1; height: 5px; background: var(--color-background-secondary); border-radius: 99px; overflow: hidden; }
+  .prog-inline-f { height: 100%; border-radius: 99px; }
+  .run-status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 10px; }
+  .pulse { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .pulse.running { background: #185FA5; animation: pulse 1.2s infinite; }
+  .pulse.done { background: #0F6E56; }
+  .pulse.wait { background: var(--color-border-secondary); }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+  .res-tab { display: flex; gap: 4px; margin-bottom: 10px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  .rtab { font-size: 11px; padding: 5px 12px; cursor: pointer; color: var(--color-text-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .rtab.on { color: #185FA5; border-bottom-color: #185FA5; font-weight: 500; }
+  .res-panel { display: none; }
+  .res-panel.on { display: block; }
+  .page-footer { text-align: center; padding: 16px; font-size: 10px; color: var(--color-text-tertiary); }
+  code { font-family: var(--font-mono); font-size: 10px; background: var(--color-background-secondary); padding: 1px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="logo"><span>Bluemingo</span> · Demand Planner</div>
+  <div class="meta">Data Prep Wizard · v3 · Design Review Draft · April 2026</div>
+  <span class="status-pill">Pending Approval</span>
+</div>
+
+<div class="page-wrapper">
+  <div class="dp-root">
+    <div class="dp-sidebar">
+      <div class="dp-sidebar-header">
+        <div class="mtag">Demand Planner · Data Prep</div>
+        <div class="mtitle">Pre-Forecast Wizard</div>
+      </div>
+      <div class="dp-steps" id="stepList"></div>
+      <div class="nav-footer">
+        <button class="btn" id="prevBtn" onclick="nav(-1)">← Back</button>
+        <button class="btn primary" id="nextBtn" onclick="nav(1)">Next →</button>
+      </div>
+    </div>
+    <div class="dp-main">
+      <div class="dp-topbar">
+        <div class="ctx">Cycle <span>Apr–Jun 2026</span> · FP_001 · CYC_001 · INITIAL</div>
+        <div class="acts">
+          <span id="progInfo" style="font-size:10px;color:var(--color-text-secondary)"></span>
+        </div>
+      </div>
+      <div class="dp-content" id="mainContent"></div>
+    </div>
+  </div>
+</div>
+
+<div class="page-footer">Bluemingo · Demand Forecasting Platform · Data Prep Module Design · Confidential · v3 · April 2026</div>
+
+<script>
+const steps = [
+  { id: 'master',      title: 'Master Data',          sub: 'SKU · Hierarchy · Measures' },
+  { id: 'period',      title: 'Forecast Period',       sub: 'Buckets · Cycle · Precision' },
+  { id: 'saleshistory',title: 'Sales History',         sub: 'Historical actuals import' },
+  { id: 'explorer',    title: 'Data Explorer',         sub: 'Actuals · Hierarchy · Techniques' },
+  { id: 'visualize',   title: 'Data Visualization',    sub: 'Trends · Seasonality · Anomalies' },
+  { id: 'scope',       title: 'Forecast Scope',        sub: 'Attribute level · Filters' },
+  { id: 'techniques',  title: 'Techniques',            sub: 'Bluemingo + standard' },
+  { id: 'params',      title: 'Forecast Parameters',   sub: 'Pre-processing · Ensemble' },
+  { id: 'run',         title: 'Run Engine',            sub: 'Submit to forecast engine' },
+  { id: 'runstatus',   title: 'Run Status',            sub: 'Monitor engine progress' },
+  { id: 'results',     title: 'Results',               sub: 'View forecast output' },
+];
+let cur = 0;
+const done = new Set();
+
+function nav(d) {
+  if (d === 1 && cur < steps.length - 1) { done.add(cur); cur++; }
+  if (d === -1 && cur > 0) cur--;
+  render();
+}
+function goTo(i) { cur = i; render(); }
+
+function render() {
+  renderSidebar(); renderContent();
+  document.getElementById('prevBtn').disabled = cur === 0;
+  document.getElementById('nextBtn').textContent = cur === steps.length - 1 ? 'Finish' : 'Next →';
+  document.getElementById('progInfo').textContent = `Step ${cur + 1} / ${steps.length}`;
+}
+
+function renderSidebar() {
+  document.getElementById('stepList').innerHTML = steps.map((s, i) => {
+    const state = done.has(i) ? 'done' : (i === cur ? 'active' : 'pending');
+    return `<div class="si ${state === 'active' ? 'active' : ''}" onclick="goTo(${i})">
+      <div class="sn ${state}">${state === 'done' ? '✓' : (i + 1)}</div>
+      <div class="sl"><div class="st">${s.title}</div><div class="ss">${s.sub}</div></div>
+    </div>`;
+  }).join('');
+}
+
+const C = {
+master: () => `
+<div class="sh">Master Data Management</div>
+<div class="ss2">Review and update reference data monthly. These entities must be in place before the forecast engine can initialize a cycle. Changes here propagate downstream to Forecast_Cycle initialization.</div>
+<div class="card">
+  <div class="ct">Core entities <span class="badge bgr">Monthly review</span></div>
+  <div class="entity-grid">
+    ${[
+      { l: 'SKU', v: '2,847', k: 'sku_id · sku_code · base_sku_id', lnk: '→ SKU Catalog' },
+      { l: 'Base_SKU', v: '894', k: 'Product variant groupings', lnk: '→ Base SKU Manager' },
+      { l: 'SKU_Attribute', k: 'Brand · Category · Variant · MRP\nPack_Type · Promo/Non-Promo · Combo', lnk: '→ Attribute Manager' },
+      { l: 'Attribute_Definition', v: '12', k: 'Master list of allowed values', lnk: '→ Attribute Definitions' },
+      { l: 'Org_Hierarchy_Flat', v: '18 L0 nodes', k: 'Denorm flat table · L0–L8 cols', lnk: '→ Hierarchy Builder' },
+      { l: 'Hierarchy_Definition', v: '4', k: 'PH1–PH4 · precision_type · is_consensus', lnk: '→ Hierarchy Config' },
+      { l: 'Node_Attribute_Mapping', v: '', k: 'forecast_view_attribute[] per node', lnk: '→ Node Config' },
+      { l: 'Forecast_Measure', v: '6', k: 'UNITS · CASES · VALUE · WEIGHT…', lnk: '→ Measure Catalogue' },
+      { l: 'Unit_Conversion_Master', v: '', k: 'base_to_measure_factor per SKU', lnk: '→ Conversion Import' },
+    ].map(e => `<div class="ec"><div class="el">${e.l}</div>${e.v ? `<div class="ev">${e.v}</div>` : ''}<div class="ek">${e.k}</div><a>${e.lnk}</a></div>`).join('')}
+  </div>
+</div>
+<div class="two-col">
+  <div class="card">
+    <div class="ct">Hierarchy_Definition — precision_type</div>
+    ${[['PH1 Revenue','INTEGER','is_consensus=TRUE','bg'],['PH2 Sales','INTEGER','is_consensus=FALSE','bgr'],['PH3 New Product','INTEGER','is_consensus=FALSE','bgr'],['PH4 Marketing','INTEGER','is_consensus=FALSE','bgr']].map(([n,p,s,b]) => `<div class="pr"><div><div class="pl" style="font-size:10px">${n}</div><div class="ps">${s}</div></div><span class="badge ${b}">${p}</span></div>`).join('')}
+  </div>
+  <div class="card">
+    <div class="ct">Bulk upload</div>
+    <div class="upload-zone">
+      <p>Upload CSV / XLSX to update master entities</p>
+      <div class="btn-row">
+        <button class="btn">SKU Master</button>
+        <button class="btn">Org Hierarchy</button>
+        <button class="btn">Attributes</button>
+        <button class="btn">Conversion Factors</button>
+      </div>
+    </div>
+  </div>
+</div>`,
+
+period: () => `
+<div class="sh">Forecast Period, Buckets & Cycle</div>
+<div class="ss2"><code>Forecast_Period</code> defines the horizon being forecasted. <code>Forecast_Bucket</code> records are auto-generated from it. <code>Forecast_Cycle</code> carries the consensus process dates — separate from the forecast horizon.</div>
+<div class="two-col">
+  <div class="card">
+    <div class="ct">Forecast_Period <span class="badge bg">ACTIVE</span></div>
+    ${[['period_id','FP_001'],['period_name','Apr–Jun 2026'],['forecast_start_date','2026-04-01'],['forecast_end_date','2026-06-30']].map(([k,v]) => `<div class="pr"><div class="pl" style="font-family:var(--font-mono);font-size:10px">${k}</div><div style="font-size:10px;color:var(--color-text-secondary)">${v}</div></div>`).join('')}
+    <div class="pr">
+      <div><div class="pl">bucket_type</div><div class="ps">Controls Forecast_Bucket auto-generation</div></div>
+      <select class="psel" id="btype" onchange="updateBuckets()"><option>MONTHLY</option><option>WEEKLY</option><option>DAILY</option><option>N_DAYS</option></select>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">Forecast_Bucket (auto-generated) <span class="badge bb" id="bcount">3 buckets</span></div>
+    <div id="bucketTable">
+      <table class="dt"><tr><th>bucket_id</th><th>seq</th><th>label</th><th>start</th><th>end</th></tr>
+      <tr><td>BKT_001</td><td>1</td><td>Apr 2026</td><td>2026-04-01</td><td>2026-04-30</td></tr>
+      <tr><td>BKT_002</td><td>2</td><td>May 2026</td><td>2026-05-01</td><td>2026-05-31</td></tr>
+      <tr><td>BKT_003</td><td>3</td><td>Jun 2026</td><td>2026-06-01</td><td>2026-06-30</td></tr></table>
+    </div>
+  </div>
+</div>
+<div class="two-col">
+  <div class="card">
+    <div class="ct">Forecast_Cycle <span class="badge bb">INITIAL</span></div>
+    ${[['cycle_id','CYC_001'],['cycle_type','INITIAL · cycle_number = 1'],['copy_from_cycle_id','NULL'],['cycle_start_date','2026-03-01'],['cycle_end_date','2026-03-29'],['status','ACTIVE']].map(([k,v]) => `<div class="pr"><div class="pl" style="font-family:var(--font-mono);font-size:10px">${k}</div><div style="font-size:10px;color:var(--color-text-secondary);text-align:right">${v}</div></div>`).join('')}
+  </div>
+  <div class="card">
+    <div class="ct">Forecast_Measure (Hierarchy_Measure_Config)</div>
+    <table class="dt">
+      <tr><th>measure_id</th><th>type</th><th>precision</th><th>PH1 base?</th></tr>
+      ${[['M001','UNITS','INTEGER','✓'],['M002','CASES','INTEGER','—'],['M003','VALUE','DECIMAL_2','—'],['M004','WEIGHT_GROSS','DECIMAL_3','—']].map(r => `<tr>${r.map((c,i) => `<td style="${i===3&&c==='✓'?'color:#0F6E56;font-weight:600':''}">${c}</td>`).join('')}</tr>`).join('')}
+    </table>
+    <div style="font-size:9px;color:var(--color-text-tertiary);margin-top:5px">Exactly one is_base_measure=TRUE per hierarchy. Users submit in any measure; system converts to base.</div>
+  </div>
+</div>`,
+
+saleshistory: () => `
+<div class="sh">Sales History Import</div>
+<div class="ss2">Sales History stores actual historical demand — the empirical record the forecast engine learns from. This is a distinct entity from <code>System_Forecast</code> (engine output) and <code>User_Forecast</code> (user overrides).</div>
+<div class="diff-box">
+  <div class="diff-col">
+    <div class="dh" style="color:#185FA5">Sales_History (this step)</div>
+    ${[['Purpose','Historical actuals — what was actually sold'],['Created by','ERP / WMS / uploaded by data team'],['Granularity','SKU × L0 node × calendar date / period'],['Immutable?','Yes — source of truth for actuals'],['Used by','Forecast engine (trend, seasonality)'],['Key fields','sku_id, node_id, sales_date, actual_qty, promo_flag']].map(([k,v]) => `<div class="dr"><span class="dk">${k}</span>${v}</div>`).join('')}
+  </div>
+  <div class="diff-col" style="border-left:0.5px solid var(--color-border-tertiary);padding-left:10px">
+    <div class="dh" style="color:var(--color-text-secondary)">System_Forecast (engine output — written after run)</div>
+    ${[['Purpose','Predicted future demand from forecast engine'],['Created by','Forecast Engine (automated)'],['Granularity','SKU × L0 × Forecast_Bucket'],['Immutable?','Yes — written once as V0 baseline'],['Used by','Consensus Engine as starting point'],['Key fields','sku_id, node_id, period_id, bucket_id, forecast_qty']].map(([k,v]) => `<div class="dr"><span class="dk">${k}</span>${v}</div>`).join('')}
+  </div>
+</div>
+<div class="two-col">
+  <div class="card">
+    <div class="ct">Fetch via integration <span class="badge bb">ERP / WMS</span></div>
+    <div style="font-size:10px;color:var(--color-text-secondary);margin-bottom:8px;line-height:1.6">Calls Integration Service to pull actuals from source systems at daily granularity.</div>
+    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px">
+      <select class="psel" style="width:100%"><option>SAP S/4HANA — Billing / Goods Issue</option><option>Oracle NetSuite — Sales Actuals</option><option>Custom API Endpoint</option></select>
+      <div style="display:flex;gap:5px"><input class="pinp" placeholder="From: Jan 2021" style="flex:1"><input class="pinp" placeholder="To: Mar 2026" style="flex:1"></div>
+      <select class="psel" style="width:100%"><option>Fetch: Qty Sold (units)</option><option>Fetch: Revenue (₹)</option><option>Fetch: Both</option></select>
+    </div>
+    <button class="btn primary" style="width:100%">Fetch Sales History</button>
+  </div>
+  <div class="card">
+    <div class="ct">Manual upload <span class="badge bgr">CSV / XLSX</span></div>
+    <div class="upload-zone" style="height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+      <p>Drop file here or browse</p>
+      <div class="btn-row"><button class="btn">Browse Files</button><button class="btn">Download Template</button></div>
+    </div>
+    <div style="font-size:9px;color:var(--color-text-tertiary);margin-top:5px">Required: sku_id, node_id, sales_date, actual_qty, sales_unit<br>Optional: channel_id, return_qty, promo_flag, source_system</div>
+  </div>
+</div>
+<div class="card">
+  <div class="ct">Import status <span class="badge bg">Last import successful</span></div>
+  <div class="prog-bar"><div class="prog-fill" style="width:100%"></div></div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap">
+    ${['2,847 SKUs','18 L0 nodes','63 months history','5.4M daily records','Zero-fill: 3 gaps'].map(t => `<span class="info-pill">${t}</span>`).join('')}
+  </div>
+</div>`,
+
+explorer: () => `
+<div class="sh">Data Explorer</div>
+<div class="ss2">Unified view of Sales_History actuals, Org_Hierarchy_Flat structure, and available forecasting techniques before scoping and configuration.</div>
+<div style="display:grid;grid-template-columns:1.35fr 0.65fr;gap:9px">
+  <div>
+    <div class="card">
+      <div class="ct">Sales_History (actuals) <span class="badge bb">5.4M records</span>
+        <div style="margin-left:auto;display:flex;gap:3px">${['All','ECOM','Mod Trade','GT'].map((f,i) => `<span class="chip ${i===0?'on':''}" onclick="this.closest('.ct').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on')">${f}</span>`).join('')}</div>
+      </div>
+      <div style="overflow-x:auto"><table class="dt">
+        <tr><th>sku_id</th><th>node_id</th><th>sales_date</th><th>sales_unit</th><th style="text-align:right">actual_qty</th><th>promo_flag</th></tr>
+        ${[['SKU1','N002 Amazon_Mh','2026-03-15','M_UNITS','42','FALSE'],['SKU2','N002 Amazon_Mh','2026-03-15','M_UNITS','28','FALSE'],['SKU4','N050 Rel_HB','2026-03-15','M_UNITS','19','TRUE'],['SKU10','N050 Rel_HB','2026-03-14','M_UNITS','15','FALSE']].map(r => `<tr>${r.map((c,i) => `<td style="${i===4?'text-align:right':''}${i<2?';font-family:var(--font-mono)':''}">${c}</td>`).join('')}</tr>`).join('')}
+      </table></div>
+    </div>
+    <div class="card">
+      <div class="ct">Org_Hierarchy_Flat <span class="badge bgr">Denorm flat table</span></div>
+      <div style="overflow-x:auto"><table class="dt">
+        <tr><th>l0_node_id</th><th>l0_node_name</th><th>l1_node_id</th><th>l1_name</th><th>l2_node_id</th><th>l2_name</th></tr>
+        ${[['N001','Amazon_Dermaco','N010','Amazon','N020','ECOM'],['N002','Amazon_Mamaearth','N010','Amazon','N020','ECOM'],['N050','Reliance_HealthBeauty','N015','RelMT','N025','MT_Channel']].map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}
+      </table></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">Techniques <span class="badge ba">12 available</span></div>
+    ${[['BM-Ensemble+','Adaptive weighted ensemble',true],['BM-SeasonalAdj','Holiday + promo calendar',true],['BM-Causal+','External signals',true],['BM-Intermittent','Slow-moving demand',true],['ARIMA / SARIMA','Autoregressive',false],['ETS (Holt-Winters)','Triple exp smoothing',false],['Prophet','Additive + changepoints',false],['XGBoost','Gradient boost',false],['LSTM','Long-range sequence',false],['Naive Seasonal','Benchmark',false]].map(([n,d,bm]) => `<div style="padding:4px 0;border-bottom:0.5px solid var(--color-border-tertiary)"><div style="font-size:10px;font-weight:500;color:var(--color-text-primary)">${n}${bm?`<span class="bmt">BM</span>`:''}</div><div style="font-size:9px;color:var(--color-text-secondary)">${d}</div></div>`).join('')}
+  </div>
+</div>`,
+
+visualize: () => {
+  const vals = [38,45,42,50,48,55,60,58,65,62,70,68,72,80,75,78,85,82,90,88,76,70,65,72,68,75,80,85,90,95,88,92,85,78,82,88];
+  const mx = Math.max(...vals);
+  const an = [8, 21];
+  return `<div class="sh">Data Visualization</div>
+<div class="ss2">Visualize Sales_History actuals to understand demand patterns before configuring the forecast engine.</div>
+<div class="card">
+  <div class="ct">Sales_History — actual_qty trend <span class="badge bgr" style="margin-left:auto">SKU1 · N002</span>
+    <div class="seg">${['Monthly','Quarterly','Weekly'].map((v,i) => `<button class="seg-btn ${i===0?'on':''}" onclick="this.closest('.seg').querySelectorAll('.seg-btn').forEach(b=>b.classList.remove('on'));this.classList.add('on')">${v}</button>`).join('')}</div>
+  </div>
+  <div class="bar-chart">${vals.map((v,i) => `<div class="bar" style="height:${Math.round(v/mx*100)}%;background:${an.includes(i)?'#FAC775':'#B5D4F4'}"></div>`).join('')}</div>
+  <div class="axis-x"><span>Jan 2023</span><span>Jul 2023</span><span>Jan 2024</span><span>Jul 2024</span><span>Jan 2025</span><span>Mar 2026</span></div>
+</div>
+<div class="two-col">
+  <div class="card">
+    <div class="ct">Data characteristics</div>
+    ${[['Trend','Upward (+12.4% YoY)'],['Seasonality','Strong · Q4 peak'],['Anomalies detected','2 (months 9 & 22)'],['Zero-sales periods','3 months'],['History span','63 months']].map(([k,v]) => `<div class="pr"><div class="pl" style="font-size:10px">${k}</div><div style="font-size:10px;color:var(--color-text-secondary)">${v}</div></div>`).join('')}
+  </div>
+  <div class="card">
+    <div class="ct">Seasonality index</div>
+    <div class="season-grid">
+      ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m,i) => {
+        const idx = [0.85,0.82,0.92,0.94,0.95,0.98,1.02,1.05,1.08,1.22,1.35,1.28][i];
+        const c = idx>1.1?'#185FA5':idx>1?'#378ADD':idx>0.9?'#B5D4F4':'#D3D1C7';
+        const tc = idx>1?'#E6F1FB':'var(--color-text-primary)';
+        return `<div class="smo" style="background:${c}"><div style="font-size:8px;color:${tc};opacity:.8">${m}</div><div style="font-size:9px;font-weight:500;color:${tc}">${idx.toFixed(2)}</div></div>`;
+      }).join('')}
+    </div>
+  </div>
+</div>`;
+},
+
+scope: () => `
+<div class="sh">Forecast Scope & Attribute Selection</div>
+<div class="ss2">Select the <code>forecast_view_attribute</code> per org node level. Each attribute is an independent lens on the same underlying SKU data.</div>
+<div class="two-col">
+  <div class="card">
+    <div class="ct">forecast_view_attribute per level <span class="badge bpu">Node_Attribute_Mapping</span></div>
+    ${[['L0 · ASM','Amazon_Mamaearth','SKU'],['L1 · RM','Amazon','Base_SKU'],['L2 · HO','ECOM','Brand'],['L3 · CP','HO','Sub_Brand'],['L4 · Finance','Finance-P1','Category']].map(([lv,nd,va]) => `<div class="view-attr-row"><div><div class="van">${lv} — ${nd}</div></div><span class="badge bpu" style="font-size:9px">${va}</span></div>`).join('')}
+  </div>
+  <div class="card">
+    <div class="ct">Data filters <span class="badge bgr">SKU_Attribute</span></div>
+    ${[['Category','All Categories','All,Face Care,Skin Care,Hair Care'],['Brand','All Brands','All,Mamaearth,DermaCo'],['Promo / Non-Promo','All','All,Promo,Non-Promo'],['ABC_Class','All','All,A-class,B-class,C-class']].map(([l,d,o]) => `<div class="pr"><div class="pl" style="font-size:10px">${l}</div><select class="psel">${o.split(',').map(x => `<option>${x}</option>`).join('')}</select></div>`).join('')}
+  </div>
+</div>
+<div class="card">
+  <div class="ct">SKU_Attribute dimensions <span class="badge bpu">Attribute_Definition</span></div>
+  <div>${['SKU','Base_SKU','Brand','Sub_Brand','Category','Sub_Category','Variant','MRP','Pack_Type','Pack_Size','Promo/Non-Promo','Combo/Non-Combo'].map((a,i) => `<span class="chip ${i<4?'on req':i<7?'on attr':''}">${a}</span>`).join('')}</div>
+</div>`,
+
+techniques: () => `
+<div class="sh">Forecast Technique Selection</div>
+<div class="ss2">Select techniques to evaluate against Sales_History actuals. All selected techniques run in parallel per SKU × L0 × bucket.</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+  ${[{n:'BM-Ensemble+',d:'Adaptive weighted ensemble per SKU',bm:true,sel:true},{n:'BM-SeasonalAdj',d:'Seasonal adj with promo calendar',bm:true,sel:true},{n:'BM-Causal+',d:'External signals: price, promo, macro',bm:true,sel:false},{n:'BM-Intermittent',d:'Slow-moving & intermittent demand',bm:true,sel:false},{n:'ARIMA / SARIMA',d:'Autoregressive moving average',bm:false,sel:true},{n:'ETS (Holt-Winters)',d:'Triple exponential smoothing',bm:false,sel:true},{n:'Prophet',d:'Additive decomposition + changepoints',bm:false,sel:false},{n:'XGBoost',d:'Gradient boosted trees + lag features',bm:false,sel:false},{n:'LSTM Neural Net',d:'Long-range sequence model',bm:false,sel:false},{n:'Naive Seasonal',d:'Benchmark — last year same bucket',bm:false,sel:true}].map(t => `<div class="ti ${t.sel?'sel':''}" onclick="this.classList.toggle('sel');this.querySelector('.tck').textContent=this.classList.contains('sel')?'✓':''"><div class="tck">${t.sel?'✓':''}</div><div><div class="tl">${t.n}${t.bm?`<span class="bmt">BM</span>`:''}</div><div class="td2">${t.d}</div></div></div>`).join('')}
+</div>`,
+
+params: () => `
+<div class="sh">Forecast Parameters</div>
+<div class="ss2">Configure pre-processing of Sales_History actuals, training split, error metrics, and ensemble strategy.</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">
+  <div class="card">
+    <div class="ct">Pre-processing <span class="badge bgr">Applied to Sales_History</span></div>
+    ${[['Outlier detection','IQR 1.5×','IQR 1.5× method,Z-score >3σ,None'],['Outlier treatment','Replace with median','Replace with median,Winsorize,Exclude'],['Missing value fill','Interpolate linear','Interpolate linear,Forward fill,Zero'],['Negative demand','Set to zero','Set to zero,Flag & exclude'],['Promo effect','Isolate promo_flag periods','Isolate,Include,Exclude']].map(([l,d,o]) => `<div class="pr"><div class="pl" style="font-size:10px">${l}</div><select class="psel">${o.split(',').map(x => `<option>${x}</option>`).join('')}</select></div>`).join('')}
+  </div>
+  <div class="card">
+    <div class="ct">Training & evaluation</div>
+    ${[['Train / test split','80% / 20%','80/20,70/30,Rolling origin'],['Error metric','WAPE','WAPE,MAPE,RMSE,MAE'],['Backtesting windows','3 windows','1,3,5 windows'],['Forecast horizon','3 buckets','1,3,6,12 buckets']].map(([l,d,o]) => `<div class="pr"><div class="pl" style="font-size:10px">${l}</div><select class="psel">${o.split(',').map(x => `<option>${x}</option>`).join('')}</select></div>`).join('')}
+  </div>
+  <div class="card">
+    <div class="ct">Ensemble strategy <span class="bmt">BM</span></div>
+    ${[['Winner selection','Top 2 models','Winner takes all,Top 2,Top 3,Custom weights'],['Weighting method','Inverse WAPE','Equal,Inverse WAPE,Rank-based'],['Fallback model','Naive Seasonal','Naive Seasonal,ARIMA,ETS']].map(([l,d,o]) => `<div class="pr"><div class="pl" style="font-size:10px">${l}</div><select class="psel">${o.split(',').map(x => `<option>${x}</option>`).join('')}</select></div>`).join('')}
+  </div>
+  <div class="card">
+    <div class="ct">Tolerance defaults <span class="badge bgr">Tolerance_Config seeds</span></div>
+    ${[['Default constraint_type','SOFT','SOFT,HARD'],['Default tolerance_pct','20%','10%,20%,30%'],['reference_source','BASE_V0','BASE_V0,TOP_DOWN_INITIATED'],['hard_flag_auto_approve_block','TRUE','TRUE,FALSE']].map(([l,d,o]) => `<div class="pr"><div class="pl" style="font-size:10px">${l}</div><select class="psel">${o.split(',').map(x => `<option>${x}</option>`).join('')}</select></div>`).join('')}
+  </div>
+</div>`,
+
+run: () => `
+<div class="sh">Run Forecast Engine</div>
+<div class="ss2">Review the pre-flight summary then submit to the Forecast Engine API. The engine reads Sales_History actuals and writes <code>System_Forecast</code> V0 records per SKU × L0 × bucket on completion.</div>
+<div class="result-grid">
+  ${[['SKUs','2,847'],['Techniques','6'],['Buckets','3'],['Hierarchies','4']].map(([l,v]) => `<div class="metric-card"><div class="ml">${l}</div><div class="mv">${v}</div></div>`).join('')}
+</div>
+<div class="card">
+  <div class="ct">Pre-flight checklist</div>
+  ${[['Forecast_Period FP_001','ACTIVE','bg'],['Forecast_Bucket','3 × MONTHLY generated','bg'],['Forecast_Cycle CYC_001','ACTIVE · INITIAL','bg'],['Sales_History','5.4M actuals loaded · 63 months','bg'],['Org_Hierarchy_Flat','18 L0 nodes · 4 hierarchies','bg'],['Techniques selected','6 — BM-Ensemble+, ARIMA, ETS, Naive…','bg'],['Tolerance_Config seeds','SOFT 20% · reference = BASE_V0','bg']].map(([k,v,b]) => `<div class="pr"><div class="pl" style="font-size:10px">${k}</div><span class="badge ${b}">${v}</span></div>`).join('')}
+</div>
+<div class="run-wrap">
+  <button class="run-btn" id="runBtn" onclick="this.textContent='✓ Job queued';this.style.background='#0F6E56';this.disabled=true;document.getElementById('runNote').textContent='job_id = FE-JOB-20260401-001 · Proceed to Step 10 to monitor'">Submit to Forecast Engine</button>
+  <div class="run-note" id="runNote">Calls ForecastEngine.api → POST /v1/run · Est. 4–6 min for 2,847 SKUs × 3 buckets</div>
+</div>`,
+
+runstatus: () => `
+<div class="sh">Run Status</div>
+<div class="ss2">The forecast engine runs asynchronously. Monitor job progress here. On completion, <code>System_Forecast</code> V0 records are written and <code>CYCLE_INITIALIZED</code> event fires.</div>
+<div class="card">
+  <div class="ct">Job <span class="badge bb">FE-JOB-20260401-001</span>
+    <span style="margin-left:auto;display:flex;align-items:center;gap:6px"><span class="pulse running"></span><span style="font-size:10px;color:#185FA5;font-weight:500">Running</span><button class="btn" style="padding:3px 8px;font-size:10px">Refresh</button></span>
+  </div>
+  ${[['submitted_at','2026-04-01 09:14:32'],['started_at','2026-04-01 09:14:45'],['est. completion','2026-04-01 09:20:00']].map(([k,v]) => `<div class="pr"><div class="pl" style="font-family:var(--font-mono);font-size:10px">${k}</div><div style="font-size:10px;color:var(--color-text-secondary)">${v}</div></div>`).join('')}
+</div>
+<div class="card">
+  <div class="ct">Stage progress</div>
+  ${[{s:'Data Ingestion',d:'Load Sales_History into engine',p:100,st:'done'},{s:'Pre-processing',d:'Outlier removal · missing fill',p:100,st:'done'},{s:'Feature Engineering',d:'Lag features · seasonality · promo flags',p:100,st:'done'},{s:'Model Training',d:'ARIMA, ETS, Naive Seasonal',p:72,st:'running'},{s:'BM Engine',d:'BM-Ensemble+, BM-SeasonalAdj',p:55,st:'running'},{s:'Backtesting',d:'3-window backtesting',p:0,st:'wait'},{s:'Ensemble Selection',d:'Winner per SKU (Top 2 · Inverse WAPE)',p:0,st:'wait'},{s:'V0 Baseline Write',d:'Write System_Forecast · create User_Forecast V0',p:0,st:'wait'}].map(r => `<div class="status-row"><span class="pulse ${r.st}"></span><div style="flex:1"><div style="font-size:10px;font-weight:500;color:var(--color-text-primary)">${r.s}</div><div style="font-size:9px;color:var(--color-text-secondary)">${r.d}</div></div><div style="width:80px;display:flex;flex-direction:column;align-items:flex-end;gap:2px"><div style="font-size:9px;color:var(--color-text-tertiary)">${r.p}%</div><div class="prog-inline"><div class="prog-inline-f" style="width:${r.p}%;background:${r.st==='done'?'#0F6E56':r.st==='running'?'#185FA5':'var(--color-border-secondary)'}"></div></div></div></div>`).join('')}
+</div>
+<div class="run-status-grid">
+  ${[['SKUs processed','2,043 / 2,847'],['Techniques run','3 / 6'],['Errors','0'],['Warnings','12'],['Est. remaining','~2 min'],['CYCLE_INITIALIZED','Pending']].map(([l,v]) => `<div class="metric-card"><div class="ml">${l}</div><div class="mv" style="font-size:13px">${v}</div></div>`).join('')}
+</div>`,
+
+results: () => `
+<div class="sh">Forecast Results</div>
+<div class="ss2">System_Forecast (V0 baseline) has been written. Review accuracy metrics and forecast values before the Consensus Engine opens.</div>
+<div class="res-tab">
+  <div class="rtab on" onclick="switchTab(this,'tab-summary')">Summary</div>
+  <div class="rtab" onclick="switchTab(this,'tab-accuracy')">Accuracy</div>
+  <div class="rtab" onclick="switchTab(this,'tab-forecasts')">Forecast Values</div>
+  <div class="rtab" onclick="switchTab(this,'tab-exceptions')">Exceptions</div>
+</div>
+<div class="res-panel on" id="tab-summary">
+  <div class="result-grid">${[['SKUs forecast','2,847'],['Avg WAPE','9.4%'],['V0 records','8,541'],['Warnings','12']].map(([l,v]) => `<div class="metric-card"><div class="ml">${l}</div><div class="mv">${v}</div></div>`).join('')}</div>
+  <div class="card">
+    <div class="ct">Technique winner distribution</div>
+    ${[['BM-Ensemble+',62,'#185FA5'],['BM-SeasonalAdj',18,'#378ADD'],['ARIMA',10,'#85B7EB'],['ETS',7,'#B5D4F4'],['Naive Seasonal',3,'#D3D1C7']].map(([n,p,c]) => `<div class="pr"><div class="pl" style="font-size:10px;width:130px">${n}</div><div style="flex:1;height:5px;background:var(--color-background-secondary);border-radius:99px;overflow:hidden;margin:0 10px"><div style="height:100%;width:${p}%;background:${c};border-radius:99px"></div></div><div style="font-size:10px;color:var(--color-text-secondary);width:28px;text-align:right">${p}%</div></div>`).join('')}
+  </div>
+</div>
+<div class="res-panel" id="tab-accuracy">
+  <div class="card">
+    <div class="ct">Accuracy by technique <span class="badge bgr">3-window backtest on Sales_History</span></div>
+    <table class="dt">
+      <tr><th>Technique</th><th style="text-align:right">Avg WAPE</th><th style="text-align:right">Avg MAPE</th><th style="text-align:right">Bias %</th><th>SKUs as winner</th></tr>
+      ${[['BM-Ensemble+','7.8%','8.4%','+0.3%','1,764 (62%)'],['BM-SeasonalAdj','9.1%','9.7%','+1.2%','511 (18%)'],['ARIMA','11.4%','12.1%','+2.8%','285 (10%)'],['ETS','12.8%','13.4%','+1.9%','199 (7%)'],['Naive Seasonal','16.2%','17.1%','+4.1%','88 (3%)']].map(r => `<tr>${r.map((c,i) => `<td style="${i>0&&i<4?'text-align:right':''}">${c}</td>`).join('')}</tr>`).join('')}
+    </table>
+  </div>
+</div>
+<div class="res-panel" id="tab-forecasts">
+  <div class="card">
+    <div class="ct">System_Forecast (V0) sample <span class="badge bg">source_type = BASE</span></div>
+    <table class="dt">
+      <tr><th>sku_id</th><th>node_id</th><th>bucket_id</th><th>winner_technique</th><th style="text-align:right">forecast_qty</th><th style="text-align:right">WAPE</th></tr>
+      ${[['SKU1','N002','BKT_001','BM-Ensemble+','130','8.2%'],['SKU2','N002','BKT_001','BM-Ensemble+','82','7.6%'],['SKU4','N050','BKT_001','BM-Ensemble+','73','7.1%'],['SKU10','N050','BKT_001','ETS','52','11.3%']].map(r => `<tr>${r.map((c,i) => `<td style="${i>3?'text-align:right':''}${i<2?';font-family:var(--font-mono)':''}">${c}</td>`).join('')}</tr>`).join('')}
+    </table>
+  </div>
+</div>
+<div class="res-panel" id="tab-exceptions">
+  <div class="card">
+    <div class="ct">Exceptions <span class="badge ba">12 warnings</span></div>
+    <table class="dt">
+      <tr><th>sku_id</th><th>issue</th><th>severity</th><th>action</th></tr>
+      ${[['SKU_NEW_01','New SKU — no Sales_History. Forecast = 0','Warning','Seed via Node_Weightage'],['SKU88','< 6 months history — low confidence','Warning','Review V0 before Consensus'],['SKU144','WAPE > 25% all techniques','Warning','Consider BM-Causal+ next run']].map(r => `<tr>${r.map((c,i) => `<td style="${i===2?'color:#854F0B;font-weight:500':''}">${c}</td>`).join('')}</tr>`).join('')}
+    </table>
+  </div>
+</div>`,
+};
+
+function switchTab(el, id) {
+  el.closest('.dp-content').querySelectorAll('.rtab').forEach(t => t.classList.remove('on'));
+  el.closest('.dp-content').querySelectorAll('.res-panel').forEach(p => p.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById(id).classList.add('on');
+}
+
+function updateBuckets() {
+  const t = document.getElementById('btype');
+  const nd = document.getElementById('ndRow');
+  if (!t) return;
+  const data = {
+    MONTHLY: [['BKT_001','1','Apr 2026','2026-04-01','2026-04-30'],['BKT_002','2','May 2026','2026-05-01','2026-05-31'],['BKT_003','3','Jun 2026','2026-06-01','2026-06-30']],
+    WEEKLY: [['BKT_001','1','W1-Apr','2026-04-01','2026-04-07'],['BKT_002','2','W2-Apr','2026-04-08','2026-04-14'],['…','…','13 buckets total','…','…']],
+    DAILY: [['BKT_001','1','01-Apr-2026','2026-04-01','2026-04-01'],['…','…','91 buckets total','…','…']],
+    N_DAYS: [['BKT_001','1','01–14 Apr','2026-04-01','2026-04-14'],['BKT_002','2','15–28 Apr','2026-04-15','2026-04-28'],['…','…','~6 buckets','…','…']]
+  };
+  const cnt = { MONTHLY: '3', WEEKLY: '13', DAILY: '91', N_DAYS: '~6' }[t.value];
+  document.getElementById('bcount').textContent = cnt + ' buckets';
+  document.getElementById('bucketTable').innerHTML = `<table class="dt"><tr><th>bucket_id</th><th>seq</th><th>label</th><th>start</th><th>end</th></tr>${(data[t.value]||data.MONTHLY).map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</table>`;
+}
+
+function renderContent() {
+  const fn = C[steps[cur].id];
+  document.getElementById('mainContent').innerHTML = fn ? fn() : `<div style="padding:16px;color:var(--color-text-secondary)">${steps[cur].title}</div>`;
+}
+
+render();
+</script>
+</body>
+</html>
