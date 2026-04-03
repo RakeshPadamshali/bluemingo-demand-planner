@@ -1,4 +1,4 @@
-# Bluemingo MES v2 — UI Style Guide & Design Prompt
+# Bluemingo — UI Style Guide & Design Prompt
 
 Use this prompt when building any new page, component, or application that should match the Bluemingo MES visual identity.
 
@@ -6,7 +6,7 @@ Use this prompt when building any new page, component, or application that shoul
 
 ## Brand Identity
 
-- **Product Name:** Bluemingo MES v2
+- **Product Name:** Bluemingo
 - **Industry:** Manufacturing Execution System (Steel/Heavy Industry)
 - **Audience:** Plant operators, production managers, QA engineers, system admins
 - **Tone:** Professional, clean, industrial. Data-dense but readable. Functional over decorative.
