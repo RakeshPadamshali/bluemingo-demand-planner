@@ -108,6 +108,17 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .spec-table input,.spec-table select{width:100%;padding:5px 7px;border:1px solid #ddd;border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;}
 .spec-table input:focus,.spec-table select:focus{outline:none;border-color:var(--color-primary);}
 .spec-table td.okcell{text-align:center;font-weight:700;}
+.srctag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:9px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;vertical-align:middle;}
+.srctag.t-tdc{background:rgba(37,169,224,.14);color:#1E8FBF;}
+.srctag.t-std{background:rgba(158,158,158,.16);color:#757575;}
+.tc-link{color:var(--color-primary-dark);cursor:pointer;text-decoration:underline dotted;font-variant-numeric:tabular-nums;}
+.tc-link:hover{color:var(--color-primary);}
+.lookup{display:flex;gap:6px;}
+.lookup input{flex:1;}
+.tdc-search{position:relative;margin-bottom:10px;}
+.tdc-search i{position:absolute;left:10px;top:10px;color:var(--color-text-hint);font-size:12px;}
+.tdc-search input{width:100%;padding:8px 10px 8px 30px;border:1px solid #ddd;border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;}
+.spec-table tr.tdc-row{cursor:pointer;} .spec-table tr.tdc-row:hover td{background:#eef7fc;}
 .ok-yes{color:var(--color-success);} .ok-no{color:var(--color-danger);}
 .result-band{display:flex;flex-wrap:wrap;align-items:center;gap:16px;background:var(--color-bg-alt);border:1px solid var(--color-border);border-radius:var(--r-sm);padding:10px 14px;margin-top:var(--sp3);font-size:var(--fs-sm);}
 .result-band span{color:var(--color-text-muted);}
@@ -184,7 +195,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
       <div class="s-group" onclick="grpToggle(this)">Equipment<i class="fa-solid fa-chevron-down gchev"></i></div>
       <div class="grp-items">
         <a href="instruments.html"><i class="fa-solid fa-ruler-combined"></i> Instruments</a>
-        <a href="roll-shop.html"><i class="fa-solid fa-record-vinyl"></i> Roll Shop</a>
       </div>
     </div>
     <div class="navgrp" data-g="Masters">
@@ -213,7 +223,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="master-standard.html"><i class="fa-solid fa-book"></i> Standard</a>
         <a href="master-standard-limit.html"><i class="fa-solid fa-ruler-horizontal"></i> Standard Limit</a>
         <a href="master-instrument-type.html"><i class="fa-solid fa-ruler-combined"></i> Instrument Type</a>
-        <a href="master-roll-type.html"><i class="fa-solid fa-record-vinyl"></i> Roll Type</a>
         <a href="master-agency.html"><i class="fa-solid fa-building"></i> Agency</a>
         <a href="master-supplier.html"><i class="fa-solid fa-truck-field"></i> Supplier</a>
       </div>
@@ -255,7 +264,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
       </div>
       <div class="mgrid" style="margin-top:16px">
         <div class="fld"><label>Decision</label><select id="iDecision" onchange="decisionChange()"></select></div>
-        <div class="fld" id="rmaFld"><label>RMA number</label><input id="iRma"/></div>
+        <div class="fld" id="rmaFld"><label>RM number</label><input id="iRma"/></div>
         <div class="fld full hide" id="fbFld"><label>Supplier feedback / SCAR</label><textarea id="iFeedback" placeholder="Defect summary returned to supplier; raises supplier NCR…"></textarea></div>
         <div class="fld full"><label>Remarks</label><input id="iRemarks"/></div>
       </div>
@@ -268,6 +277,34 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
   </div>
 </div>
 
+<!-- Mill TC popup -->
+<div class="overlay" id="tcOverlay">
+  <div class="modal sm">
+    <div class="modal-head">Mill Test Certificate <span class="x" onclick="closeTc()"><i class="fa-solid fa-xmark"></i></span></div>
+    <div class="modal-body">
+      <div class="prep-ctx" id="tcCtx"></div>
+      <div class="route-note"><i class="fa-solid fa-circle-info"></i> Supplier mill certificate (EN 10204) for this received lot — verified at inward; chemistry &amp; dimensions checked against the RM spec.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeTc()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- TDC picker popup -->
+<div class="overlay" id="tdcPickOverlay" style="z-index:1100">
+  <div class="modal sm">
+    <div class="modal-head">Select TDC — RM spec <span class="x" onclick="closeTdcPicker()"><i class="fa-solid fa-xmark"></i></span></div>
+    <div class="modal-body">
+      <div class="tdc-search"><i class="fa-solid fa-magnifying-glass"></i><input id="tdcSearch" placeholder="Search TDC / grade / customer / standard…" oninput="renderTdcList()"/></div>
+      <table class="spec-table"><thead><tr><th>TDC No</th><th>Grade</th><th>Customer</th><th>Standard</th></tr></thead><tbody id="tdcPickBody"></tbody></table>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeTdcPicker()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- Receive RM modal -->
 <div class="overlay" id="recvOverlay">
   <div class="modal sm">
@@ -276,6 +313,9 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
       <div class="mgrid">
         <div class="fld"><label>Supplier</label><select id="cSupplier"></select></div>
         <div class="fld"><label>RMPO No.</label><input id="cRmpo" value="RMPO-2526-0352"/></div>
+        <div class="fld full"><label>RM spec (TDC) <span style="color:var(--color-danger)">*</span></label>
+          <div class="lookup"><input id="cTdc" readonly placeholder="Select a TDC…"/><button type="button" class="btn btn-ghost btn-sm" onclick="openTdcPicker()"><i class="fa-solid fa-magnifying-glass"></i> Select</button></div>
+        </div>
         <div class="fld"><label>Supplier heat no.</label><input id="cHeat"/></div>
         <div class="fld"><label>Mill TC no.</label><input id="cTc"/></div>
         <div class="fld"><label>Grade</label><select id="cGrade"></select></div>
@@ -302,36 +342,65 @@ const STATUSES=['RECEIVED','UNDER_INSPECTION','ACCEPTED','RETEST','REJECTED','RE
 const STB={'RECEIVED':'b-draft','UNDER_INSPECTION':'b-pend','ACCEPTED':'b-done','RETEST':'b-info','REJECTED':'b-hold','RETURNED':'b-hold','PARTIAL':'b-clr'};
 const RESB={'PASS':'b-done','FAIL':'b-hold','CONDITIONAL':'b-pend','':'b-draft'};
 const DECB={'ACCEPT':'b-done','RETEST':'b-info','RETURN':'b-hold','':'b-draft'};
-const ROUTEMSG={ACCEPT:'Accepted — RMA issued, internal batch created &amp; released to Production for heat formation.',
+const ROUTEMSG={ACCEPT:'Accepted — RM No issued, internal batch created &amp; released to Production for heat formation.',
  RETEST:'Held for re-test — fresh sample drawn &amp; re-analysed before a final decision.',
  RETURN:'Rejected — quarantined &amp; returned to supplier; raises a supplier NCR (§ Salvage) with feedback / SCAR.'};
-/* RM spec by grade (min/max; visual & doc are pass/fail checks) */
-const RM_SPEC={
- '304L':[{c:'C %',min:0,max:0.030},{c:'Cr %',min:18.0,max:20.0},{c:'Ni %',min:8.0,max:11.0},{c:'Diameter',min:39.7,max:40.3,u:'mm'},{c:'Surface',kind:'visual'},{c:'Mill TC',kind:'doc'}],
- '316L':[{c:'C %',min:0,max:0.030},{c:'Cr %',min:16.0,max:18.0},{c:'Ni %',min:10.0,max:14.0},{c:'Mo %',min:2.0,max:3.0},{c:'Diameter',min:22.7,max:23.3,u:'mm'},{c:'Surface',kind:'visual'},{c:'Mill TC',kind:'doc'}],
- '17-4PH':[{c:'C %',min:0,max:0.070},{c:'Cr %',min:15.0,max:17.5},{c:'Ni %',min:3.0,max:5.0},{c:'Cu %',min:3.0,max:5.0},{c:'Diameter',min:67.6,max:68.4,u:'mm'},{c:'Surface',kind:'visual'},{c:'Mill TC',kind:'doc'}],
- '416':[{c:'C %',min:0,max:0.15},{c:'Cr %',min:12.0,max:14.0},{c:'S %',min:0.15,max:0.35},{c:'Diameter',min:25.6,max:26.4,u:'mm'},{c:'Surface',kind:'visual'},{c:'Mill TC',kind:'doc'}]
+/* ---- Characteristics from the Characteristic dictionary (mes_global_attributes) ----
+   ATTRS     = dictionary entries (name + unit) — what each captured row 'is'
+   STD_LIMIT = the RM purchase spec: a Standard's published limits by grade (mes_qc_standard_limit)
+   TDC_LIMIT = customer/RM TDC overrides (tighter), applied when a receipt is bought to a TDC
+   specFor(receipt) -> attribute rows; each limit resolves TDC (by attribute) -> else Standard.
+   Surface = qualitative dictionary attribute; Mill TC = document check on the receipt (not a dictionary attribute). */
+const ATTRS={
+ C:{name:'Carbon (C)',unit:'%'}, Cr:{name:'Chromium (Cr)',unit:'%'}, Ni:{name:'Nickel (Ni)',unit:'%'},
+ Mo:{name:'Molybdenum (Mo)',unit:'%'}, Cu:{name:'Copper (Cu)',unit:'%'}, S:{name:'Sulphur (S)',unit:'%'},
+ Mn:{name:'Manganese (Mn)',unit:'%'}, Si:{name:'Silicon (Si)',unit:'%'},
+ DIA:{name:'Diameter',unit:'mm'}, SURF:{name:'Surface finish',kind:'visual'}
 };
-function specFor(g){return RM_SPEC[g]||[{c:'Chemistry',kind:'visual'},{c:'Diameter',min:0,max:9999,u:'mm'},{c:'Surface',kind:'visual'},{c:'Mill TC',kind:'doc'}];}
+const STD_LIMIT={
+ '304L'  :{std:'ASTM A276',lim:{C:[0,0.030],Cr:[18.0,20.0],Ni:[8.0,11.0],Mn:[0,2.0],Si:[0,1.0],DIA:[39.7,40.3]}},
+ '316L'  :{std:'ASTM A276',lim:{C:[0,0.030],Cr:[16.0,18.0],Ni:[10.0,14.0],Mo:[2.0,3.0],DIA:[22.7,23.3]}},
+ '17-4PH':{std:'ASTM A564',lim:{C:[0,0.070],Cr:[15.0,17.5],Ni:[3.0,5.0],Cu:[3.0,5.0],DIA:[67.6,68.4]}},
+ '416'   :{std:'ASTM A582',lim:{C:[0,0.15],Cr:[12.0,14.0],S:[0.15,0.35],DIA:[25.6,26.4]}}
+};
+const TDC_LIMIT={ 'TDC-004810':{Cr:[18.5,19.5],Ni:[9.0,10.5]} };  // example customer override (tighter than the standard)
+const GRADE_TDC={'304L':'TDC-004810','316L':'TDC-006132','17-4PH':'TDC-004275','416':'TDC-003922'};  // default RM spec (TDC) per grade
+function rmTdc(r){return r.tdcNo||GRADE_TDC[r.grade]||'';}
+function specFor(r){
+  const g=STD_LIMIT[r.grade];
+  if(!g) return [{code:'SURF',c:'Surface finish',kind:'visual',src:'STD'},{code:'TC',c:'Mill TC',kind:'doc'}];
+  const ovr=(rmTdc(r) && TDC_LIMIT[rmTdc(r)])||null;
+  const rows=Object.keys(g.lim).map(code=>{
+    const a=ATTRS[code]||{name:code,unit:''};
+    const ov=ovr&&ovr[code];
+    const lim=ov||g.lim[code];
+    return {code, c:a.name, u:a.unit, min:lim[0], max:lim[1], src: ov?'TDC':'STD'};
+  });
+  rows.push({code:'SURF', c:ATTRS.SURF.name, kind:'visual', src:'STD'});
+  rows.push({code:'TC', c:'Mill TC', kind:'doc'});
+  return rows;
+}
+function stdOf(r){return (STD_LIMIT[r.grade]||{}).std||'—';}
+function srcTag(s){return ` <span class="srctag ${s==='TDC'?'t-tdc':'t-std'}" title="${s==='TDC'?'From customer TDC — overrides the standard':'From the purchase standard'}">${s}</span>`;}
 function mid(s){return s.min!=null?+(((s.min)+(s.max))/2).toFixed(3):0;}
 
 const RECEIPTS=[
- {grn:'GRN-2526-0712',date:'24-Jun 08:15',rmpo:'RMPO-2526-0345',supplier:'Jindal Stainless',supHeat:'JS-44021',mat:'SS Billet',grade:'304L',form:'Billet',size:'150 sq',qty:24.6,pcs:8,tc:'JS-TC-44021',tcRecv:true,result:'PASS',decision:'ACCEPT',rma:'RMA-2526-0712',status:'ACCEPTED'},
- {grn:'GRN-2526-0713',date:'24-Jun 09:40',rmpo:'RMPO-2526-0346',supplier:'Viraj Profiles',supHeat:'VP-90187',mat:'SS Bar',grade:'316L',form:'Round Bar',size:'23 Dia',qty:12.2,pcs:40,tc:'VP-TC-90187',tcRecv:true,result:'PASS',decision:'ACCEPT',rma:'RMA-2526-0713',status:'ACCEPTED'},
+ {grn:'GRN-2526-0712',date:'24-Jun 08:15',rmpo:'RMPO-2526-0345',supplier:'Jindal Stainless',supHeat:'JS-44021',mat:'SS Billet',grade:'304L',tdcNo:'TDC-004810',form:'Billet',size:'150 sq',qty:24.6,pcs:8,tc:'JS-TC-44021',tcRecv:true,result:'PASS',decision:'ACCEPT',rma:'RM-2526-0712',status:'ACCEPTED'},
+ {grn:'GRN-2526-0713',date:'24-Jun 09:40',rmpo:'RMPO-2526-0346',supplier:'Viraj Profiles',supHeat:'VP-90187',mat:'SS Bar',grade:'316L',form:'Round Bar',size:'23 Dia',qty:12.2,pcs:40,tc:'VP-TC-90187',tcRecv:true,result:'PASS',decision:'ACCEPT',rma:'RM-2526-0713',status:'ACCEPTED'},
  {grn:'GRN-2526-0714',date:'24-Jun 10:05',rmpo:'RMPO-2526-0347',supplier:'Mukand Ltd',supHeat:'MK-55310',mat:'SS Billet',grade:'17-4PH',form:'Billet',size:'160 sq',qty:18.0,pcs:6,tc:'MK-TC-55310',tcRecv:true,result:'',decision:'',rma:'',status:'UNDER_INSPECTION'},
  {grn:'GRN-2526-0205',date:'22-Jun 14:15',rmpo:'RMPO-2526-0322',supplier:'Outokumpu (Import)',supHeat:'OK-77820',mat:'SS Bar',grade:'316L',form:'Round Bar',size:'26 Dia',qty:12.0,pcs:30,tc:'',tcRecv:false,result:'FAIL',decision:'RETURN',rma:'',status:'RETURNED'},
  {grn:'GRN-2526-0715',date:'24-Jun 11:30',rmpo:'RMPO-2526-0348',supplier:'Sunflag Iron & Steel',supHeat:'SF-33190',mat:'Alloy Billet',grade:'416',form:'Billet',size:'140 sq',qty:20.5,pcs:7,tc:'SF-TC-33190',tcRecv:true,result:'CONDITIONAL',decision:'RETEST',rma:'',status:'RETEST'},
  {grn:'GRN-2526-0716',date:'24-Jun 12:10',rmpo:'RMPO-2526-0349',supplier:'Jindal Stainless',supHeat:'JS-44090',mat:'SS Bar',grade:'304L',form:'Round Bar',size:'40 Dia',qty:9.8,pcs:18,tc:'JS-TC-44090',tcRecv:true,result:'',decision:'',rma:'',status:'RECEIVED'},
- {grn:'GRN-2526-0717',date:'24-Jun 12:50',rmpo:'RMPO-2526-0350',supplier:'Viraj Profiles',supHeat:'VP-90250',mat:'SS Bar',grade:'316L',form:'Hex Bar',size:'19 Hex',qty:6.4,pcs:55,tc:'VP-TC-90250',tcRecv:true,result:'PASS',decision:'ACCEPT',rma:'RMA-2526-0717',status:'ACCEPTED'},
+ {grn:'GRN-2526-0717',date:'24-Jun 12:50',rmpo:'RMPO-2526-0350',supplier:'Viraj Profiles',supHeat:'VP-90250',mat:'SS Bar',grade:'316L',form:'Hex Bar',size:'19 Hex',qty:6.4,pcs:55,tc:'VP-TC-90250',tcRecv:true,result:'PASS',decision:'ACCEPT',rma:'RM-2526-0717',status:'ACCEPTED'},
  {grn:'GRN-2526-0718',date:'24-Jun 13:20',rmpo:'RMPO-2526-0351',supplier:'Mukand Ltd',supHeat:'MK-55402',mat:'SS Billet',grade:'17-4PH',form:'Billet',size:'160 sq',qty:15.5,pcs:5,tc:'',tcRecv:false,result:'',decision:'',rma:'',status:'RECEIVED'}
 ];
 
 const COLS=[
  {k:'grn',label:'GRN No',cls:'mono'},{k:'date',label:'Date'},{k:'rmpo',label:'RMPO No',cls:'mono'},
  {k:'supplier',label:'Supplier'},{k:'supHeat',label:'Sup. Heat',cls:'mono'},{k:'mat',label:'Material'},
- {k:'grade',label:'Grade'},{k:'form',label:'Form'},{k:'size',label:'Size'},
+ {k:'grade',label:'Grade'},{k:'tdcNo',label:'RM spec (TDC)',cls:'mono'},{k:'form',label:'Form'},{k:'size',label:'Size'},
  {k:'qty',label:'Qty(MT)',cls:'num'},{k:'pcs',label:'Pcs',cls:'num'},{k:'tc',label:'TC No',tc:true},
- {k:'result',label:'Result',result:true},{k:'decision',label:'Decision',decision:true},{k:'rma',label:'RMA No',cls:'mono'},
+ {k:'result',label:'Result',result:true},{k:'decision',label:'Decision',decision:true},{k:'rma',label:'RM No',cls:'mono'},
  {k:'status',label:'Status',status:true},{k:'actions',label:'',actions:true}
 ];
 let sortKey=null,sortDir=1,curInsp=null,curActuals=[];
@@ -343,14 +412,15 @@ function cell(c,r,i){
   if(c.result)  return r.result?`<span class="badge ${RESB[r.result]}">${r.result}</span>`:'—';
   if(c.decision)return r.decision?`<span class="badge ${DECB[r.decision]}">${r.decision}</span>`:'—';
   if(c.status)  return `<span class="badge ${STB[r.status]}">${r.status.replace('_',' ')}</span>`;
-  if(c.tc)      return r.tcRecv?r.tc:'<span class="ok-no" title="TC not received">no TC</span>';
+  if(c.tc)      return r.tcRecv?`<a class="tc-link" onclick="openTc(${i})" title="View mill TC">${r.tc}</a>`:'<span class="ok-no" title="TC not received">no TC</span>';
+  if(c.k==='tdcNo') return rmTdc(r)||'—';
   let v=r[c.k]; if(c.k==='qty')v=(+v).toFixed(1); if(v===''||v==null)v='—'; return v;
 }
 function cmp(a,b){return (''+(a??'')).localeCompare(''+(b??''),undefined,{numeric:true,sensitivity:'base'});}
 function passes(r){
   const q=(document.getElementById('search').value||'').toLowerCase();
   const fs=document.getElementById('fStatus').value,fp=document.getElementById('fSupplier').value,fd=document.getElementById('fDecision').value;
-  if(q&&!(r.grn+' '+r.supplier+' '+r.supHeat+' '+r.grade+' '+r.rmpo+' '+r.mat).toLowerCase().includes(q))return false;
+  if(q&&!(r.grn+' '+r.supplier+' '+r.supHeat+' '+r.grade+' '+r.rmpo+' '+r.mat+' '+rmTdc(r)).toLowerCase().includes(q))return false;
   if(fs&&r.status!==fs)return false; if(fp&&r.supplier!==fp)return false; if(fd&&r.decision!==fd)return false;
   return true;
 }
@@ -382,22 +452,22 @@ function rowOk(s,actual){
   return a>=s.min && a<=s.max;
 }
 function openInsp(i){
-  curInsp=i; const r=RECEIPTS[i], spec=specFor(r.grade);
+  curInsp=i; const r=RECEIPTS[i], spec=specFor(r);
   document.getElementById('inspCtx').innerHTML=
     `<span class="chip">GRN <b>${r.grn}</b></span><span class="chip">Supplier <b>${r.supplier}</b></span>`+
     `<span class="chip">Heat <b>${r.supHeat}</b></span><span class="chip">Grade <b>${r.grade}</b></span>`+
-    `<span class="chip">Form <b>${r.form}</b></span><span class="chip">Size <b>${r.size}</b></span><span class="chip">Qty <b>${r.qty} MT</b></span>`;
+    `<span class="chip">Form <b>${r.form}</b></span><span class="chip">Size <b>${r.size}</b></span><span class="chip">Qty <b>${r.qty} MT</b></span><span class="chip">RM spec <b>${rmTdc(r)||stdOf(r)}</b></span>`;
   // prefill actuals: numeric -> midpoint (pass); visual -> OK; doc -> from tcRecv
   curActuals=spec.map(s=> s.kind==='doc' ? (r.tcRecv?'Received':'Not received') : s.kind==='visual' ? 'OK' : String(mid(s)) );
   renderSpec();
   document.getElementById('iDecision').innerHTML=DECISIONS.map(d=>`<option>${d}</option>`).join('');
-  document.getElementById('iRma').value=r.rma||('RMA-2526-0'+(719+i));
+  document.getElementById('iRma').value=r.rma||('RM-2526-0'+(719+i));
   document.getElementById('iFeedback').value=''; document.getElementById('iRemarks').value=r.remarks||'';
   recompute();
   document.getElementById('inspOverlay').classList.add('open');
 }
 function renderSpec(){
-  const r=RECEIPTS[curInsp], spec=specFor(r.grade);
+  const r=RECEIPTS[curInsp], spec=specFor(r);
   document.getElementById('specBody').innerHTML=spec.map((s,si)=>{
     const specCol = s.kind ? `<td colspan="2" style="color:#888">${s.kind==='doc'?'Document':'Visual'}</td>`
                            : `<td class="num">${s.min}</td><td class="num">${s.max}${s.u?' '+s.u:''}</td>`;
@@ -406,19 +476,19 @@ function renderSpec(){
     else if(s.kind==='visual') input=`<select onchange="setActual(${si},this.value)"><option ${curActuals[si]==='OK'?'selected':''}>OK</option><option ${curActuals[si]!=='OK'?'selected':''}>Not OK</option></select>`;
     else input=`<input type="number" step="any" value="${curActuals[si]}" oninput="setActual(${si},this.value)"/>`;
     const ok=rowOk(s,curActuals[si]);
-    return `<tr><td>${s.c}</td>${specCol}<td>${input}</td><td class="okcell ${ok?'ok-yes':'ok-no'}" id="ok${si}">${ok?'✓':'✗'}</td></tr>`;
+    return `<tr><td>${s.c}${s.src?srcTag(s.src):''}</td>${specCol}<td>${input}</td><td class="okcell ${ok?'ok-yes':'ok-no'}" id="ok${si}">${ok?'✓':'✗'}</td></tr>`;
   }).join('');
 }
-function setActual(si,v){curActuals[si]=v; const r=RECEIPTS[curInsp], s=specFor(r.grade)[si];
+function setActual(si,v){curActuals[si]=v; const r=RECEIPTS[curInsp], s=specFor(r)[si];
   const ok=rowOk(s,v); const cellEl=document.getElementById('ok'+si); cellEl.textContent=ok?'✓':'✗'; cellEl.className='okcell '+(ok?'ok-yes':'ok-no'); recompute();}
 function recompute(){
-  const r=RECEIPTS[curInsp], spec=specFor(r.grade);
+  const r=RECEIPTS[curInsp], spec=specFor(r);
   const oks=spec.map((s,si)=>rowOk(s,curActuals[si]));
   const nOk=oks.filter(Boolean).length, all=oks.length;
   document.getElementById('rChecks').textContent=`${nOk}/${all} OK`;
   const result = nOk===all?'PASS':'FAIL';
   const rb=document.getElementById('rResult'); rb.textContent=result; rb.className='badge '+RESB[result];
-  const tcOk = specFor(r.grade).some((s,si)=>s.kind==='doc') ? curActuals[spec.findIndex(s=>s.kind==='doc')]==='Received' : r.tcRecv;
+  const tcOk = specFor(r).some((s,si)=>s.kind==='doc') ? curActuals[spec.findIndex(s=>s.kind==='doc')]==='Received' : r.tcRecv;
   const tcEl=document.getElementById('rTc'); tcEl.textContent=tcOk?'Verified':'Missing'; tcEl.className='tc-flag '+(tcOk?'b-done':'b-hold');
   // suggest decision
   const dec=document.getElementById('iDecision'); if(dec.value!=='RETEST') dec.value = result==='PASS'?'ACCEPT':'RETURN';
@@ -431,8 +501,43 @@ function decisionChange(){
   document.getElementById('iRoute').innerHTML='<i class="fa-solid fa-route"></i> '+ROUTEMSG[d];
 }
 function closeInsp(){document.getElementById('inspOverlay').classList.remove('open');}
+function openTc(i){
+  const r=RECEIPTS[i];
+  document.getElementById('tcCtx').innerHTML=[
+    ['TC No',r.tc],['Supplier',r.supplier],['Supplier heat',r.supHeat],['Material',r.mat],
+    ['Grade',r.grade],['Form / Size',r.form+' · '+r.size],['Received',r.date],
+    ['Qty',r.qty+' MT · '+r.pcs+' pcs'],['GRN',r.grn],['RMPO',r.rmpo]
+  ].map(p=>`<span class="chip">${p[0]}<b>${p[1]}</b></span>`).join('');
+  document.getElementById('tcOverlay').classList.add('open');
+}
+function closeTc(){document.getElementById('tcOverlay').classList.remove('open');}
+/* TDC picker for Receive RM — selection only, never free text */
+const TDC_LIST=[
+ {no:'TDC-004275',grade:'17-4PH',customer:'JSW Steel',std:'ASTM A564'},
+ {no:'TDC-004810',grade:'304L',customer:'Ambica Steels',std:'ASTM A276'},
+ {no:'TDC-006132',grade:'316L',customer:'Ambica Steels',std:'ASTM A276'},
+ {no:'TDC-003922',grade:'416',customer:'Bharat Forge',std:'ASTM A582'},
+ {no:'TDC-005140',grade:'304L',customer:'L&T Valves',std:'ASTM A479'},
+ {no:'TDC-005620',grade:'316L',customer:'JSW Steel',std:'ASTM A276'},
+ {no:'TDC-006701',grade:'17-4PH',customer:'Bharat Forge',std:'ASTM A564'}
+];
+function renderTdcList(){
+  const q=(document.getElementById('tdcSearch').value||'').toLowerCase();
+  const rows=TDC_LIST.filter(t=>!q||(t.no+' '+t.grade+' '+t.customer+' '+t.std).toLowerCase().includes(q));
+  document.getElementById('tdcPickBody').innerHTML=rows.length
+    ? rows.map(t=>`<tr class="tdc-row" onclick="selectTdc('${t.no}')"><td><b>${t.no}</b></td><td>${t.grade}</td><td>${t.customer}</td><td>${t.std}</td></tr>`).join('')
+    : '<tr><td colspan="4" style="color:#888;font-style:italic;padding:12px">No TDC matches.</td></tr>';
+}
+function openTdcPicker(){document.getElementById('tdcSearch').value='';renderTdcList();document.getElementById('tdcPickOverlay').classList.add('open');}
+function closeTdcPicker(){document.getElementById('tdcPickOverlay').classList.remove('open');}
+function selectTdc(no){
+  const t=TDC_LIST.find(x=>x.no===no); if(!t)return;
+  const ct=document.getElementById('cTdc'); ct.value=t.no; ct.style.borderColor='';
+  const g=document.getElementById('cGrade'); if(g&&[...g.options].some(o=>o.value===t.grade))g.value=t.grade;
+  closeTdcPicker();
+}
 function saveInsp(){
-  const r=RECEIPTS[curInsp], spec=specFor(r.grade);
+  const r=RECEIPTS[curInsp], spec=specFor(r);
   const nOk=spec.filter((s,si)=>rowOk(s,curActuals[si])).length, all=spec.length;
   const d=document.getElementById('iDecision').value;
   r.result = d==='RETEST' ? 'CONDITIONAL' : (nOk===all?'PASS':'FAIL');
@@ -448,17 +553,20 @@ function openReceive(){
   document.getElementById('cSupplier').innerHTML=SUPPLIERS.map(s=>`<option>${s}</option>`).join('');
   document.getElementById('cGrade').innerHTML=GRADES.map(s=>`<option>${s}</option>`).join('');
   document.getElementById('cForm').innerHTML=FORMS.map(s=>`<option>${s}</option>`).join('');
-  ['cHeat','cTc','cSize','cQty','cPcs'].forEach(id=>document.getElementById(id).value='');
+  ['cHeat','cTc','cTdc','cSize','cQty','cPcs'].forEach(id=>document.getElementById(id).value='');
+  const ct=document.getElementById('cTdc'); ct.style.borderColor=''; ct.placeholder='Select a TDC…';
   document.getElementById('recvOverlay').classList.add('open');
 }
 function closeReceive(){document.getElementById('recvOverlay').classList.remove('open');}
 function saveReceive(){
+  const tdcSel=document.getElementById('cTdc');
+  if(!tdcSel.value){ tdcSel.style.borderColor='var(--color-danger)'; tdcSel.placeholder='Required — select a TDC'; openTdcPicker(); return; }
   const n=719+RECEIPTS.length;
   RECEIPTS.unshift({grn:'GRN-2526-0'+n,date:'24-Jun 13:45',rmpo:document.getElementById('cRmpo').value,supplier:document.getElementById('cSupplier').value,
     supHeat:document.getElementById('cHeat').value||'—',mat:document.getElementById('cMat').value,grade:document.getElementById('cGrade').value,
     form:document.getElementById('cForm').value,size:document.getElementById('cSize').value,qty:+document.getElementById('cQty').value||0,
     pcs:+document.getElementById('cPcs').value||0,tc:document.getElementById('cTc').value,tcRecv:!!document.getElementById('cTc').value,
-    result:'',decision:'',rma:'',status:'RECEIVED'});
+    tdcNo:document.getElementById('cTdc').value||'',result:'',decision:'',rma:'',status:'RECEIVED'});
   closeReceive(); render();
 }
 
@@ -470,7 +578,7 @@ buildHead(); render();
 function msToggle(e){e.preventDefault();e.stopPropagation();var g=document.getElementById('msGroup');if(g)g.classList.toggle('open');}
 (function(){var f=(location.pathname.split('/').pop()||'').toLowerCase();var g=document.getElementById('msGroup');if(!g)return;var inM=false;g.querySelectorAll('.submenu a').forEach(function(a){if((a.getAttribute('href')||'').toLowerCase()===f){a.classList.add('active');inM=true;}});if(inM||f==='masters.html'){g.classList.add('open');var p=g.querySelector('.ms-parent');if(p)p.classList.add('active');}})();
 </script>
-<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "roll-shop.html": {"t": "Roll Shop", "i": "fa-record-vinyl"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-roll-type.html": {"t": "Roll Type", "i": "fa-record-vinyl"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
+<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
 var here=(location.pathname.split('/').pop()||'dashboard.html').toLowerCase();
 function ld(){try{return JSON.parse(sessionStorage.getItem(KEY))||[];}catch(e){return [];}}
 function sv(a){try{sessionStorage.setItem(KEY,JSON.stringify(a));}catch(e){}}
@@ -494,7 +602,7 @@ document.addEventListener('click',function(){var m=document.getElementById('tabm
 render();})();</script>
 <script>
 function grpToggle(h){var g=h.closest('.navgrp');if(!g)return;g.classList.toggle('collapsed');var s={};document.querySelectorAll('.sidebar .navgrp').forEach(function(x){s[x.getAttribute('data-g')]=x.classList.contains('collapsed');});try{localStorage.setItem('mesNav',JSON.stringify(s));}catch(e){}}
-(function(){var s={};try{s=JSON.parse(localStorage.getItem('mesNav')||'{}');}catch(e){}document.querySelectorAll('.sidebar .navgrp').forEach(function(g){var k=g.getAttribute('data-g');if(k in s)g.classList.toggle('collapsed',!!s[k]);});var a=document.querySelector('.sidebar .grp-items a.active');if(a){var g=a.closest('.navgrp');if(g)g.classList.remove('collapsed');}})();
+(function(){var s={};try{s=JSON.parse(localStorage.getItem('mesNav')||'{}');}catch(e){}document.querySelectorAll('.sidebar .navgrp').forEach(function(g){var k=g.getAttribute('data-g');if(k in s)g.classList.toggle('collapsed',!!s[k]);});var a=document.querySelector('.sidebar .grp-items a.active');if(a){var g=a.closest('.navgrp');if(g)g.classList.remove('collapsed');}var sb=document.querySelector('.sidebar');if(sb){try{var y=sessionStorage.getItem('mesNavScroll');if(y!=null)sb.scrollTop=+y;else if(a)a.scrollIntoView({block:'center'});}catch(e){}sb.addEventListener('scroll',function(){try{sessionStorage.setItem('mesNavScroll',sb.scrollTop);}catch(e){}});}})();
 </script>
 <div class="overlay" id="viewOv"><div class="modal sm"><div class="modal-head">Record details <span class="x" onclick="document.getElementById('viewOv').classList.remove('open')"><i class="fa-solid fa-xmark"></i></span></div><div class="modal-body"><div id="viewBody"></div></div><div class="modal-foot"><button class="btn btn-ghost" onclick="document.getElementById('viewOv').classList.remove('open')">Close</button></div></div></div><script>
 function openViewEl(btn){var tr=btn.closest('tr');if(!tr)return;var tbl=tr.closest('table');var ths=tbl?tbl.querySelectorAll('thead tr:first-child th'):[];var labs=[].map.call(ths,function(th){return th.textContent.replace(/[\u25B2\u25BC\u21C5]/g,'').trim();});var tds=tr.children,h='';for(var k=0;k<tds.length;k++){if(tds[k].classList.contains('actions'))continue;var lab=labs[k]||'';if(!lab)continue;h+='<div class="vrow"><span class="vk">'+lab+'</span><span class="vv">'+tds[k].innerHTML+'</span></div>';}document.getElementById('viewBody').innerHTML=h;document.getElementById('viewOv').classList.add('open');}

@@ -1,0 +1,9 @@
+# Confidential customer source specifications — do NOT publish
+*.docx
+*.xlsx
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.tmp
+*.log

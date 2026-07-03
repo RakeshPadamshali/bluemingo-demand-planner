@@ -69,6 +69,19 @@ button{font-family:inherit;cursor:pointer;}
 .stat-chip.c-final .dt{background:var(--color-primary);} .stat-chip.c-final .n{color:var(--color-primary-dark);}
 
 .matrix-head{padding:var(--sp3) var(--sp4);border-bottom:1px solid var(--color-border-light);display:flex;justify-content:space-between;align-items:center;gap:var(--sp3);flex-wrap:wrap;}
+.clr-wrap{display:grid;grid-template-columns:300px 1fr;gap:var(--sp3);flex:1;min-height:0;}
+.clr-orders,.clr-stages{min-height:0;flex:1;}
+.ord-head{padding:var(--sp3) var(--sp4);border-bottom:1px solid var(--color-border-light);font-weight:600;font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.4px;color:var(--color-text-muted);}
+.ord-list{overflow:auto;flex:1;min-height:0;}
+.ord-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 16px;border-bottom:1px solid #f3f3f3;cursor:pointer;}
+.ord-item:hover{background:#f7fafc;}
+.ord-item.sel{background:rgba(37,169,224,.10);box-shadow:inset 3px 0 0 var(--color-primary);}
+.ord-item .oi-fpo{font-weight:600;font-size:13.5px;color:var(--color-text-primary);}
+.ord-item .oi-sub{font-size:var(--fs-xs);color:var(--color-text-muted);margin-top:2px;}
+.ord-meta{display:flex;flex-wrap:wrap;gap:6px;padding:var(--sp3) var(--sp4);border-bottom:1px solid var(--color-border-light);}
+.om-chip{font-size:var(--fs-xs);color:var(--color-text-secondary);background:var(--color-bg-alt);border:1px solid var(--color-border);border-radius:var(--r-sm);padding:3px 8px;}
+.om-chip b{color:var(--color-text-primary);}
+.oi-op{font-size:10px;color:var(--color-text-hint);font-weight:400;margin-left:6px;text-transform:none;letter-spacing:0;}
 .matrix-head .mh-title{font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.4px;color:var(--color-text-muted);font-weight:600;}
 .matrix-head .legend{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
 .matrix-head .legend .badge{cursor:default;}
@@ -182,7 +195,6 @@ td.col-final.clickable .badge{box-shadow:0 0 0 1px rgba(var(--color-primary-rgb)
       <div class="s-group" onclick="grpToggle(this)">Equipment<i class="fa-solid fa-chevron-down gchev"></i></div>
       <div class="grp-items">
         <a href="instruments.html"><i class="fa-solid fa-ruler-combined"></i> Instruments</a>
-        <a href="roll-shop.html"><i class="fa-solid fa-record-vinyl"></i> Roll Shop</a>
       </div>
     </div>
     <div class="navgrp" data-g="Masters">
@@ -211,7 +223,6 @@ td.col-final.clickable .badge{box-shadow:0 0 0 1px rgba(var(--color-primary-rgb)
         <a href="master-standard.html"><i class="fa-solid fa-book"></i> Standard</a>
         <a href="master-standard-limit.html"><i class="fa-solid fa-ruler-horizontal"></i> Standard Limit</a>
         <a href="master-instrument-type.html"><i class="fa-solid fa-ruler-combined"></i> Instrument Type</a>
-        <a href="master-roll-type.html"><i class="fa-solid fa-record-vinyl"></i> Roll Type</a>
         <a href="master-agency.html"><i class="fa-solid fa-building"></i> Agency</a>
         <a href="master-supplier.html"><i class="fa-solid fa-truck-field"></i> Supplier</a>
       </div>
@@ -220,36 +231,41 @@ td.col-final.clickable .badge{box-shadow:0 0 0 1px rgba(var(--color-primary-rgb)
   <main class="content">
     <div class="tabbar" id="tabbar"></div>
     <div class="page-head">
-      <div><h1>Clearance</h1><div class="sub">Per-stage clearance gates by quality dimension</div></div>
+      <div><h1>Clearance</h1><div class="sub">Release material per Work Order → Stage → quality gate</div></div>
     </div>
     <div class="stat-strip" id="strip"></div>
-    <div class="card">
-      <div class="matrix-head">
-        <div class="mh-title">Clearance matrix — chemistry · mechanical · physical · UT → final release</div>
-        <div class="legend">
-          <span class="badge b-pass">Cleared</span>
-          <span class="badge b-pend">Pending</span>
-          <span class="badge b-hold">Hold</span>
-          <span class="badge b-fail">Fail</span>
-          <span class="badge" style="background:#eee;color:#888">N/A</span>
-        </div>
+    <div class="clr-wrap">
+      <div class="card clr-orders">
+        <div class="ord-head">Work Orders</div>
+        <div class="ord-list" id="ordList"></div>
       </div>
-      <div class="tbl-scroll">
-        <table class="matrix">
-          <thead>
-            <tr>
-              <th class="lcol col-sticky col-1">Heat</th>
-              <th class="lcol col-sticky col-2">Grade</th>
-              <th class="lcol col-sticky col-3">UID</th>
-              <th>Chemistry</th>
-              <th>Mechanical</th>
-              <th>Physical</th>
-              <th>UT</th>
-              <th>Final</th>
-            </tr>
-          </thead>
-          <tbody id="mbody"></tbody>
-        </table>
+      <div class="card clr-stages">
+        <div class="matrix-head">
+          <div class="mh-title" id="ordTitle">Clearance</div>
+          <div class="legend">
+            <span class="badge b-pass">Cleared</span>
+            <span class="badge b-pend">Pending</span>
+            <span class="badge b-hold">Hold</span>
+            <span class="badge b-fail">Fail</span>
+            <span class="badge" style="background:#eee;color:#888">N/A</span>
+          </div>
+        </div>
+        <div class="ord-meta" id="ordMeta"></div>
+        <div class="tbl-scroll">
+          <table class="matrix">
+            <thead>
+              <tr>
+                <th class="lcol col-sticky col-1">Stage</th>
+                <th>Chemistry</th>
+                <th>Mechanical</th>
+                <th>Physical</th>
+                <th>UT</th>
+                <th>Stage clearance</th>
+              </tr>
+            </thead>
+            <tbody id="mbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </main>
@@ -290,38 +306,44 @@ td.col-final.clickable .badge{box-shadow:0 0 0 1px rgba(var(--color-primary-rgb)
 <script>
 const DIMS=['chemistry','mechanical','physical','ut'];
 const DIM_LABEL={chemistry:'Chemistry',mechanical:'Mechanical',physical:'Physical',ut:'UT',final:'Final'};
-const BADGE={CLEARED:'b-pass',HOLD:'b-hold',PENDING:'b-pend',FAIL:'b-fail','N/A':'b-na',CONDITIONAL:'b-info'};
+const BADGE={CLEARED:'b-pass',HOLD:'b-hold',PENDING:'b-pend',FAIL:'b-fail','N/A':'b-na',CONDITIONAL:'b-info',READY:'b-info'};
 // CONDITIONAL counts as a cleared gate for final release; FAIL/HOLD/PENDING do not.
 const CLEARED_STATES=['CLEARED','CONDITIONAL'];
 
-// rows = heats/lots. each dim cell: {s:state, rec:recordId, tdc:..}
-const ROWS=[
- {heat:'2526-16496',grade:'17-4PH',uid:'B030268',tdc:'TDC-004275',
-  chemistry:{s:'CLEARED',rec:'CHM-2526-0188'},mechanical:{s:'CLEARED',rec:'TST-2526-0034'},physical:{s:'CLEARED',rec:'INS-2526-0012'},ut:{s:'CLEARED',rec:'UT-2526-0071'}},
- {heat:'2526-16783',grade:'316L',uid:'A002668',tdc:'TDC-006132',
-  chemistry:{s:'CLEARED',rec:'CHM-2526-0193'},mechanical:{s:'CLEARED',rec:'TST-2526-0038'},physical:{s:'CLEARED',rec:'INS-2526-0017'},ut:{s:'PENDING',rec:'UT-2526-0080'}},
- {heat:'2526-16776',grade:'304L',uid:'E121717',tdc:'TDC-004810',
-  chemistry:{s:'FAIL',rec:'CHM-2526-0189'},mechanical:{s:'CLEARED',rec:'TST-2526-0035'},physical:{s:'CLEARED',rec:'INS-2526-0018'},ut:{s:'CONDITIONAL',rec:'UT-2526-0072'}},
- {heat:'2526-16482',grade:'416',uid:'B030840',tdc:'TDC-003922',
-  chemistry:{s:'CLEARED',rec:'CHM-2526-0191'},mechanical:{s:'FAIL',rec:'TST-2526-0036'},physical:{s:'CLEARED',rec:'INS-2526-0016'},ut:{s:'CLEARED',rec:'UT-2526-0073'}},
- {heat:'2526-16798',grade:'304L',uid:'E122319',tdc:'TDC-004810',
-  chemistry:{s:'CLEARED',rec:'CHM-2526-0190'},mechanical:{s:'CLEARED',rec:'TST-2526-0039'},physical:{s:'CLEARED',rec:'INS-2526-0014'},ut:{s:'CLEARED',rec:'UT-2526-0079'}},
- {heat:'2526-16426',grade:'416',uid:'E120808',tdc:'TDC-003922',
-  chemistry:{s:'CLEARED',rec:'CHM-2526-0187'},mechanical:{s:'CLEARED',rec:'TST-2526-0040'},physical:{s:'PENDING',rec:'INS-2526-0019'},ut:{s:'CLEARED',rec:'UT-2526-0074'}},
- {heat:'2526-16819',grade:'17-4PH',uid:'B031104',tdc:'TDC-004275',
-  chemistry:{s:'CLEARED',rec:'CHM-2526-0195'},mechanical:{s:'PENDING',rec:'TST-2526-0042'},physical:{s:'CLEARED',rec:'INS-2526-0021'},ut:{s:'N/A',rec:'—'}},
- {heat:'2526-16030',grade:'316L',uid:'A002910',tdc:'TDC-006132',
-  chemistry:{s:'CLEARED',rec:'CHM-2526-0180'},mechanical:{s:'CLEARED',rec:'TST-2526-0029'},physical:{s:'HOLD',rec:'INS-2526-0009'},ut:{s:'CLEARED',rec:'UT-2526-0065'}},
- {heat:'2526-16783',grade:'316L',uid:'A002671',tdc:'TDC-006132',
-  chemistry:{s:'CLEARED',rec:'CHM-2526-0194'},mechanical:{s:'CLEARED',rec:'TST-2526-0041'},physical:{s:'CLEARED',rec:'INS-2526-0020'},ut:{s:'CLEARED',rec:'UT-2526-0081'}},
- {heat:'2526-16496',grade:'17-4PH',uid:'B030271',tdc:'TDC-004275',
-  chemistry:{s:'PENDING',rec:'CHM-2526-0196'},mechanical:{s:'CLEARED',rec:'TST-2526-0043'},physical:{s:'CLEARED',rec:'INS-2526-0022'},ut:{s:'CLEARED',rec:'UT-2526-0082'}}
+/* Order → Stage → clearance: each Work Order (FPO) flows through stages; each stage has per-dimension clearance gates (chemistry/mechanical/physical/UT). */
+const ORDERS=[
+ {fpo:'FPO-2526-0341',so:'SO-2526-0708',customer:'JSW Steel',grade:'17-4PH',heat:'2526-16496',uid:'B030268',tdc:'TDC-004275',qty:'18.6 MT',stages:[
+   {stage:'As Cast',op:'OP_CASTING',chemistry:'CLEARED',mechanical:'N/A',physical:'CLEARED',ut:'N/A'},
+   {stage:'As Rolled',op:'OP_ROLLING',chemistry:'N/A',mechanical:'CLEARED',physical:'CLEARED',ut:'CLEARED'},
+   {stage:'As Bright',op:'OP_FINISHING',chemistry:'N/A',mechanical:'CLEARED',physical:'PENDING',ut:'CLEARED'}]},
+ {fpo:'FPO-2526-0344',so:'SO-2526-0712',customer:'Ambica Steels',grade:'316L',heat:'2526-16783',uid:'A002668',tdc:'TDC-006132',qty:'12.2 MT',stages:[
+   {stage:'As Cast',op:'OP_CASTING',chemistry:'CLEARED',mechanical:'N/A',physical:'CLEARED',ut:'N/A'},
+   {stage:'As Rolled',op:'OP_ROLLING',chemistry:'N/A',mechanical:'CLEARED',physical:'CLEARED',ut:'PENDING'},
+   {stage:'As Bright',op:'OP_FINISHING',chemistry:'N/A',mechanical:'PENDING',physical:'PENDING',ut:'N/A'}]},
+ {fpo:'FPO-2526-0339',so:'SO-2526-0705',customer:'Ambica Steels',grade:'304L',heat:'2526-16798',uid:'E122319',tdc:'TDC-004810',qty:'9.8 MT',stages:[
+   {stage:'As Cast',op:'OP_CASTING',chemistry:'FAIL',mechanical:'N/A',physical:'CLEARED',ut:'N/A'},
+   {stage:'As Rolled',op:'OP_ROLLING',chemistry:'N/A',mechanical:'CLEARED',physical:'CLEARED',ut:'CONDITIONAL'},
+   {stage:'As Bright',op:'OP_FINISHING',chemistry:'N/A',mechanical:'PENDING',physical:'PENDING',ut:'N/A'}]},
+ {fpo:'FPO-2526-0345',so:'SO-2526-0714',customer:'Bharat Forge',grade:'416',heat:'2526-16482',uid:'B030840',tdc:'TDC-003922',qty:'20.5 MT',stages:[
+   {stage:'As Cast',op:'OP_CASTING',chemistry:'CLEARED',mechanical:'N/A',physical:'CLEARED',ut:'N/A'},
+   {stage:'As Rolled',op:'OP_ROLLING',chemistry:'N/A',mechanical:'FAIL',physical:'CLEARED',ut:'CLEARED'},
+   {stage:'As Bright',op:'OP_FINISHING',chemistry:'N/A',mechanical:'PENDING',physical:'PENDING',ut:'N/A'}]},
+ {fpo:'FPO-2526-0347',so:'SO-2526-0716',customer:'Ambica Steels',grade:'316L',heat:'2526-16819',uid:'B031104',tdc:'TDC-006132',qty:'6.4 MT',stages:[
+   {stage:'As Cast',op:'OP_CASTING',chemistry:'CLEARED',mechanical:'N/A',physical:'CLEARED',ut:'N/A'},
+   {stage:'As Rolled',op:'OP_ROLLING',chemistry:'N/A',mechanical:'CLEARED',physical:'CLEARED',ut:'CLEARED'},
+   {stage:'As Bright',op:'OP_FINISHING',chemistry:'N/A',mechanical:'CLEARED',physical:'CLEARED',ut:'N/A'}]}
 ];
+let curOrder=0;
 
-// final state derived: CLEARED if all four dims are cleared (CLEARED/CONDITIONAL); else PENDING
-function finalState(r){
-  return DIMS.every(d=>CLEARED_STATES.includes(r[d].s)) ? (r.finalReleased?'CLEARED':'PENDING') : 'PENDING';
+// a stage clears when all its applicable (non-N/A) gates clear; an order clears when all stages clear
+function stageState(st){
+  const ds=DIMS.filter(d=>st[d]!=='N/A'); if(!ds.length)return 'N/A';
+  if(ds.some(d=>st[d]==='FAIL'))return 'FAIL';
+  if(ds.some(d=>st[d]==='HOLD'))return 'HOLD';
+  if(ds.every(d=>CLEARED_STATES.includes(st[d])))return st.released?'CLEARED':'READY';
+  return 'PENDING';
 }
+function orderState(o){const ss=o.stages.map(stageState).filter(s=>s!=='N/A'); if(ss.some(s=>s==='FAIL'))return 'FAIL'; if(ss.some(s=>s==='HOLD'))return 'HOLD'; if(ss.length&&ss.every(s=>s==='CLEARED'))return 'CLEARED'; return 'PENDING';}
 function bdg(s){return `<span class="badge ${BADGE[s]||'b-pend'}">${s==='N/A'?'N/A':s}</span>`;}
 
 // b-na local (grey)
@@ -332,43 +354,52 @@ document.head.appendChild(_styleNA);
 function isActionable(s){return s==='PENDING'||s==='FAIL';}
 
 function renderStrip(){
-  let cleared=0,pending=0,hold=0,finalRel=0;
-  ROWS.forEach(r=>{
-    DIMS.forEach(d=>{const s=r[d].s; if(CLEARED_STATES.includes(s))cleared++; else if(s==='PENDING')pending++; else if(s==='HOLD'||s==='FAIL')hold++;});
-    if(finalState(r)==='CLEARED')finalRel++;
+  let cleared=0,pending=0,hold=0,ordRel=0;
+  ORDERS.forEach(o=>{
+    o.stages.forEach(st=>DIMS.forEach(d=>{const s=st[d]; if(CLEARED_STATES.includes(s))cleared++; else if(s==='PENDING')pending++; else if(s==='HOLD'||s==='FAIL')hold++;}));
+    if(orderState(o)==='CLEARED')ordRel++;
   });
   document.getElementById('strip').innerHTML=`
-    <span class="stat-chip c-cleared"><span class="dt"></span><span class="n">${cleared}</span> Cleared</span>
+    <span class="stat-chip c-cleared"><span class="dt"></span><span class="n">${cleared}</span> Gates cleared</span>
     <span class="stat-chip c-pending"><span class="dt"></span><span class="n">${pending}</span> Pending</span>
     <span class="stat-chip c-hold"><span class="dt"></span><span class="n">${hold}</span> On hold</span>
-    <span class="stat-chip c-final"><span class="dt"></span><span class="n">${finalRel}</span> Final-released</span>`;
+    <span class="stat-chip c-final"><span class="dt"></span><span class="n">${ordRel}</span> Orders released</span>`;
 }
 
-function renderMatrix(){
-  document.getElementById('mbody').innerHTML=ROWS.map((r,i)=>{
+function renderOrders(){
+  document.getElementById('ordList').innerHTML=ORDERS.map((o,i)=>{
+    const st=orderState(o);
+    return `<div class="ord-item ${i===curOrder?'sel':''}" onclick="selectOrder(${i})">
+      <div class="oi-tx"><div class="oi-fpo">${o.fpo}</div><div class="oi-sub">${o.customer} · ${o.grade} · ${o.heat}</div></div>
+      <span class="badge ${BADGE[st]||'b-pend'}">${st}</span></div>`;
+  }).join('');
+}
+function selectOrder(i){curOrder=i;renderOrders();renderStages();}
+function renderStages(){
+  const o=ORDERS[curOrder];
+  document.getElementById('ordTitle').textContent=o.fpo+' — '+o.customer;
+  document.getElementById('ordMeta').innerHTML=[['SO',o.so],['Grade',o.grade],['Heat',o.heat],['UID',o.uid],['TDC',o.tdc],['Qty',o.qty]].map(p=>`<span class="om-chip">${p[0]} <b>${p[1]}</b></span>`).join('');
+  document.getElementById('mbody').innerHTML=o.stages.map((st,si)=>{
     const cells=DIMS.map(d=>{
-      const s=r[d].s, act=isActionable(s);
-      return `<td class="cell-clr col-${d} ${act?'clickable':''}" ${act?`onclick="openModal(${i},'${d}')" title="Record clearance"`:''}>${bdg(s)}</td>`;
+      const s=st[d];
+      if(s==='N/A')return `<td class="cell-clr">${bdg('N/A')}</td>`;
+      const act=isActionable(s);
+      return `<td class="cell-clr ${act?'clickable':''}" ${act?`onclick="openModal(${si},'${d}')" title="Record clearance"`:''}>${bdg(s)}</td>`;
     }).join('');
-    const fs=finalState(r);
-    const releasable=fs!=='CLEARED' && DIMS.every(d=>CLEARED_STATES.includes(r[d].s));
-    const finalCell=`<td class="cell-clr col-final ${releasable?'clickable':''}" ${releasable?`onclick="release(${i})" title="Release — all gates cleared"`:''}>${bdg(fs)}</td>`;
-    return `<tr>
-      <td class="lcol col-sticky col-1 t-heat">${r.heat}</td>
-      <td class="lcol col-sticky col-2 t-grade"><span class="badge">${r.grade}</span></td>
-      <td class="lcol col-sticky col-3">${r.uid}</td>
-      ${cells}${finalCell}</tr>`;
+    const ss=stageState(st), ready=ss==='READY';
+    const stageCell=`<td class="cell-clr ${ready?'clickable':''}" ${ready?`onclick="releaseStage(${si})" title="Clear stage — all gates passed"`:''}>${bdg(ss)}</td>`;
+    return `<tr><td class="lcol col-sticky col-1 t-heat">${st.stage} <span class="oi-op">${st.op}</span></td>${cells}${stageCell}</tr>`;
   }).join('');
 }
 
-let modalCtx=null; // {i, dim}
-function openModal(i,dim){
-  const r=ROWS[i], c=r[dim];
-  modalCtx={i,dim};
+let modalCtx=null; // {si, dim}
+function openModal(si,dim){
+  const o=ORDERS[curOrder], st=o.stages[si];
+  modalCtx={si,dim};
   document.getElementById('ctx').innerHTML=`
-    <div class="row"><span><span class="k">Dimension:</span> <span class="v">${DIM_LABEL[dim]}</span></span><span><span class="k">Current:</span> ${bdg(c.s)}</span></div>
-    <div class="row"><span class="k">Heat:</span> <span class="v">${r.heat}</span> <span class="k">Grade:</span> <span class="v">${r.grade}</span> <span class="k">UID:</span> <span class="v">${r.uid}</span></div>
-    <div class="row"><span class="k">Governing TDC:</span> <span class="v">${r.tdc}</span> <span class="k">Record:</span> <span class="v">${c.rec}</span></div>`;
+    <div class="row"><span><span class="k">Order:</span> <span class="v">${o.fpo}</span></span><span><span class="k">Stage:</span> <span class="v">${st.stage}</span></span></div>
+    <div class="row"><span><span class="k">Gate:</span> <span class="v">${DIM_LABEL[dim]}</span></span><span><span class="k">Current:</span> ${bdg(st[dim])}</span></div>
+    <div class="row"><span class="k">Heat:</span> <span class="v">${o.heat}</span> <span class="k">Grade:</span> <span class="v">${o.grade}</span> <span class="k">TDC:</span> <span class="v">${o.tdc}</span></div>`;
   document.getElementById('f-result').value='CLEARED';
   document.getElementById('f-by').value='QA';
   document.getElementById('f-rem').value='';
@@ -377,28 +408,27 @@ function openModal(i,dim){
 function closeModal(){document.getElementById('overlay').classList.remove('open');modalCtx=null;}
 function saveClearance(){
   if(!modalCtx)return;
-  const {i,dim}=modalCtx;
-  ROWS[i][dim].s=document.getElementById('f-result').value;
-  // clearing a previously released final no longer valid → recompute happens in render
+  const {si,dim}=modalCtx;
+  ORDERS[curOrder].stages[si][dim]=document.getElementById('f-result').value;
   closeModal();
-  renderMatrix();renderStrip();
+  renderStages();renderOrders();renderStrip();
 }
-function release(i){
-  ROWS[i].finalReleased=true;
-  renderMatrix();renderStrip();
+function releaseStage(si){
+  ORDERS[curOrder].stages[si].released=true;
+  renderStages();renderOrders();renderStrip();
 }
 
 // close on overlay backdrop / Esc
 document.getElementById('overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeModal();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
-renderStrip();renderMatrix();
+renderStrip();renderOrders();renderStages();
 </script>
 <script>
 function msToggle(e){e.preventDefault();e.stopPropagation();var g=document.getElementById('msGroup');if(g)g.classList.toggle('open');}
 (function(){var f=(location.pathname.split('/').pop()||'').toLowerCase();var g=document.getElementById('msGroup');if(!g)return;var inM=false;g.querySelectorAll('.submenu a').forEach(function(a){if((a.getAttribute('href')||'').toLowerCase()===f){a.classList.add('active');inM=true;}});if(inM||f==='masters.html'){g.classList.add('open');var p=g.querySelector('.ms-parent');if(p)p.classList.add('active');}})();
 </script>
-<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "roll-shop.html": {"t": "Roll Shop", "i": "fa-record-vinyl"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-roll-type.html": {"t": "Roll Type", "i": "fa-record-vinyl"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
+<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
 var here=(location.pathname.split('/').pop()||'dashboard.html').toLowerCase();
 function ld(){try{return JSON.parse(sessionStorage.getItem(KEY))||[];}catch(e){return [];}}
 function sv(a){try{sessionStorage.setItem(KEY,JSON.stringify(a));}catch(e){}}
@@ -422,7 +452,7 @@ document.addEventListener('click',function(){var m=document.getElementById('tabm
 render();})();</script>
 <script>
 function grpToggle(h){var g=h.closest('.navgrp');if(!g)return;g.classList.toggle('collapsed');var s={};document.querySelectorAll('.sidebar .navgrp').forEach(function(x){s[x.getAttribute('data-g')]=x.classList.contains('collapsed');});try{localStorage.setItem('mesNav',JSON.stringify(s));}catch(e){}}
-(function(){var s={};try{s=JSON.parse(localStorage.getItem('mesNav')||'{}');}catch(e){}document.querySelectorAll('.sidebar .navgrp').forEach(function(g){var k=g.getAttribute('data-g');if(k in s)g.classList.toggle('collapsed',!!s[k]);});var a=document.querySelector('.sidebar .grp-items a.active');if(a){var g=a.closest('.navgrp');if(g)g.classList.remove('collapsed');}})();
+(function(){var s={};try{s=JSON.parse(localStorage.getItem('mesNav')||'{}');}catch(e){}document.querySelectorAll('.sidebar .navgrp').forEach(function(g){var k=g.getAttribute('data-g');if(k in s)g.classList.toggle('collapsed',!!s[k]);});var a=document.querySelector('.sidebar .grp-items a.active');if(a){var g=a.closest('.navgrp');if(g)g.classList.remove('collapsed');}var sb=document.querySelector('.sidebar');if(sb){try{var y=sessionStorage.getItem('mesNavScroll');if(y!=null)sb.scrollTop=+y;else if(a)a.scrollIntoView({block:'center'});}catch(e){}sb.addEventListener('scroll',function(){try{sessionStorage.setItem('mesNavScroll',sb.scrollTop);}catch(e){}});}})();
 </script>
 </body>
 </html>

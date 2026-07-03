@@ -83,6 +83,20 @@ button{font-family:inherit;cursor:pointer;}
 .agg-detail td{background:#fafbfc;}
 .rec{display:inline-flex;gap:6px;align-items:center;margin-right:14px;font-variant-numeric:tabular-nums;}
 .defects{display:flex;flex-direction:column;gap:6px;}
+.evi-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
+.evi-tbl th{text-align:left;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.3px;color:var(--color-text-muted);font-weight:600;padding:5px 8px;border-bottom:1px solid var(--color-border);}
+.evi-tbl td{padding:5px 8px;border-bottom:1px solid #f3f3f3;}
+.evi-tbl td.mono{font-family:monospace;font-size:12px;}
+.evi-read{color:var(--color-text-secondary);font-variant-numeric:tabular-nums;}
+.evi-empty{color:#888;font-style:italic;text-align:center;padding:10px;}
+.wf-wrap{margin-top:10px;background:var(--color-bg-alt);border:1px solid var(--color-border);border-radius:var(--r-md);padding:10px 12px;}
+.wf-label{font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.3px;color:var(--color-text-muted);font-weight:600;margin-bottom:8px;}
+.wf-label b{color:var(--color-primary-dark);text-transform:none;letter-spacing:0;}
+.wf{display:flex;align-items:center;flex-wrap:wrap;gap:4px;}
+.wf-step{font-size:12px;padding:4px 10px;border-radius:999px;background:#fff;border:1px solid var(--color-border);color:var(--color-text-muted);white-space:nowrap;}
+.wf-step.done{background:rgba(56,142,60,.12);border-color:rgba(56,142,60,.3);color:#388e3c;}
+.wf-step.cur{background:var(--color-primary);border-color:var(--color-primary);color:#fff;font-weight:600;}
+.wf-arr{color:#bbb;font-size:11px;}
 .def{display:flex;align-items:center;gap:var(--sp2);font-size:var(--fs-sm);padding:7px 10px;background:#ffebee;border:1px solid #ef9a9a;border-radius:var(--r-sm);}
 .def i{color:var(--color-danger);}
 .dec-seg{display:inline-flex;border:1px solid var(--color-border);border-radius:var(--r-sm);overflow:hidden;margin-bottom:var(--sp3);}
@@ -171,7 +185,6 @@ button{font-family:inherit;cursor:pointer;}
       <div class="s-group" onclick="grpToggle(this)">Equipment<i class="fa-solid fa-chevron-down gchev"></i></div>
       <div class="grp-items">
         <a href="instruments.html"><i class="fa-solid fa-ruler-combined"></i> Instruments</a>
-        <a href="roll-shop.html"><i class="fa-solid fa-record-vinyl"></i> Roll Shop</a>
       </div>
     </div>
     <div class="navgrp" data-g="Masters">
@@ -200,7 +213,6 @@ button{font-family:inherit;cursor:pointer;}
         <a href="master-standard.html"><i class="fa-solid fa-book"></i> Standard</a>
         <a href="master-standard-limit.html"><i class="fa-solid fa-ruler-horizontal"></i> Standard Limit</a>
         <a href="master-instrument-type.html"><i class="fa-solid fa-ruler-combined"></i> Instrument Type</a>
-        <a href="master-roll-type.html"><i class="fa-solid fa-record-vinyl"></i> Roll Type</a>
         <a href="master-agency.html"><i class="fa-solid fa-building"></i> Agency</a>
         <a href="master-supplier.html"><i class="fa-solid fa-truck-field"></i> Supplier</a>
       </div>
@@ -259,6 +271,27 @@ const M={READY:'b-pass',REVIEW:'b-warn',INCOMPLETE:'b-pend',ACCEPT:'b-pass',COND
 function bdg(s){return `<span class="badge ${M[s]||'b-pend'}">${s}</span>`;}
 function cap(d){return d[0]+d.slice(1).toLowerCase();}
 function opts(list,sel){return list.map(o=>`<option ${o===sel?'selected':''}>${o}</option>`).join('');}
+/* evidence: inspections (Physical/UT recs) + test results (Chemistry/Mechanical recs), derived from the lot's clearances */
+const READINGS={
+ 'TST-2526-0034':'YS 865 · UTS 1010 · Elong 16% · 33 HRC','TST-2526-0035':'YS 295 · UTS 610 · Elong 55% · 82 HRB',
+ 'TST-2526-0036':'YS 405 · UTS 585 · Elong 14% · 38 HRC ✗','TST-2526-0038':'YS 285 · UTS 595 · Elong 52% · 84 HRB',
+ 'TST-2526-0039':'YS 300 · UTS 610 · Elong 55% · 82 HRB','TST-2526-0040':'YS 415 · UTS 760 · Elong 22% · 28 HRC',
+ 'CHM-2526-0188':'C .045 · Cr 15.8 · Ni 4.3 · Cu 3.4 · Nb .28','CHM-2526-0189':'C .021 · Cr 18.4 · Ni 8.6 · S .042 ✗',
+ 'CHM-2526-0190':'C .019 · Cr 18.4 · Ni 8.6 · Mo .31','CHM-2526-0191':'C .12 · Cr 12.8 · S .27 · Mn .92',
+ 'CHM-2526-0193':'C .022 · Cr 16.8 · Ni 10.4 · Mo 2.1','CHM-2526-0187':'C .11 · Cr 13.1 · S .24 · Mn .88'};
+function inspectionsOf(lot){const out=[];Object.entries(lot.clr).forEach(([dim,c])=>{if(dim==='Physical'||dim==='UT')c.recs.forEach(r=>out.push({no:r[0],type:dim==='UT'?'Ultrasonic (NDT)':'Dimensional / Visual',stage:c.op,result:r[1]}));});return out;}
+function testsOf(lot){const out=[];Object.entries(lot.clr).forEach(([dim,c])=>{if(dim==='Chemistry'||dim==='Mechanical')c.recs.forEach(r=>out.push({no:r[0],test:dim==='Chemistry'?'Chemical (Spectro)':'Mechanical (Tensile/Hardness)',readings:READINGS[r[0]]||'—',result:r[1]}));});return out;}
+/* workflow triggered by the chosen UD action */
+const WORKFLOW={
+ 'Release to next operation':['Record UD','Quality approval','Plant-Head approval','Release → next op'],
+ 'Release / Dispatch':['Record UD','Quality approval','Plant-Head approval','Release → dispatch'],
+ 'Release under concession':['Record UD','Concession review','Customer approval','Release (concession)'],
+ 'Re-heat-treat / Rework':['Record UD','Raise salvage order','Re-HT / rework','Re-inspect & re-UD'],
+ 'Reroute to alternate order':['Record UD','Reroute approval','Re-allocate order','Re-inspect'],
+ 'Hold':['Record UD','Material on hold','Await review'],
+ 'Scrap / Reject':['Record UD','Raise NCR','Quarantine','Scrap']};
+function isSalvage(a){return a==='Re-heat-treat / Rework'||a==='Reroute to alternate order';}
+function wfSteps(action,done){const steps=WORKFLOW[action]||['Record UD'];return '<div class="wf">'+steps.map((s,i)=>`<span class="wf-step ${i<done?'done':i===done?'cur':''}">${i+1}. ${s}</span>`).join('<i class="fa-solid fa-angle-right wf-arr"></i>')+'</div>';}
 
 let curIdx=0, form={};
 const cur=()=>LOTS[curIdx];
@@ -267,7 +300,7 @@ function pendingCount(lot){return Object.values(lot.clr).filter(c=>c.r==='PENDIN
 function canDecide(lot){return pendingCount(lot)===0;}
 function suggest(lot){const vs=Object.values(lot.clr).map(c=>c.r);return vs.includes('FAIL')?'REJECT':'ACCEPT';}
 function readiness(lot){if(lot.ud)return lot.ud.decision;const vs=Object.values(lot.clr).map(c=>c.r);if(vs.includes('FAIL'))return'REVIEW';if(vs.includes('PENDING'))return'INCOMPLETE';return'READY';}
-function initForm(){const d=suggest(cur());form=Object.assign({decision:d,remarks:''},DEC_DEFAULT[d]);}
+function initForm(){const d=suggest(cur());form=Object.assign({decision:d,remarks:'',salvageRemarks:''},DEC_DEFAULT[d]);}
 
 function renderList(){
   const q=(document.getElementById('search').value||'').toLowerCase();
@@ -291,6 +324,11 @@ function renderDetail(){
     <tr class="agg-detail" id="det-${i}" hidden><td colspan="5">${c.recs.length?c.recs.map(r=>`<span class="rec"><b>${r[0]}</b> ${bdg(r[1])}</span>`).join(''):'<span style="color:#888;font-style:italic">No record yet — clearance pending.</span>'}</td></tr>`).join('');
   const defSec=lot.defects.length?`<section><div class="sec-title">Open defects (feed UD)</div><div class="defects">${lot.defects.map(d=>`<div class="def"><i class="fa-solid fa-triangle-exclamation"></i> <b>${d[0]}</b> — ${d[1]} <span class="badge ${d[2]==='MINOR'?'b-warn':'b-fail'}" style="margin-left:auto">${d[2]}</span></div>`).join('')}</div></section>`:'';
 
+  const insp=inspectionsOf(lot), tests=testsOf(lot);
+  const inspSec=`<section><div class="sec-title">Inspection details</div>
+    <table class="evi-tbl"><thead><tr><th>QC No</th><th>Type</th><th>Stage</th><th>Result</th></tr></thead><tbody>${insp.length?insp.map(x=>`<tr><td class="mono">${x.no}</td><td>${x.type}</td><td>${x.stage}</td><td>${bdg(x.result)}</td></tr>`).join(''):'<tr><td colspan="4" class="evi-empty">No inspections recorded yet.</td></tr>'}</tbody></table></section>`;
+  const testSec=`<section><div class="sec-title">Test results</div>
+    <table class="evi-tbl"><thead><tr><th>Test No</th><th>Test</th><th>Readings</th><th>Result</th></tr></thead><tbody>${tests.length?tests.map(x=>`<tr><td class="mono">${x.no}</td><td>${x.test}</td><td class="evi-read">${x.readings}</td><td>${bdg(x.result)}</td></tr>`).join(''):'<tr><td colspan="4" class="evi-empty">No tests recorded yet.</td></tr>'}</tbody></table></section>`;
   let decSec, foot;
   if(lot.ud){
     const u=lot.ud;
@@ -300,8 +338,11 @@ function renderDetail(){
         <div class="row"><span><span class="k">Type:</span> <span class="v">${u.type}</span></span><span><span class="k">Action:</span> <span class="v">${u.action}</span></span><span><span class="k">Material status:</span> ${bdg(u.status)}</span></div>
         <div class="row"><span class="k">Reason:</span> <span class="v">${u.reason}</span></div>
         ${u.remarks?`<div class="row"><span class="k">Remarks:</span> <span class="v">${u.remarks}</span></div>`:''}
+        ${u.salvageRemarks?`<div class="row"><span class="k">Salvage remarks:</span> <span class="v">${u.salvageRemarks}</span></div>`:''}
         <div class="row"><span class="k">Decided by:</span> <span class="v">QA · just now</span> <span class="k">Approval:</span> ${bdg(u.approval)}</div>
-      </div></section>`;
+      </div>
+      <div class="wf-wrap"><div class="wf-label"><i class="fa-solid fa-diagram-project"></i> Workflow — <b>${u.action}</b></div>${wfSteps(u.action,u.approval==='APPROVED'?(WORKFLOW[u.action]||[]).length-1:1)}</div>
+      </section>`;
     foot=`<div class="appr">${u.approval==='PENDING'?'Recorded — awaiting Plant-Head approval.':'Approved — material released per action.'}</div>
       <div class="foot-actions"><button class="btn btn-ghost" onclick="reviseUD()"><i class="fa-solid fa-pen"></i> Revise</button>
       ${u.approval==='PENDING'?'<button class="btn btn-success" onclick="approve()"><i class="fa-solid fa-check-double"></i> Approve</button>':''}</div>`;
@@ -313,8 +354,11 @@ function renderDetail(){
         <div class="fld"><label>Action</label><select onchange="setF('action',this.value)">${opts(UD_ACTIONS,form.action)}</select></div>
         <div class="fld"><label>Reason</label><select onchange="setF('reason',this.value)">${opts(UD_REASONS,form.reason)}</select></div>
         <div class="fld"><label>Resulting material status</label><select onchange="setF('status',this.value)">${opts(MAT_STATUS,form.status)}</select></div>
+        ${isSalvage(form.action)?`<div class="fld full"><label>Salvage remarks <span style="color:#888;font-weight:400;font-size:11px">(rework / reroute · re-HT code · loss est.)</span></label><textarea oninput="form.salvageRemarks=this.value" placeholder="Salvage type, rework operation, re-HT code, expected loss…">${form.salvageRemarks||''}</textarea></div>`:''}
         <div class="fld full"><label>UD Remarks</label><textarea oninput="form.remarks=this.value" placeholder="Decision rationale, concession ref, customer note…">${form.remarks}</textarea></div>
-      </div></section>`;
+      </div>
+      <div class="wf-wrap"><div class="wf-label"><i class="fa-solid fa-diagram-project"></i> Workflow on action — <b>${form.action}</b></div>${wfSteps(form.action,0)}</div>
+      </section>`;
     const ok=canDecide(lot);
     foot=`<div class="appr ${ok?'':'warn'}">${ok?'Recording captures the decision and routes for approval (Quality → Plant Head).':`Awaiting ${pendingCount(lot)} clearance(s) — complete before UD.`}</div>
       <button class="btn btn-primary" onclick="recordUD()" ${ok?'':'disabled'}><i class="fa-solid fa-gavel"></i> Record Usage Decision</button>`;
@@ -324,16 +368,18 @@ function renderDetail(){
     <div class="dhead"><div><div class="dh-title">Heat ${lot.heat} <span class="badge ${M[readiness(lot)]}">${readiness(lot)}</span></div>
       <div class="chips">${chips}</div></div></div>
     <div class="dbody">
-      <section><div class="sec-title">Aggregated results till stage — drill down for records</div>
+      <section><div class="sec-title">Clearance summary — by dimension</div>
         <table class="agg-table"><thead><tr><th>Dimension</th><th>Stage</th><th>Records</th><th>Result</th><th></th></tr></thead><tbody>${aggRows}</tbody></table>
       </section>
+      ${inspSec}
+      ${testSec}
       ${defSec}
       ${decSec}
     </div>
     <div class="dfoot">${foot}</div>`;
 }
 function setDecision(d){form.decision=d;Object.assign(form,DEC_DEFAULT[d]);renderDetail();}
-function setF(k,v){form[k]=v;}
+function setF(k,v){form[k]=v;if(k==='action')renderDetail();}
 function recordUD(){const lot=cur();const auto=form.decision==='ACCEPT'&&suggest(lot)==='ACCEPT';
   lot.ud=Object.assign({},form,{approval:'PENDING',auto});lot.mstatus=form.status;renderList();renderDetail();}
 function approve(){cur().ud.approval='APPROVED';renderList();renderDetail();}
@@ -347,7 +393,7 @@ initForm(); renderList(); renderDetail();
 function msToggle(e){e.preventDefault();e.stopPropagation();var g=document.getElementById('msGroup');if(g)g.classList.toggle('open');}
 (function(){var f=(location.pathname.split('/').pop()||'').toLowerCase();var g=document.getElementById('msGroup');if(!g)return;var inM=false;g.querySelectorAll('.submenu a').forEach(function(a){if((a.getAttribute('href')||'').toLowerCase()===f){a.classList.add('active');inM=true;}});if(inM||f==='masters.html'){g.classList.add('open');var p=g.querySelector('.ms-parent');if(p)p.classList.add('active');}})();
 </script>
-<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "roll-shop.html": {"t": "Roll Shop", "i": "fa-record-vinyl"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-roll-type.html": {"t": "Roll Type", "i": "fa-record-vinyl"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
+<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
 var here=(location.pathname.split('/').pop()||'dashboard.html').toLowerCase();
 function ld(){try{return JSON.parse(sessionStorage.getItem(KEY))||[];}catch(e){return [];}}
 function sv(a){try{sessionStorage.setItem(KEY,JSON.stringify(a));}catch(e){}}
@@ -371,7 +417,7 @@ document.addEventListener('click',function(){var m=document.getElementById('tabm
 render();})();</script>
 <script>
 function grpToggle(h){var g=h.closest('.navgrp');if(!g)return;g.classList.toggle('collapsed');var s={};document.querySelectorAll('.sidebar .navgrp').forEach(function(x){s[x.getAttribute('data-g')]=x.classList.contains('collapsed');});try{localStorage.setItem('mesNav',JSON.stringify(s));}catch(e){}}
-(function(){var s={};try{s=JSON.parse(localStorage.getItem('mesNav')||'{}');}catch(e){}document.querySelectorAll('.sidebar .navgrp').forEach(function(g){var k=g.getAttribute('data-g');if(k in s)g.classList.toggle('collapsed',!!s[k]);});var a=document.querySelector('.sidebar .grp-items a.active');if(a){var g=a.closest('.navgrp');if(g)g.classList.remove('collapsed');}})();
+(function(){var s={};try{s=JSON.parse(localStorage.getItem('mesNav')||'{}');}catch(e){}document.querySelectorAll('.sidebar .navgrp').forEach(function(g){var k=g.getAttribute('data-g');if(k in s)g.classList.toggle('collapsed',!!s[k]);});var a=document.querySelector('.sidebar .grp-items a.active');if(a){var g=a.closest('.navgrp');if(g)g.classList.remove('collapsed');}var sb=document.querySelector('.sidebar');if(sb){try{var y=sessionStorage.getItem('mesNavScroll');if(y!=null)sb.scrollTop=+y;else if(a)a.scrollIntoView({block:'center'});}catch(e){}sb.addEventListener('scroll',function(){try{sessionStorage.setItem('mesNavScroll',sb.scrollTop);}catch(e){}});}})();
 </script>
 </body>
 </html>

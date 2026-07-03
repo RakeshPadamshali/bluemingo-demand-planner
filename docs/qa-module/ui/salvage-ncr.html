@@ -77,6 +77,19 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .tbl td.actions{text-align:right;}.tbl td.actions .btn-icon{margin-left:4px;}
 .tbl th.col-actions,.tbl td.actions{position:sticky;right:0;background:#fff;z-index:3;box-shadow:-7px 0 8px -8px rgba(0,0,0,.18);}
 .tbl tbody tr:nth-child(even) td.actions{background:#fafbfc;} .tbl tbody tr:hover td.actions{background:#eef7fc;}
+.ud-agg{background:var(--color-bg-alt);border:1px solid var(--color-border);border-left:3px solid var(--color-primary);border-radius:var(--r-md);padding:10px 12px;margin:0 0 12px;}
+.ud-agg.muted{border-left-color:#ccc;}
+.ud-agg-head{font-size:var(--fs-sm);font-weight:600;color:var(--color-text-primary);display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.ud-agg-head i{color:var(--color-primary);}
+.ud-agg-row{font-size:var(--fs-xs);color:var(--color-text-secondary);margin-top:5px;}
+.ud-agg-row .k{color:var(--color-text-muted);}
+.ud-agg-dims{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;}
+.ud-dim{font-size:var(--fs-xs);color:var(--color-text-secondary);background:#fff;border:1px solid var(--color-border);border-radius:var(--r-sm);padding:2px 7px;}
+.sug-label{font-weight:400;font-size:11px;color:var(--color-text-hint);text-transform:none;letter-spacing:0;}
+.dispo-sug{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:7px;}
+.sug-chip{font-size:12px;padding:4px 11px;border-radius:999px;background:#fff;border:1px solid var(--color-border);color:var(--color-text-secondary);cursor:pointer;}
+.sug-chip:hover{border-color:var(--color-primary);color:var(--color-primary);}
+.sug-chip.on{background:var(--color-primary);border-color:var(--color-primary);color:#fff;font-weight:600;}
 .empty td{text-align:center;font-style:italic;color:var(--color-text-hint);padding:24px;background:#fff!important;}
 .pager{display:flex;align-items:center;gap:var(--sp2);padding:var(--sp3) var(--sp4);border-top:1px solid var(--color-border-light);font-size:var(--fs-sm);color:var(--color-text-muted);}
 /* modal */
@@ -188,7 +201,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
       <div class="s-group" onclick="grpToggle(this)">Equipment<i class="fa-solid fa-chevron-down gchev"></i></div>
       <div class="grp-items">
         <a href="instruments.html"><i class="fa-solid fa-ruler-combined"></i> Instruments</a>
-        <a href="roll-shop.html"><i class="fa-solid fa-record-vinyl"></i> Roll Shop</a>
       </div>
     </div>
     <div class="navgrp" data-g="Masters">
@@ -217,7 +229,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="master-standard.html"><i class="fa-solid fa-book"></i> Standard</a>
         <a href="master-standard-limit.html"><i class="fa-solid fa-ruler-horizontal"></i> Standard Limit</a>
         <a href="master-instrument-type.html"><i class="fa-solid fa-ruler-combined"></i> Instrument Type</a>
-        <a href="master-roll-type.html"><i class="fa-solid fa-record-vinyl"></i> Roll Type</a>
         <a href="master-agency.html"><i class="fa-solid fa-building"></i> Agency</a>
         <a href="master-supplier.html"><i class="fa-solid fa-truck-field"></i> Supplier</a>
       </div>
@@ -273,8 +284,11 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
     <div class="modal-head">Disposition material (Salvage) <span class="x" onclick="closeDispo()"><i class="fa-solid fa-xmark"></i></span></div>
     <div class="modal-body">
       <div class="prep-ctx" id="dispoCtx"></div>
+      <div class="ud-agg" id="dUdAgg"></div>
       <div class="mgrid">
-        <div class="fld full"><label>Disposition</label><select id="dType" onchange="dispoChange()"></select></div>
+        <div class="fld full"><label>Disposition <span class="sug-label" id="dSugLabel"></span></label>
+          <div class="dispo-sug" id="dSuggest"></div>
+          <select id="dType" onchange="dispoChange()"></select></div>
         <div class="fld hide" id="dTargetFld"><label>Target operation</label><select id="dTarget"></select></div>
         <div class="fld hide" id="dDownFld"><label>Downgrade to grade</label><input id="dDown" placeholder="e.g. 416 (commercial)"/></div>
         <div class="fld" id="dInFld"><label>Qty in (MT)</label><input id="dIn" type="number" step="any" oninput="calcLoss()"/></div>
@@ -332,6 +346,46 @@ const SEVERITIES=['Minor','Major','Critical'];
 const STATUSES=['OPEN','UNDER REVIEW','DISPOSITIONED','ACTIONED','CLOSED','CANCELLED'];
 const SEVB={'Minor':'b-info','Major':'b-pend','Critical':'b-hold'};
 const STB={'OPEN':'b-pend','UNDER REVIEW':'b-info','DISPOSITIONED':'b-clr','ACTIONED':'b-info','CLOSED':'b-done','CANCELLED':'b-draft'};
+/* ---- aggregated Usage Decision that triggered the NC (by heat) ---- */
+const UDB={ACCEPT:'b-done',CONDITIONAL:'b-info',REJECT:'b-hold',REWORK:'b-pend',OK:'b-done',HOLD:'b-hold',REJECTED:'b-hold',PASS:'b-done',FAIL:'b-hold',COND:'b-info',PENDING:'b-pend'};
+function bdg2(s){return `<span class="badge ${UDB[s]||'b-draft'}">${s}</span>`;}
+const UDMAP={
+ '2526-16496':{no:'UD-2526-0188',decision:'CONDITIONAL',action:'Release under concession',reason:'Cu marginally below min — concession',status:'OK',agg:{Chemistry:'COND',Mechanical:'PASS',Physical:'PASS',UT:'PASS'}},
+ '2526-16482':{no:'UD-2526-0455',decision:'REWORK',action:'Re-heat-treat / Rework',reason:'Impact below spec — reworkable',status:'REWORK',agg:{Chemistry:'PASS',Mechanical:'FAIL',Physical:'PASS',UT:'PASS'}},
+ '2526-16798':{no:'UD-2526-0471',decision:'REWORK',action:'Re-heat-treat / Rework',reason:'Surface / UT indication — reworkable',status:'REWORK',agg:{Chemistry:'PASS',Mechanical:'PASS',Physical:'FAIL',UT:'COND'}},
+ '2526-16783':{no:'UD-2526-0490',decision:'REJECT',action:'Scrap / Reject',reason:'YS below TDC min',status:'HOLD',agg:{Chemistry:'PASS',Mechanical:'FAIL',Physical:'PASS',UT:'PENDING'}}
+};
+function udAggHtml(r){
+  const ud=UDMAP[r.heat];
+  if(!ud)return `<div class="ud-agg-head"><i class="fa-solid fa-gavel"></i> No aggregated UD linked — NCR from ${r.src} (${r.ref})</div>`;
+  return `<div class="ud-agg-head"><i class="fa-solid fa-gavel"></i> Aggregated Usage Decision · <b>${ud.no}</b> ${bdg2(ud.decision)}</div>
+    <div class="ud-agg-row"><span class="k">Action</span> ${ud.action} <span class="k">· Reason</span> ${ud.reason} <span class="k">· Material status</span> ${bdg2(ud.status)}</div>
+    <div class="ud-agg-dims">${Object.entries(ud.agg).map(([dim,s])=>`<span class="ud-dim">${dim} ${bdg2(s)}</span>`).join('')}</div>`;
+}
+/* ---- suitable salvage dispositions by NC category (scopes the master-driven vocabulary to the NC) ---- */
+const SUITABLE={
+ Chemistry:['Resample','Downgrade','Deviation accept','Scrap'],
+ Mechanical:['Re-Heat-Treat','Rework (other op)','Resample','Scrap'],
+ Dimensional:['Rework (same op)','Reinspect','Downgrade'],
+ Surface:['Rework (same op)','Reinspect','Downgrade','Scrap'],
+ NDT:['Reroute','Rework (other op)','Reinspect','Scrap'],
+ Metallurgical:['Deviation accept','Re-Heat-Treat','Scrap'],
+ Marking:['Rework (same op)','Reinspect','Deviation accept'],
+ Documentation:['Reinspect','Deviation accept'],
+ Handling:['Reinspect','Rework (same op)','Deviation accept']
+};
+function suitableFor(r){ if(r.against==='Supplier')return ['Return to supplier','Reinspect']; return SUITABLE[r.cat]||Object.keys(DISPOS); }
+function dispoOptions(r){
+  const sug=suitableFor(r), sugSet=new Set(sug), other=Object.keys(DISPOS).filter(d=>!sugSet.has(d)), sel=r.dispo||sug[0];
+  const o=v=>`<option ${v===sel?'selected':''}>${v}</option>`;
+  return `<optgroup label="Suggested for ${r.cat}">${sug.map(o).join('')}</optgroup><optgroup label="Other dispositions">${other.map(o).join('')}</optgroup>`;
+}
+function renderSuggest(){
+  const r=NCRS[curDispo]; if(!r)return; const sug=suitableFor(r), cur=document.getElementById('dType').value;
+  const lab=document.getElementById('dSugLabel'); if(lab)lab.textContent=' — suitable for '+r.cat;
+  const el=document.getElementById('dSuggest'); if(el)el.innerHTML=sug.map(d=>`<span class="sug-chip ${d===cur?'on':''}" onclick="pickDispo('${d}')">${d}</span>`).join('');
+}
+function pickDispo(name){document.getElementById('dType').value=name;dispoChange();}
 
 /* source lots for Raise-NCR prefill */
 const LOTS=[
@@ -451,7 +505,8 @@ function openDispo(i){
   document.getElementById('dispoCtx').innerHTML=
     `<span class="chip">NCR <b>${r.no}</b></span><span class="chip">Heat <b>${r.heat}</b></span><span class="chip">Grade <b>${r.grade}</b></span>`+
     `<span class="chip">Stage <b>${r.stage}</b></span><span class="chip">Sev <b>${r.sev}</b></span><span class="chip">${r.issue}</span>`;
-  document.getElementById('dType').innerHTML=Object.keys(DISPOS).map(d=>`<option ${d===r.dispo?'selected':''}>${d}</option>`).join('');
+  document.getElementById('dType').innerHTML=dispoOptions(r);
+  const da=document.getElementById('dUdAgg'); da.className='ud-agg'+(UDMAP[r.heat]?'':' muted'); da.innerHTML=udAggHtml(r);
   document.getElementById('dTarget').innerHTML=OPERATIONS.map(o=>`<option ${o===r.target?'selected':''}>${o}</option>`).join('');
   document.getElementById('dDown').value=(DISPOS[r.dispo]&&DISPOS[r.dispo].down)?r.target:'';
   document.getElementById('dIn').value=r.qtyIn||''; document.getElementById('dOut').value=r.qtyOut||'';
@@ -465,6 +520,7 @@ function dispoChange(){
   document.getElementById('dDownFld').classList.toggle('hide',!d.down);
   const noLoss=d.terminal&&d.routes==='Supplier'; // return-to-supplier: full qty leaves
   document.getElementById('dRoute').innerHTML='<i class="fa-solid fa-route"></i> '+ROUTEMSG[d.routes];
+  renderSuggest();
   calcLoss();
 }
 function calcLoss(){
@@ -525,7 +581,7 @@ buildHead(); render();
 function msToggle(e){e.preventDefault();e.stopPropagation();var g=document.getElementById('msGroup');if(g)g.classList.toggle('open');}
 (function(){var f=(location.pathname.split('/').pop()||'').toLowerCase();var g=document.getElementById('msGroup');if(!g)return;var inM=false;g.querySelectorAll('.submenu a').forEach(function(a){if((a.getAttribute('href')||'').toLowerCase()===f){a.classList.add('active');inM=true;}});if(inM||f==='masters.html'){g.classList.add('open');var p=g.querySelector('.ms-parent');if(p)p.classList.add('active');}})();
 </script>
-<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "roll-shop.html": {"t": "Roll Shop", "i": "fa-record-vinyl"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-roll-type.html": {"t": "Roll Type", "i": "fa-record-vinyl"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
+<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
 var here=(location.pathname.split('/').pop()||'dashboard.html').toLowerCase();
 function ld(){try{return JSON.parse(sessionStorage.getItem(KEY))||[];}catch(e){return [];}}
 function sv(a){try{sessionStorage.setItem(KEY,JSON.stringify(a));}catch(e){}}
@@ -549,7 +605,7 @@ document.addEventListener('click',function(){var m=document.getElementById('tabm
 render();})();</script>
 <script>
 function grpToggle(h){var g=h.closest('.navgrp');if(!g)return;g.classList.toggle('collapsed');var s={};document.querySelectorAll('.sidebar .navgrp').forEach(function(x){s[x.getAttribute('data-g')]=x.classList.contains('collapsed');});try{localStorage.setItem('mesNav',JSON.stringify(s));}catch(e){}}
-(function(){var s={};try{s=JSON.parse(localStorage.getItem('mesNav')||'{}');}catch(e){}document.querySelectorAll('.sidebar .navgrp').forEach(function(g){var k=g.getAttribute('data-g');if(k in s)g.classList.toggle('collapsed',!!s[k]);});var a=document.querySelector('.sidebar .grp-items a.active');if(a){var g=a.closest('.navgrp');if(g)g.classList.remove('collapsed');}})();
+(function(){var s={};try{s=JSON.parse(localStorage.getItem('mesNav')||'{}');}catch(e){}document.querySelectorAll('.sidebar .navgrp').forEach(function(g){var k=g.getAttribute('data-g');if(k in s)g.classList.toggle('collapsed',!!s[k]);});var a=document.querySelector('.sidebar .grp-items a.active');if(a){var g=a.closest('.navgrp');if(g)g.classList.remove('collapsed');}var sb=document.querySelector('.sidebar');if(sb){try{var y=sessionStorage.getItem('mesNavScroll');if(y!=null)sb.scrollTop=+y;else if(a)a.scrollIntoView({block:'center'});}catch(e){}sb.addEventListener('scroll',function(){try{sessionStorage.setItem('mesNavScroll',sb.scrollTop);}catch(e){}});}})();
 </script>
 <div class="overlay" id="viewOv"><div class="modal sm"><div class="modal-head">Record details <span class="x" onclick="document.getElementById('viewOv').classList.remove('open')"><i class="fa-solid fa-xmark"></i></span></div><div class="modal-body"><div id="viewBody"></div></div><div class="modal-foot"><button class="btn btn-ghost" onclick="document.getElementById('viewOv').classList.remove('open')">Close</button></div></div></div><script>
 function openViewEl(btn){var tr=btn.closest('tr');if(!tr)return;var tbl=tr.closest('table');var ths=tbl?tbl.querySelectorAll('thead tr:first-child th'):[];var labs=[].map.call(ths,function(th){return th.textContent.replace(/[\u25B2\u25BC\u21C5]/g,'').trim();});var tds=tr.children,h='';for(var k=0;k<tds.length;k++){if(tds[k].classList.contains('actions'))continue;var lab=labs[k]||'';if(!lab)continue;h+='<div class="vrow"><span class="vk">'+lab+'</span><span class="vv">'+tds[k].innerHTML+'</span></div>';}document.getElementById('viewBody').innerHTML=h;document.getElementById('viewOv').classList.add('open');}

@@ -83,6 +83,9 @@ table.tgrid{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .tgrid td{padding:4px 10px;border-bottom:1px solid #f3f3f3;white-space:nowrap;}
 .tgrid tbody tr:hover td{background:#fafbfc;}
 .tgrid .el{font-weight:600;} .tgrid .spec{color:var(--color-text-muted);font-variant-numeric:tabular-nums;}
+.srctag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:9px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;vertical-align:middle;}
+.srctag.t-tdc{background:rgba(37,169,224,.14);color:#1E8FBF;}
+.srctag.t-def{background:rgba(158,158,158,.16);color:#757575;}
 .tgrid td.spc{text-align:center;}
 .tgrid input{width:68px;padding:5px 6px;border:1px solid #ddd;border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;font-variant-numeric:tabular-nums;text-align:right;}
 .tgrid input:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px rgba(var(--color-primary-rgb),.15);}
@@ -158,7 +161,6 @@ table.tgrid{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
       <div class="s-group" onclick="grpToggle(this)">Equipment<i class="fa-solid fa-chevron-down gchev"></i></div>
       <div class="grp-items">
         <a href="instruments.html"><i class="fa-solid fa-ruler-combined"></i> Instruments</a>
-        <a href="roll-shop.html"><i class="fa-solid fa-record-vinyl"></i> Roll Shop</a>
       </div>
     </div>
     <div class="navgrp" data-g="Masters">
@@ -187,7 +189,6 @@ table.tgrid{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="master-standard.html"><i class="fa-solid fa-book"></i> Standard</a>
         <a href="master-standard-limit.html"><i class="fa-solid fa-ruler-horizontal"></i> Standard Limit</a>
         <a href="master-instrument-type.html"><i class="fa-solid fa-ruler-combined"></i> Instrument Type</a>
-        <a href="master-roll-type.html"><i class="fa-solid fa-record-vinyl"></i> Roll Type</a>
         <a href="master-agency.html"><i class="fa-solid fa-building"></i> Agency</a>
         <a href="master-supplier.html"><i class="fa-solid fa-truck-field"></i> Supplier</a>
       </div>
@@ -196,7 +197,7 @@ table.tgrid{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
   <main class="content">
     <div class="tabbar" id="tabbar"></div>
     <div class="page-head">
-      <div><h1>Test Entry</h1><div class="sub">Mechanical &amp; metallurgical results on drawn samples — specimens aggregated, validated against TDC</div></div>
+      <div><h1>Test Entry</h1><div class="sub">Mechanical &amp; metallurgical results on drawn samples — specimens aggregated, validated against TDC (falls back to the test's default range)</div></div>
     </div>
     <div class="tdc-wrap">
       <div class="card">
@@ -209,13 +210,39 @@ table.tgrid{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
   </main>
 </div>
 <script>
-/* attr = [name, unit, min, max, nSpecimens, aggRule]  (null = unbounded that side) */
-const MSPEC={
- '17-4PH':[['YS 0.2%','MPa',520,null,2,'MIN'],['UTS','MPa',690,null,2,'MIN'],['Elongation','%',16,null,2,'AVG'],['R.A.','%',45,null,2,'AVG'],['Hardness','HRC',28,36,3,'AVG'],['Impact CVN','J',40,null,3,'AVG']],
- '316L':[['YS 0.2%','MPa',170,null,1,'MIN'],['UTS','MPa',485,null,1,'MIN'],['Elongation','%',40,null,1,'AVG'],['R.A.','%',50,null,1,'AVG'],['Hardness','HRB',null,95,3,'AVG']],
- '304L':[['YS 0.2%','MPa',170,null,1,'MIN'],['UTS','MPa',485,null,1,'MIN'],['Elongation','%',40,null,1,'AVG'],['Hardness','HRB',null,92,3,'AVG']],
- '416':[['YS 0.2%','MPa',275,null,1,'MIN'],['UTS','MPa',515,null,1,'MIN'],['Elongation','%',20,null,1,'AVG'],['Hardness','HRC',20,30,3,'AVG'],['Impact CVN','J',27,null,3,'AVG']]
+/* ---- Test definition vs spec source ----
+   TDEF  = Quality Test master: per-attribute default range  [unit, defMin, defMax, nSpec, aggRule]
+   TDC   = customer TDC limits that OVERRIDE the default by attribute, per grade  {attr:[min,max]}
+   GRADE_ATTRS = which attributes the test card runs for a grade
+   Effective spec resolves: TDC limit (by attribute) -> else Test-Master default. (decision: default; TDC overrides) */
+const TDEF={
+ 'YS 0.2%':['MPa',170,null,1,'MIN'],
+ 'UTS':['MPa',450,null,1,'MIN'],
+ 'Elongation':['%',20,null,1,'AVG'],
+ 'R.A.':['%',40,null,1,'AVG'],
+ 'Hardness':['HRC',null,null,3,'AVG'],
+ 'Impact CVN':['J',27,null,3,'AVG']
 };
+const TDC={
+ '17-4PH':{'YS 0.2%':[520,null],'UTS':[690,null],'Elongation':[16,null],'R.A.':[45,null],'Hardness':[28,36],'Impact CVN':[40,null]},
+ '316L' :{'YS 0.2%':[170,null],'UTS':[485,null],'Elongation':[40,null],'R.A.':[50,null],'Hardness':[null,95]},
+ '304L' :{'YS 0.2%':[170,null],'UTS':[485,null],'Elongation':[40,null]},
+ '416'  :{'YS 0.2%':[275,null],'UTS':[515,null],'Hardness':[20,30],'Impact CVN':[27,null]}
+};
+const GRADE_ATTRS={
+ '17-4PH':['YS 0.2%','UTS','Elongation','R.A.','Hardness','Impact CVN'],
+ '316L' :['YS 0.2%','UTS','Elongation','R.A.','Hardness'],
+ '304L' :['YS 0.2%','UTS','Elongation','R.A.','Hardness'],
+ '416'  :['YS 0.2%','UTS','Elongation','Hardness','Impact CVN']
+};
+/* effective spec row: [name, unit, min, max, nSpec, aggRule, source]  source = 'TDC' | 'default' */
+function specFor(grade){
+  return (GRADE_ATTRS[grade]||[]).map(name=>{
+    const d=TDEF[name]||['',null,null,1,'FIRST'];
+    const ov=(TDC[grade]||{})[name];
+    return [name, d[0], ov?ov[0]:d[1], ov?ov[1]:d[2], d[3], d[4], ov?'TDC':'default'];
+  });
+}
 const SAMPLES=[
  {no:'TST-2526-0034',sample:'S-2526-0451',heat:'2526-16496',material:'B030268',grade:'17-4PH',tdc:'TDC-004275',ht:'H1150',orient:'Longitudinal',state:'IN PROGRESS'},
  {no:'TST-2526-0035',sample:'S-2526-0448',heat:'2526-16781',material:'E121718',grade:'304L',tdc:'TDC-004810',ht:'Annealed',orient:'Longitudinal',state:'PASS'},
@@ -239,14 +266,14 @@ function deriveSpec(no,ai,si,a,isFail){
 }
 const store={};
 SAMPLES.forEach(sm=>{
-  const spec=MSPEC[sm.grade]; store[sm.no]={_src:(sm.state==='PENDING')?'—':'Instrument'};
-  spec.forEach(a=>store[sm.no][a[0]]=['','','']);
+  const spc=specFor(sm.grade); store[sm.no]={_src:(sm.state==='PENDING')?'—':'Instrument'};
+  spc.forEach(a=>store[sm.no][a[0]]=['','','']);
   if(sm.state!=='PENDING'){
-    const failAttr=(sm.state==='FAIL'||sm.state==='HOLD')?hashIdx(sm.no,spec.length):-1;
-    spec.forEach((a,ai)=>{for(let si=0;si<a[4];si++)store[sm.no][a[0]][si]=deriveSpec(sm.no,ai,si,a,ai===failAttr);});
+    const failAttr=(sm.state==='FAIL'||sm.state==='HOLD')?hashIdx(sm.no,spc.length):-1;
+    spc.forEach((a,ai)=>{for(let si=0;si<a[4];si++)store[sm.no][a[0]][si]=deriveSpec(sm.no,ai,si,a,ai===failAttr);});
   }
 });
-let curIdx=0; const cur=()=>SAMPLES[curIdx]; const spec=()=>MSPEC[cur().grade];
+let curIdx=0; const cur=()=>SAMPLES[curIdx]; const spec=()=>specFor(cur().grade);
 
 function aggregate(vals,rule){
   const ns=vals.filter(v=>v!==''&&v!=null&&!isNaN(parseFloat(v))).map(parseFloat);
@@ -256,6 +283,7 @@ function aggregate(vals,rule){
 }
 function resultOf(a,agg){if(agg==null)return'';if(a[2]!=null&&agg<a[2])return'FAIL';if(a[3]!=null&&agg>a[3])return'FAIL';return'PASS';}
 function fmtSpec(a){const mn=a[2],mx=a[3];if(mn!=null&&mx!=null)return mn+'–'+mx;if(mn!=null)return '≥ '+mn;if(mx!=null)return '≤ '+mx;return '—';}
+function srcTag(s){return ` <span class="srctag ${s==='TDC'?'t-tdc':'t-def'}" title="${s==='TDC'?'From customer TDC — overrides the test default':'Test-master default — no TDC limit for this attribute'}">${s}</span>`;}
 function overall(){let fail=false,empty=false;spec().forEach(a=>{const r=resultOf(a,aggregate(store[cur().no][a[0]],a[5]));if(r==='')empty=true;else if(r==='FAIL')fail=true;});return fail?'FAIL':(empty?'PENDING':'PASS');}
 function badge(r){return r===''?'<span class="badge b-pend">—</span>':`<span class="badge ${r==='PASS'?'b-pass':'b-fail'}">${r}</span>`;}
 
@@ -280,7 +308,7 @@ function renderDetail(){
       ?`<td class="spc"><input data-ai="${ai}" data-si="${si}" type="number" step="any" value="${vals[si]}" oninput="onEdit(this)"/></td>`
       :`<td class="na">·</td>`).join('');
     const agg=aggregate(vals,a[5]), r=resultOf(a,agg);
-    return `<tr><td class="el">${a[0]}</td><td class="spec">${a[1]}</td><td class="spec">${fmtSpec(a)}</td>${cells}
+    return `<tr><td class="el">${a[0]}</td><td class="spec">${a[1]}</td><td class="spec">${fmtSpec(a)}${srcTag(a[6])}</td>${cells}
       <td class="agg" id="agg-${ai}">${agg==null?'—':`${agg}<span class="aggr">${a[5]}</span>`}</td>
       <td id="res-${ai}">${badge(r)}</td></tr>`;
   }).join('');
@@ -296,7 +324,7 @@ function renderDetail(){
     </div>
     <div class="grid-wrap">
       <table class="tgrid">
-        <thead><tr><th>Attribute</th><th>Unit</th><th>TDC</th><th class="spc">#1</th><th class="spc">#2</th><th class="spc">#3</th><th>Aggregate</th><th>Result</th></tr></thead>
+        <thead><tr><th>Attribute</th><th>Unit</th><th>Valid range</th><th class="spc">#1</th><th class="spc">#2</th><th class="spc">#3</th><th>Aggregate</th><th>Result</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -344,7 +372,7 @@ renderList(); renderDetail();
 function msToggle(e){e.preventDefault();e.stopPropagation();var g=document.getElementById('msGroup');if(g)g.classList.toggle('open');}
 (function(){var f=(location.pathname.split('/').pop()||'').toLowerCase();var g=document.getElementById('msGroup');if(!g)return;var inM=false;g.querySelectorAll('.submenu a').forEach(function(a){if((a.getAttribute('href')||'').toLowerCase()===f){a.classList.add('active');inM=true;}});if(inM||f==='masters.html'){g.classList.add('open');var p=g.querySelector('.ms-parent');if(p)p.classList.add('active');}})();
 </script>
-<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "roll-shop.html": {"t": "Roll Shop", "i": "fa-record-vinyl"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-roll-type.html": {"t": "Roll Type", "i": "fa-record-vinyl"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
+<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
 var here=(location.pathname.split('/').pop()||'dashboard.html').toLowerCase();
 function ld(){try{return JSON.parse(sessionStorage.getItem(KEY))||[];}catch(e){return [];}}
 function sv(a){try{sessionStorage.setItem(KEY,JSON.stringify(a));}catch(e){}}
@@ -368,7 +396,7 @@ document.addEventListener('click',function(){var m=document.getElementById('tabm
 render();})();</script>
 <script>
 function grpToggle(h){var g=h.closest('.navgrp');if(!g)return;g.classList.toggle('collapsed');var s={};document.querySelectorAll('.sidebar .navgrp').forEach(function(x){s[x.getAttribute('data-g')]=x.classList.contains('collapsed');});try{localStorage.setItem('mesNav',JSON.stringify(s));}catch(e){}}
-(function(){var s={};try{s=JSON.parse(localStorage.getItem('mesNav')||'{}');}catch(e){}document.querySelectorAll('.sidebar .navgrp').forEach(function(g){var k=g.getAttribute('data-g');if(k in s)g.classList.toggle('collapsed',!!s[k]);});var a=document.querySelector('.sidebar .grp-items a.active');if(a){var g=a.closest('.navgrp');if(g)g.classList.remove('collapsed');}})();
+(function(){var s={};try{s=JSON.parse(localStorage.getItem('mesNav')||'{}');}catch(e){}document.querySelectorAll('.sidebar .navgrp').forEach(function(g){var k=g.getAttribute('data-g');if(k in s)g.classList.toggle('collapsed',!!s[k]);});var a=document.querySelector('.sidebar .grp-items a.active');if(a){var g=a.closest('.navgrp');if(g)g.classList.remove('collapsed');}var sb=document.querySelector('.sidebar');if(sb){try{var y=sessionStorage.getItem('mesNavScroll');if(y!=null)sb.scrollTop=+y;else if(a)a.scrollIntoView({block:'center'});}catch(e){}sb.addEventListener('scroll',function(){try{sessionStorage.setItem('mesNavScroll',sb.scrollTop);}catch(e){}});}})();
 </script>
 </body>
 </html>
