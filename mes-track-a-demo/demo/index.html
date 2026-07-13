@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<script>if (window.self === window.top) location.replace('app.html' + location.search);</script>
+<base href="/"><!-- SPA host is served for nested routes (/quality/inspection, …); resolve assets/iframes from root -->
 <title>Bluemingo MES</title>
 <link href="assets/vendor/roboto/roboto.css" rel="stylesheet">
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
@@ -25,6 +25,11 @@
 <script src="assets/mes-shell.js"></script>
 <script src="assets/mes-components.js"></script>
 <script>
+if (window.self === window.top) {
+  // Top-level: this page IS the single-page host. The active view is derived from the URL path.
+  MESShell.host({ initial: 'home' });
+} else {
+  // Embedded in the Home tab iframe: render the landing content.
   const { body } = MESShell.mount({ active: 'home', title: 'Functional Demo — Track A', crumb: ['Overview', 'Home'] });
   const D = MES_DATA;
 
@@ -70,6 +75,7 @@
   body.appendChild(grid);
 
   function chip(k, v) { return h('div', { class: 'h-chip' }, [h('div', { class: 'c-k' }, [k]), h('div', { class: 'c-v' }, [v])]); }
+}
 </script>
 </body>
 </html>

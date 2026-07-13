@@ -10,6 +10,10 @@
 </head>
 <body>
 <script src="assets/mes-shell.js"></script>
-<script>MESShell.host({ initial: 'home' });</script>
+<script>
+  // Legacy entry — funnel old app.html?tab=<id> links to the clean SPA route (served by index.html).
+  var _t = new URLSearchParams(location.search).get('tab') || 'home';
+  location.replace(MESShell.routeToPath(_t));
+</script>
 </body>
 </html>

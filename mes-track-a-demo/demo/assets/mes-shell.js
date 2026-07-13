@@ -54,6 +54,31 @@
     ]}
   ];
 
+  // ---- SPA routing: clean paths (no .html / no ?tab) <-> nav id ----
+  const APP_BASE = (function () {
+    try {
+      var s = document.currentScript;
+      if (!s) { var a = document.getElementsByTagName('script'); for (var i = 0; i < a.length; i++) { if (/mes-shell\.js/.test(a[i].src)) { s = a[i]; break; } } }
+      if (s && s.src) return new URL(s.src).pathname.replace(/assets\/mes-shell\.js.*$/, '');
+    } catch (e) {}
+    return '/';
+  })();
+  const SLUGS = {
+    home: '', scheduling: 'scheduling', operations: 'operations', pc: 'production-confirmation',
+    'q-chem': 'quality/chemistry', 'q-sampling': 'quality/sampling', 'q-testing': 'quality/testing',
+    'q-inspection': 'quality/inspection', 'q-defects': 'quality/defects', 'q-clearance': 'quality/clearance',
+    'q-ud': 'quality/usage-decision', 'q-salvage': 'quality/salvage', 'q-cert': 'quality/certificates',
+    yard: 'yard', reports: 'reports', integration: 'integration', security: 'security'
+  };
+  const SLUG2ID = {}; Object.keys(SLUGS).forEach(function (id) { SLUG2ID[SLUGS[id]] = id; });
+  function idToPath(id) { return APP_BASE + (SLUGS[id] != null ? SLUGS[id] : ''); }
+  function idFromPath(pathname) {
+    var p = String(pathname || '');
+    if (APP_BASE && p.indexOf(APP_BASE) === 0) p = p.slice(APP_BASE.length);
+    p = p.replace(/^\/+|\/+$/g, '').replace(/\.html$/, '');
+    return Object.prototype.hasOwnProperty.call(SLUG2ID, p) ? SLUG2ID[p] : null;
+  }
+
   const RKEY = 'mes_demo_role';
   function getRole()   { return localStorage.getItem(RKEY) || 'admin'; }
   function setRole(id) { localStorage.setItem(RKEY, id); }
@@ -262,7 +287,7 @@
       const idx = navIndex();
       const frames = {};
       let active = 'home';
-      try { active = new URLSearchParams(location.search).get('tab') || opts.initial || 'home'; } catch (e) {}
+      try { active = idFromPath(location.pathname) || new URLSearchParams(location.search).get('tab') || opts.initial || 'home'; } catch (e) {}
       if (!idx[active]) active = 'home';
 
       const sidebar = h('nav', { class: 'bm-sidebar' });
@@ -280,13 +305,17 @@
         f.style.display = 'none';
         stack.appendChild(f); frames[id] = f; return f;
       }
-      function activate(id) {
+      function activate(id, histMode) {
         if (!idx[id]) return;
         if (!canSee(idx[id])) { MESShell.toast('Permission denied for ' + role().name, 'danger'); return; }
         active = id; normalizeTabs(active); ensureFrame(id);
         Object.keys(frames).forEach(function (k) { frames[k].style.display = (k === active ? 'block' : 'none'); });
         try { var af = frames[active]; if (af && af.contentWindow) af.contentWindow.dispatchEvent(new Event('mes:activated')); } catch (e) {}
-        try { history.replaceState(null, '', 'app.html?tab=' + id); } catch (e) {}
+        try {
+          var path = idToPath(id);
+          if (histMode === 'replace') history.replaceState({ mesId: id }, '', path);
+          else if (histMode !== 'none') history.pushState({ mesId: id }, '', path);
+        } catch (e) {}
         document.title = idx[id].label + ' · Bluemingo MES';
         render();
       }
@@ -354,11 +383,13 @@
         setTimeout(function () { document.addEventListener('mousedown', function od(e) { if (!m.contains(e.target)) { closeAnyTabMenu(); document.removeEventListener('mousedown', od, true); } }, true); }, 0);
       }
 
-      window.MESHost = { open: activate };
+      var openFn = function (id) { activate(id, 'push'); };
+      window.MESHost = { open: openFn };
+      window.addEventListener('popstate', function () { var id = idFromPath(location.pathname); if (id) activate(id, 'none'); });
       normalizeTabs(active);
       render();
-      activate(active);
-      return { open: activate };
+      activate(active, 'replace');
+      return { open: openFn };
     },
     toast(msg, kind, ms) {
       let wrap = document.querySelector('.toast-wrap');
@@ -367,7 +398,9 @@
       const t = h('div', { class: 'toast ' + (kind || 'info') }, [ icon(icons[kind] || icons.info, 't-ic'), h('span', {}, [msg]) ]);
       wrap.appendChild(t);
       setTimeout(() => { t.style.transition = 'opacity .3s'; t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, ms || 3200);
-    }
+    },
+    routeToId(pathname) { return idFromPath(pathname); },
+    routeToPath(id) { return idToPath(id); }
   };
 
   global.MESShell = MESShell;

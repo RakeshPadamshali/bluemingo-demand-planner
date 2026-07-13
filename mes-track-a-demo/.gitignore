@@ -6,3 +6,7 @@ eval-deck/screenshots/
 eval-deck/img/
 **/*.mp4
 **/*.webm
+
+# Python caches
+__pycache__/
+*.pyc
