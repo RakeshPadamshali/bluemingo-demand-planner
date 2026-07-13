@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<base href="/"><!-- SPA host is served for nested routes (/quality/inspection, …); resolve assets/iframes from root -->
+<!-- SPA host is served for nested routes (/quality/inspection, …); resolve assets/iframes from the app root.
+     Root-served (local serve.py, Netlify, custom domain) -> "/"; GitHub Pages project site -> repo sub-path. -->
+<script>document.write('<base href="' + (location.hostname.endsWith('github.io') ? '/bluemingo-ui/mes-track-a-demo/demo/' : '/') + '">');</script>
 <title>Bluemingo MES</title>
 <link href="assets/vendor/roboto/roboto.css" rel="stylesheet">
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">

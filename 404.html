@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- GitHub Pages serves /404.html for any unknown path *and keeps the requested URL*. This is the
+     SPA-fallback substitute for the MES Track A demo: for a demo route it boots the single-page host
+     (so deep-links and refresh resolve to the right view); any other 404 shows a plain message.
+     Base points at the demo folder so the app's assets resolve regardless of the requested path. -->
+<base href="/bluemingo-ui/mes-track-a-demo/demo/">
+<title>Bluemingo MES</title>
+<link href="assets/vendor/roboto/roboto.css" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/mes-styles.css">
+</head>
+<body>
+<script src="assets/mes-data.js"></script>
+<script src="assets/mes-shell.js"></script>
+<script src="assets/mes-components.js"></script>
+<script>
+  if (location.pathname.indexOf('/bluemingo-ui/mes-track-a-demo/demo/') === 0) {
+    MESShell.host({});   // MES demo route -> render the app; the router reads the path
+  } else {
+    document.body.innerHTML =
+      '<p style="font-family:system-ui,-apple-system,sans-serif;padding:48px;color:#3a4553;font-size:15px">404 — page not found.</p>';
+  }
+</script>
+</body>
+</html>
