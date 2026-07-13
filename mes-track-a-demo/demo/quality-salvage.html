@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Salvage &amp; NCR — Bluemingo MES</title>
+<link href="assets/vendor/roboto/roboto.css" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/mes-styles.css">
+<style>
+  /* Salvage & NCR — screen-specific styles (re-homed from the QA Quality module under the demo shell) */
+  :root{
+    --fs-xs:11px; --fs-sm:12px; --fs-base:14px; --fs-md:16px; --fs-xl:24px;
+    --sp1:4px; --sp2:8px; --sp3:12px; --sp4:16px; --sp5:20px;
+    --font:'Roboto',system-ui,-apple-system,sans-serif;
+  }
+  /* badge colour classes (screen vocabulary) */
+  .b-draft{background:rgba(158,158,158,.14);color:#757575;} .b-info{background:rgba(33,150,243,.12);color:#2196f3;}
+  .b-pend{background:rgba(255,152,0,.12);color:#ef6c00;} .b-done{background:rgba(76,175,80,.12);color:#388e3c;}
+  .b-hold{background:rgba(244,67,54,.12);color:#c62828;} .b-clr{background:rgba(103,58,183,.12);color:#673ab7;}
+
+  /* full-height page wrapper */
+  .nc-page{display:flex;flex-direction:column;height:calc(100vh - 152px);min-height:440px;}
+
+  /* filter bar */
+  .filterbar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp2);margin-bottom:var(--sp3);}
+  .filterbar .lbl{font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.4px;color:var(--color-text-muted);font-weight:600;}
+  .fsearch{position:relative;}
+  .fsearch i{position:absolute;left:10px;top:9px;color:var(--color-text-hint);font-size:11px;}
+  .fsearch input{width:240px;padding:7px 10px 7px 28px;border:1px solid #ddd;border-radius:var(--radius-sm);font-size:var(--fs-sm);font-family:inherit;}
+  .filterbar select{padding:7px 10px;border:1px solid #ddd;border-radius:var(--radius-sm);font-size:var(--fs-sm);font-family:inherit;}
+  .filterbar input:focus,.filterbar select:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 2px rgba(var(--color-primary-rgb),.15);}
+  .filterbar .meta{margin-left:auto;font-size:var(--fs-sm);color:var(--color-text-muted);}
+
+  /* card + table */
+  .card{background:#fff;border:1px solid var(--color-border);border-radius:var(--radius-lg);display:flex;flex-direction:column;min-height:0;overflow:hidden;flex:1;}
+  .tbl-wrap{overflow:auto;flex:1;min-height:0;}
+  table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
+  .tbl thead th{position:sticky;top:0;background:#f0f4f7;z-index:2;text-align:left;font-size:var(--fs-xs);font-weight:600;text-transform:uppercase;letter-spacing:.3px;color:var(--color-text-muted);padding:9px 10px;white-space:nowrap;border-bottom:1px solid var(--color-border);cursor:pointer;user-select:none;}
+  .tbl thead th.num{text-align:right;} .tbl thead th .car{font-size:9px;color:#bbb;margin-left:3px;} .tbl thead th .car.on{color:var(--color-primary);}
+  .tbl tbody td{padding:5px 10px;border-bottom:1px solid #f3f3f3;white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis;}
+  .tbl tbody tr:nth-child(even) td{background:#fafbfc;} .tbl tbody tr:hover td{background:#eef7fc;}
+  .tbl td.mono,.tbl th.mono{font-variant-numeric:tabular-nums;}
+  .tbl td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .tbl td.actions{text-align:right;}.tbl td.actions .btn-icon{margin-left:4px;}
+  .tbl th.col-actions,.tbl td.actions{position:sticky;right:0;background:#fff;z-index:3;box-shadow:-7px 0 8px -8px rgba(0,0,0,.18);}
+  .tbl tbody tr:nth-child(even) td.actions{background:#fafbfc;} .tbl tbody tr:hover td.actions{background:#eef7fc;}
+
+  /* icon button (table actions) */
+  .btn-icon{width:30px;height:30px;padding:0;display:inline-grid;place-items:center;border:1px solid transparent;border-radius:var(--radius-sm);background:rgba(var(--color-primary-rgb),.1);color:var(--color-primary);font-size:13px;cursor:pointer;}
+  .btn-icon:hover{background:var(--color-primary);color:#fff;}
+
+  /* aggregated usage-decision box */
+  .ud-agg{background:var(--color-bg-alt);border:1px solid var(--color-border);border-left:3px solid var(--color-primary);border-radius:var(--radius-md);padding:10px 12px;margin:0 0 12px;}
+  .ud-agg.muted{border-left-color:#ccc;}
+  .ud-agg-head{font-size:var(--fs-sm);font-weight:600;color:var(--color-text-primary);display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .ud-agg-head i{color:var(--color-primary);}
+  .ud-agg-row{font-size:var(--fs-xs);color:var(--color-text-secondary);margin-top:5px;}
+  .ud-agg-row .k{color:var(--color-text-muted);}
+  .ud-agg-dims{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;}
+  .ud-dim{font-size:var(--fs-xs);color:var(--color-text-secondary);background:#fff;border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:2px 7px;}
+
+  /* disposition suggestions */
+  .sug-label{font-weight:400;font-size:11px;color:var(--color-text-hint);text-transform:none;letter-spacing:0;}
+  .dispo-sug{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:7px;}
+  .sug-chip{font-size:12px;padding:4px 11px;border-radius:999px;background:#fff;border:1px solid var(--color-border);color:var(--color-text-secondary);cursor:pointer;}
+  .sug-chip:hover{border-color:var(--color-primary);color:var(--color-primary);}
+  .sug-chip.on{background:var(--color-primary);border-color:var(--color-primary);color:#fff;font-weight:600;}
+
+  .empty td{text-align:center;font-style:italic;color:var(--color-text-hint);padding:24px;background:#fff!important;}
+  .pager{display:flex;align-items:center;gap:var(--sp2);padding:var(--sp3) var(--sp4);border-top:1px solid var(--color-border-light);font-size:var(--fs-sm);color:var(--color-text-muted);}
+
+  /* overlay modals — container/body reuse the shared shell .modal/.modal-body; head/foot are screen-local */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:1000;}
+  .overlay.open{display:flex;}
+  .modal-head{padding:16px 20px;border-bottom:1px solid var(--color-border-light);font-size:var(--fs-md);font-weight:600;display:flex;justify-content:space-between;align-items:center;}
+  .modal-head .x{color:var(--color-text-hint);cursor:pointer;}
+  .mgrid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp3) var(--sp4);}
+  .fld label{display:block;font-size:var(--fs-sm);font-weight:500;color:var(--color-text-secondary);margin-bottom:4px;}
+  .fld input,.fld select,.fld textarea{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:var(--radius-sm);font-size:var(--fs-sm);font-family:inherit;}
+  .fld textarea{resize:vertical;min-height:58px;}
+  .fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px rgba(var(--color-primary-rgb),.15);}
+  .fld.full{grid-column:1/-1;}
+  .fld.hide{display:none;}
+  .calc-band{grid-column:1/-1;background:var(--color-bg-alt);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:10px 14px;display:flex;flex-wrap:wrap;gap:22px;font-size:var(--fs-sm);align-items:center;}
+  .calc-band span{color:var(--color-text-muted);}
+  .calc-band b{color:var(--color-text-primary);font-variant-numeric:tabular-nums;font-size:14px;}
+  .calc-band b.danger{color:var(--color-danger);}
+  .route-note{grid-column:1/-1;font-size:var(--fs-sm);color:var(--color-primary-dark);background:var(--color-primary-light);border:1px solid #b3e5fc;border-radius:var(--radius-sm);padding:8px 12px;}
+  .modal-foot{padding:14px 20px;border-top:1px solid var(--color-border-light);display:flex;justify-content:flex-end;gap:var(--sp3);}
+
+  /* context chips + CAPA list */
+  .prep-ctx{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:var(--sp3);}
+  .prep-ctx .chip{font-size:var(--fs-sm);background:var(--color-bg-alt);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:3px 8px;}
+  .prep-ctx .chip b{color:var(--color-text-primary);}
+  .prog{font-size:var(--fs-sm);color:var(--color-text-muted);margin-bottom:var(--sp2);}
+  .prog b{color:var(--color-primary-dark);}
+  .steps{list-style:none;margin:0;padding:0;}
+  .steps li{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border:1px solid var(--color-border-light);border-radius:var(--radius-sm);margin-bottom:6px;}
+  .steps li.done{background:#e8f5e9;border-color:#c8e6c9;}
+  .steps li input{margin-top:3px;width:auto;}
+  .steps li .txt{font-size:var(--fs-sm);flex:1;}
+  .steps li .txt .meta-row{color:var(--color-text-hint);font-size:var(--fs-xs);margin-top:2px;}
+  .steps li.done .txt b{color:#2e7d32;}
+  .captype{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.3px;padding:1px 6px;border-radius:3px;margin-right:6px;text-transform:uppercase;}
+  .ct-correction{background:rgba(33,150,243,.14);color:#1976d2;} .ct-corrective{background:rgba(255,152,0,.14);color:#ef6c00;} .ct-preventive{background:rgba(103,58,183,.14);color:#673ab7;}
+  .note-band{font-size:var(--fs-sm);color:var(--color-text-muted);margin-top:var(--sp3);}
+
+  /* view modal rows */
+  .vrow{display:flex;justify-content:space-between;gap:18px;padding:8px 2px;border-bottom:1px solid var(--color-border-light);font-size:13px;align-items:center;}
+  .vrow:last-child{border-bottom:none;}
+  .vrow .vk{color:var(--color-text-muted);font-weight:500;white-space:nowrap;}
+  .vrow .vv{text-align:right;color:var(--color-text-primary);}
+  .vrow .vv .btn-icon{display:none;}
+
+  /* downgrade alternate-SO card */
+  .alt-so{background:var(--color-primary-light);border:1px solid #b3e5fc;border-radius:var(--radius-md);padding:10px 12px;font-size:var(--fs-sm);}
+  .alt-so .aso-h{font-weight:600;color:var(--color-primary-dark);display:flex;align-items:center;gap:6px;margin-bottom:5px;}
+  .alt-so .aso-row{color:var(--color-text-secondary);margin-top:2px;}
+  .alt-so .aso-row b{color:var(--color-text-primary);}
+</style>
+</head>
+<body>
+<script src="assets/mes-data.js"></script>
+<script src="assets/mes-shell.js"></script>
+<script src="assets/mes-components.js"></script>
+<script>
+const D = MES_DATA;
+const { body, actions } = MESShell.mount({ active: 'q-salvage', title: 'Salvage & NCR', crumb: ['Quality', 'Salvage & NCR'] });
+
+body.innerHTML = `
+  <div class="nc-page">
+    <div class="filterbar">
+      <span class="lbl">Filters</span>
+      <div class="fsearch"><i class="fa-solid fa-magnifying-glass"></i><input id="search" placeholder="NCR / heat / coil / issue…" oninput="render()"/></div>
+      <select id="fStatus" onchange="render()"><option value="">All statuses</option></select>
+      <select id="fSev" onchange="render()"><option value="">All severities</option></select>
+      <select id="fDispo" onchange="render()"><option value="">All dispositions</option></select>
+      <select id="fAgainst" onchange="render()"><option value="">All — against</option></select>
+      <span class="meta" id="meta"></span>
+    </div>
+    <div class="card">
+      <div class="tbl-wrap"><table class="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+      <div class="pager"><span id="rowCount"></span></div>
+    </div>
+  </div>
+
+  <!-- Raise NCR modal -->
+  <div class="overlay" id="raiseOverlay">
+    <div class="modal lg">
+      <div class="modal-head">Raise Non-Conformance Report <span class="x" onclick="closeRaise()"><i class="fa-solid fa-xmark"></i></span></div>
+      <div class="modal-body">
+        <div class="mgrid">
+          <div class="fld full"><label>Source (coil / material · heat · document)</label><select id="rSrc" onchange="srcChange()"></select>
+            <div id="rCoilMap" style="display:none;margin-top:7px;font-size:12px;padding:8px 11px;background:#eef6fb;border:1px solid #cfe6f3;border-radius:7px;color:#2a5568;"></div></div>
+          <div class="fld"><label>NC against</label><select id="rAgainst"></select></div>
+          <div class="fld"><label>Category</label><select id="rCat"></select></div>
+          <div class="fld"><label>Severity</label><select id="rSev"></select></div>
+          <div class="fld"><label>Detected by</label><input id="rDet" value="Shift QA Engineer"/></div>
+          <div class="fld full"><label>Non-conformance (title)</label><input id="rTitle" placeholder="e.g. YS 248 MPa below E250 min 250"/></div>
+          <div class="fld full"><label>Description</label><textarea id="rDesc" placeholder="What deviated, where, and against which spec…"></textarea></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeRaise()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveRaise()"><i class="fa-solid fa-flag"></i> Raise NCR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Disposition / Salvage modal -->
+  <div class="overlay" id="dispoOverlay">
+    <div class="modal lg">
+      <div class="modal-head">Disposition material (Salvage) <span class="x" onclick="closeDispo()"><i class="fa-solid fa-xmark"></i></span></div>
+      <div class="modal-body">
+        <div class="prep-ctx" id="dispoCtx"></div>
+        <div class="ud-agg" id="dUdAgg"></div>
+        <div class="mgrid">
+          <div class="fld full"><label>Disposition <span class="sug-label" id="dSugLabel"></span></label>
+            <div class="dispo-sug" id="dSuggest"></div>
+            <select id="dType" onchange="dispoChange()"></select></div>
+          <div class="fld hide" id="dTargetFld"><label>Target stage</label><select id="dTarget"></select></div>
+          <div class="fld hide" id="dDownFld"><label>Downgrade to grade</label><select id="dDown" onchange="renderAltSO()"></select></div>
+          <div class="fld full hide" id="dAltSoFld"><div class="alt-so" id="dAltSo"></div></div>
+          <div class="fld" id="dInFld"><label>Qty in (MT)</label><input id="dIn" type="number" step="any" oninput="calcLoss()"/></div>
+          <div class="fld" id="dOutFld"><label>Qty recovered (MT)</label><input id="dOut" type="number" step="any" oninput="calcLoss()"/></div>
+          <div class="calc-band"><span>Material loss</span> <b id="dLossMt">0.000</b> <span>MT</span> <span>·</span> <span>Loss</span> <b id="dLossPct">0.0</b> <span>%</span> <span>·</span> <span>Outcome</span> <b id="dOutcome">—</b></div>
+          <div class="fld full"><label>Remarks</label><input id="dRemarks" placeholder="Disposition note…"/></div>
+          <div class="route-note" id="dRoute"></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeDispo()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveDispo()"><i class="fa-solid fa-check"></i> Apply disposition</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CAPA modal -->
+  <div class="overlay" id="capaOverlay">
+    <div class="modal sm">
+      <div class="modal-head"><span id="capaTitle">CAPA</span> <span class="x" onclick="closeCapa()"><i class="fa-solid fa-xmark"></i></span></div>
+      <div class="modal-body" id="capaBody"></div>
+      <div id="capaWarn" style="display:none;margin:0 20px 12px;font-size:var(--fs-sm);color:#c62828;background:rgba(244,67,54,.1);border:1px solid #ffcdd2;border-radius:var(--radius-sm);padding:8px 12px;"><i class="fa-solid fa-triangle-exclamation"></i> Verify all CAPA actions before closing the NCR.</div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="addCapa()"><i class="fa-solid fa-plus"></i> Add action</button>
+        <span style="flex:1"></span>
+        <button class="btn btn-ghost" onclick="closeCapa()">Close</button>
+        <button class="btn btn-primary" onclick="closeNcr()"><i class="fa-solid fa-lock"></i> Close NCR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- View record modal -->
+  <div class="overlay" id="viewOv">
+    <div class="modal sm">
+      <div class="modal-head">Record details <span class="x" onclick="document.getElementById('viewOv').classList.remove('open')"><i class="fa-solid fa-xmark"></i></span></div>
+      <div class="modal-body"><div id="viewBody"></div></div>
+      <div class="modal-foot"><button class="btn btn-ghost" onclick="document.getElementById('viewOv').classList.remove('open')">Close</button></div>
+    </div>
+  </div>`;
+
+/* ---- disposition vocabulary (salvage types) ---- */
+const DISPOS={
+ 'Resample':          {flag:'b-info', routes:'Sampling',   target:false, down:false, terminal:false},
+ 'Reinspect':         {flag:'b-info', routes:'Inspection',  target:false, down:false, terminal:false},
+ 'Rework (same op)':  {flag:'b-pend', routes:'Production',  target:false, down:false, terminal:false},
+ 'Reroute':           {flag:'b-pend', routes:'Production',  target:true,  down:false, terminal:false},
+ 'Re-roll':           {flag:'b-pend', routes:'Production',  target:true,  down:false, terminal:false},
+ 'Re-HT / Normalize': {flag:'b-pend', routes:'Production',  target:true,  down:false, terminal:false},
+ 'Downgrade':         {flag:'b-clr',  routes:'Production',  target:false, down:true,  terminal:false},
+ 'Concession accept': {flag:'b-done', routes:'None',        target:false, down:false, terminal:false},
+ 'Scrap / Remelt':    {flag:'b-hold', routes:'None',        target:false, down:false, terminal:true},
+ 'Return to supplier':{flag:'b-hold', routes:'Supplier',    target:false, down:false, terminal:true}
+};
+const ROUTEMSG={
+ Sampling:'Routes back to <b>Sampling</b> — a fresh sample is drawn &amp; re-tested.',
+ Inspection:'Routes back to <b>Inspection</b> — the coil is re-inspected at the stage.',
+ Production:'Routes to the <b>mill</b> for rework / re-processing — re-enters QA at the destination stage.',
+ Supplier:'Routes to <b>RM Quality</b> — quarantined &amp; returned to supplier (SCAR / supplier NC).',
+ None:'Terminal disposition — no re-routing.'};
+const OPERATIONS=['BOF Steelmaking','LHF Refining','RH Degassing','CCM Casting','HSM-2 Reheating','HSM-2 Roughing','HSM-2 Finishing','Down Coiler','Pickling Line','Skin-Pass Mill'];
+const CATEGORIES=['Chemistry','Mechanical','Dimensional','Surface','NDT','Metallurgical','Marking','Documentation','Handling'];
+const AGAINST=['Internal','Operation','Supplier','Process'];
+const SEVERITIES=['Minor','Major','Critical'];
+const STATUSES=['OPEN','UNDER REVIEW','DISPOSITIONED','ACTIONED','CLOSED','CANCELLED'];
+const SEVB={'Minor':'b-info','Major':'b-pend','Critical':'b-hold'};
+const STB={'OPEN':'b-pend','UNDER REVIEW':'b-info','DISPOSITIONED':'b-clr','ACTIONED':'b-info','CLOSED':'b-done','CANCELLED':'b-draft'};
+
+/* ---- aggregated usage decision that triggered the NC (by heat) ---- */
+const UDB={ACCEPT:'b-done',CONDITIONAL:'b-info',REJECT:'b-hold',REWORK:'b-pend',OK:'b-done',HOLD:'b-hold',REJECTED:'b-hold',PASS:'b-done',FAIL:'b-hold',COND:'b-info',PENDING:'b-pend'};
+function bdg2(s){return `<span class="badge ${UDB[s]||'b-draft'}">${s}</span>`;}
+const UDMAP={
+ 'H2601':{no:'UD-2026-0188',decision:'CONDITIONAL',action:'Release under concession',reason:'YS marginally below E250 — downgrade to E200',status:'OK',agg:{Chemistry:'PASS',Mechanical:'COND',Surface:'PASS',UT:'PASS'}},
+ 'H2602':{no:'UD-2026-0455',decision:'REWORK',action:'Re-HT / Normalize',reason:'Impact below spec — reworkable',status:'REWORK',agg:{Chemistry:'PASS',Mechanical:'FAIL',Surface:'PASS',UT:'PASS'}},
+ 'H2603':{no:'UD-2026-0471',decision:'REWORK',action:'Surface rework',reason:'Rolled-in scale — reworkable',status:'REWORK',agg:{Chemistry:'PASS',Mechanical:'PASS',Surface:'FAIL',UT:'COND'}},
+ 'H2605':{no:'UD-2026-0490',decision:'REJECT',action:'Scrap / Remelt',reason:'Elongation below min',status:'HOLD',agg:{Chemistry:'PASS',Mechanical:'FAIL',Surface:'PASS',UT:'PENDING'}}
+};
+function udAggHtml(r){
+  const ud=UDMAP[r.heat];
+  if(!ud)return `<div class="ud-agg-head"><i class="fa-solid fa-gavel"></i> No aggregated usage decision linked — NCR from ${r.src} (${r.ref})</div>`;
+  return `<div class="ud-agg-head"><i class="fa-solid fa-gavel"></i> Aggregated Usage Decision · <b>${ud.no}</b> ${bdg2(ud.decision)}</div>
+    <div class="ud-agg-row"><span class="k">Action</span> ${ud.action} <span class="k">· Reason</span> ${ud.reason} <span class="k">· Material status</span> ${bdg2(ud.status)}</div>
+    <div class="ud-agg-dims">${Object.entries(ud.agg).map(([dim,s])=>`<span class="ud-dim">${dim} ${bdg2(s)}</span>`).join('')}</div>`;
+}
+
+/* ---- suitable dispositions by NC category ---- */
+const SUITABLE={
+ Chemistry:['Resample','Downgrade','Concession accept','Scrap / Remelt'],
+ Mechanical:['Re-HT / Normalize','Re-roll','Resample','Downgrade','Scrap / Remelt'],
+ Dimensional:['Rework (same op)','Reinspect','Downgrade'],
+ Surface:['Rework (same op)','Reinspect','Downgrade','Scrap / Remelt'],
+ NDT:['Reroute','Re-roll','Reinspect','Scrap / Remelt'],
+ Metallurgical:['Concession accept','Re-HT / Normalize','Scrap / Remelt'],
+ Marking:['Rework (same op)','Reinspect','Concession accept'],
+ Documentation:['Reinspect','Concession accept'],
+ Handling:['Reinspect','Rework (same op)','Concession accept']
+};
+function suitableFor(r){ if(r.against==='Supplier')return ['Return to supplier','Reinspect']; return SUITABLE[r.cat]||Object.keys(DISPOS); }
+function dispoOptions(r){
+  const sug=suitableFor(r), sugSet=new Set(sug), other=Object.keys(DISPOS).filter(d=>!sugSet.has(d)), sel=r.dispo||sug[0];
+  const o=v=>`<option ${v===sel?'selected':''}>${v}</option>`;
+  return `<optgroup label="Suggested for ${r.cat}">${sug.map(o).join('')}</optgroup><optgroup label="Other dispositions">${other.map(o).join('')}</optgroup>`;
+}
+function renderSuggest(){
+  const r=NCRS[curDispo]; if(!r)return; const sug=suitableFor(r), cur=document.getElementById('dType').value;
+  const lab=document.getElementById('dSugLabel'); if(lab)lab.textContent=' — suitable for '+r.cat;
+  const el=document.getElementById('dSuggest'); if(el)el.innerHTML=sug.map(d=>`<span class="sug-chip ${d===cur?'on':''}" onclick="pickDispo('${d}')">${d}</span>`).join('');
+}
+function pickDispo(name){document.getElementById('dType').value=name;dispoChange();}
+
+/* source lots for Raise-NCR prefill */
+const LOTS=[
+ {ref:'CHM-H2602-01', src:'Heat Chemistry', heat:'H2602', grade:'IS 2062 E250', uid:'ISWCC1H2602S001', stage:'BOF Steelmaking'},
+ {ref:'INS-C2603-01', src:'Inspection',     heat:'H2603', grade:'SAILMA 350',   uid:'ISWHSM2C2603001', stage:'HSM-2 Finishing'},
+ {ref:'MEC-C2605-01', src:'Testing',        heat:'H2605', grade:'API 5L X60',   uid:'ISWHSM2C2605001', stage:'HSM-2 Finishing'},
+ {ref:'UD-2026-0120', src:'Usage Decision', heat:'H2604', grade:'IS 2062 E250', uid:'ISWHSM2C2604001', stage:'Down Coiler'},
+ {ref:'DEF-2026-0312',src:'Defects',        heat:'H2603', grade:'SAILMA 350',   uid:'ISWHSM2C2603001', stage:'HSM-2 Finishing'}
+];
+
+const NCRS=[
+ {no:'NCR-2026-0188',date:'07-Jul 15:20',src:'Heat Chemistry',ref:'CHM-H2601-01',heat:'H2601',grade:'IS 2062 E250',uid:'ISWCC1H2601S001',stage:'BOF Steelmaking',against:'Internal',cat:'Chemistry',sev:'Major',issue:'S 0.024% above aim 0.020%',dispo:'Resample',target:'',qtyIn:0,qtyOut:0,status:'DISPOSITIONED'},
+ {no:'NCR-2026-0455',date:'07-Jul 16:40',src:'Testing',ref:'MEC-H2602-01',heat:'H2602',grade:'IS 2062 E250',uid:'ISWHSM2C2602001',stage:'HSM-2 Finishing',against:'Operation',cat:'Mechanical',sev:'Critical',issue:'Impact 22J below spec min 27J at 0°C',dispo:'Re-HT / Normalize',target:'HSM-2 Reheating',qtyIn:25.9,qtyOut:25.4,status:'ACTIONED'},
+ {no:'NCR-2026-0471',date:'07-Jul 17:05',src:'Inspection',ref:'INS-C2603-01',heat:'H2603',grade:'SAILMA 350',uid:'ISWHSM2C2603001',stage:'HSM-2 Finishing',against:'Operation',cat:'Surface',sev:'Major',issue:'Rolled-in scale >0.3 mm at 1.2 m',dispo:'Rework (same op)',target:'',qtyIn:24.6,qtyOut:24.1,status:'DISPOSITIONED'},
+ {no:'NCR-2026-0462',date:'07-Jul 16:10',src:'Inspection',ref:'INS-C2604-01',heat:'H2604',grade:'IS 2062 E250',uid:'ISWHSM2C2604001',stage:'Down Coiler',against:'Operation',cat:'Dimensional',sev:'Minor',issue:'Thickness 2.44 below tol 2.45–2.55 mm',dispo:'Rework (same op)',target:'',qtyIn:25.2,qtyOut:25.0,status:'CLOSED'},
+ {no:'NCR-2026-0480',date:'07-Jul 15:50',src:'Testing',ref:'MEC-C2601-01',heat:'H2601',grade:'IS 2062 E250',uid:'ISWHSM2C2601001',stage:'HSM-2 Finishing',against:'Internal',cat:'Mechanical',sev:'Major',issue:'YS 248 MPa marginally below E250 min 250',dispo:'Downgrade',target:'IS 2062 E200',qtyIn:25.9,qtyOut:25.9,status:'UNDER REVIEW'},
+ {no:'NCR-2026-0466',date:'07-Jul 18:20',src:'Testing',ref:'UT-C2605-01',heat:'H2605',grade:'API 5L X60',uid:'ISWHSM2C2605001',stage:'HSM-2 Finishing',against:'Internal',cat:'NDT',sev:'Major',issue:'UT lamination indication exceeds acceptance class',dispo:'Reroute',target:'HSM-2 Finishing',qtyIn:25.0,qtyOut:24.6,status:'DISPOSITIONED'},
+ {no:'NCR-2026-0205',date:'07-Jul 14:15',src:'RM Quality',ref:'RMA-FEMN-0205',heat:'EXT-FEMN-77',grade:'Fe-Mn (HC)',uid:'—',stage:'RM Inward',against:'Supplier',cat:'Chemistry',sev:'Major',issue:'Ferro-manganese lot Mn 74.2% below 76% min',dispo:'Return to supplier',target:'',qtyIn:30.0,qtyOut:0,status:'ACTIONED'},
+ {no:'NCR-2026-0452',date:'07-Jul 16:30',src:'Testing',ref:'MET-H2606-01',heat:'H2606',grade:'IS 2062 E250',uid:'ISWCC1H2606S001',stage:'CCM Casting',against:'Internal',cat:'Metallurgical',sev:'Minor',issue:'Macro: faint centreline segregation, within accept',dispo:'Concession accept',target:'',qtyIn:0,qtyOut:0,status:'CLOSED'},
+ {no:'NCR-2026-0490',date:'07-Jul 18:50',src:'Testing',ref:'MEC-C2605-02',heat:'H2605',grade:'API 5L X60',uid:'ISWHSM2C2605001',stage:'HSM-2 Finishing',against:'Internal',cat:'Mechanical',sev:'Major',issue:'Elongation 20% below min 22%',dispo:'',target:'',qtyIn:0,qtyOut:0,status:'OPEN'}
+];
+
+const CAPAS={
+ 'NCR-2026-0188':[{type:'CORRECTION',text:'Re-draw & re-analyse BOF turndown sample',resp:'MS Central Lab',due:'07-Jul',status:'VERIFIED'}],
+ 'NCR-2026-0455':[
+   {type:'CORRECTION',text:'Re-normalize coil per HSM-2 recipe',resp:'HSM-2',due:'08-Jul',status:'VERIFIED'},
+   {type:'CORRECTIVE',text:'Verify RHF zone-2 thermocouple calibration',resp:'Maintenance',due:'09-Jul',status:'DONE'},
+   {type:'PREVENTIVE',text:'Add soak-time interlock to RHF recipe',resp:'Process Engg',due:'12-Jul',status:'OPEN'}],
+ 'NCR-2026-0462':[{type:'CORRECTION',text:'Re-pass through finishing stands to gauge',resp:'HSM-2',due:'07-Jul',status:'VERIFIED'}],
+ 'NCR-2026-0480':[{type:'CORRECTIVE',text:'Review LHF micro-alloying practice with melt shop',resp:'SMS-2 Melt Shop',due:'10-Jul',status:'OPEN'}],
+ 'NCR-2026-0205':[
+   {type:'CORRECTION',text:'Quarantine & return ferro-alloy lot to supplier',resp:'Stores',due:'07-Jul',status:'VERIFIED'},
+   {type:'CORRECTIVE',text:'Raise SCAR; await supplier 8D report',resp:'SQA',due:'14-Jul',status:'OPEN'}]
+};
+
+const COLS=[
+ {k:'no',label:'NCR No',cls:'mono'},{k:'date',label:'Date'},{k:'src',label:'Source'},{k:'ref',label:'Ref',cls:'mono'},
+ {k:'heat',label:'Heat No',cls:'mono'},{k:'grade',label:'Grade'},{k:'uid',label:'Coil / Slab',cls:'mono'},{k:'stage',label:'Stage'},
+ {k:'against',label:'Against'},{k:'sev',label:'Severity',sev:true},{k:'issue',label:'Non-conformance'},
+ {k:'dispo',label:'Disposition',dispo:true},{k:'target',label:'Target'},
+ {k:'lossMt',label:'Loss(MT)',cls:'num',calc:'lossMt'},{k:'lossPct',label:'Loss%',cls:'num',calc:'lossPct'},
+ {k:'capa',label:'CAPA',cls:'num',capa:true},{k:'status',label:'Status',badge:true},{k:'actions',label:'',actions:true}
+];
+let sortKey=null,sortDir=1,curDispo=null,curCapa=null;
+
+function lossMt(r){return Math.max(0,(r.qtyIn||0)-(r.qtyOut||0));}
+function lossPct(r){return r.qtyIn?((lossMt(r)/r.qtyIn)*100):0;}
+function capaCount(no){const a=CAPAS[no]||[];return {v:a.filter(x=>x.status==='VERIFIED').length,t:a.length};}
+function fill(sel,arr){const el=document.getElementById(sel);el.insertAdjacentHTML('beforeend',arr.map(o=>`<option>${o}</option>`).join(''));}
+
+function cell(c,r,i){
+  if(c.actions) return `<button class="btn-icon" title="Disposition / Salvage" onclick="openDispo(${i})"><i class="fa-solid fa-screwdriver-wrench"></i></button>`+
+                       `<button class="btn-icon" title="CAPA" onclick="openCapa(${i})"><i class="fa-solid fa-list-check"></i></button>`+
+                       `<button class="btn-icon" title="View" onclick="openViewEl(this)"><i class="fa-solid fa-eye"></i></button>`;
+  if(c.sev)   return `<span class="badge ${SEVB[r.sev]}">${r.sev}</span>`;
+  if(c.badge) return `<span class="badge ${STB[r.status]}">${r.status}</span>`;
+  if(c.dispo) return r.dispo?`<span class="badge ${DISPOS[r.dispo]?.flag||'b-draft'}">${r.dispo}</span>`:'—';
+  if(c.capa){const cc=capaCount(r.no);return cc.t?`${cc.v}/${cc.t}`:'—';}
+  if(c.calc==='lossMt'){return r.dispo?lossMt(r).toFixed(3):'—';}
+  if(c.calc==='lossPct'){return r.dispo?lossPct(r).toFixed(1):'—';}
+  let v=r[c.k]; if(v===''||v==null)v='—'; return v;
+}
+function cmp(a,b){return (''+(a??'')).localeCompare(''+(b??''),undefined,{numeric:true,sensitivity:'base'});}
+function sortVal(r,c){if(c.calc==='lossMt')return lossMt(r);if(c.calc==='lossPct')return lossPct(r);if(c.capa)return capaCount(r.no).t;return r[c.k];}
+function passes(r){
+  const q=(document.getElementById('search').value||'').toLowerCase();
+  const fs=document.getElementById('fStatus').value,fv=document.getElementById('fSev').value,
+        fd=document.getElementById('fDispo').value,fa=document.getElementById('fAgainst').value;
+  if(q&&!(r.no+' '+r.heat+' '+r.uid+' '+r.grade+' '+r.ref+' '+r.issue).toLowerCase().includes(q))return false;
+  if(fs&&r.status!==fs)return false; if(fv&&r.sev!==fv)return false;
+  if(fd&&r.dispo!==fd)return false; if(fa&&r.against!==fa)return false;
+  return true;
+}
+function buildHead(){
+  document.getElementById('thead').innerHTML='<tr>'+COLS.map(c=>{
+    if(c.actions)return '<th class="col-actions"></th>';
+    const car=sortKey===c.k?`<span class="car on">${sortDir>0?'▲':'▼'}</span>`:'<span class="car">⇅</span>';
+    return `<th class="${c.cls==='num'?'num':''}" onclick="sortBy('${c.k}')">${c.label} ${car}</th>`;
+  }).join('')+'</tr>';
+}
+function sortBy(k){ if(sortKey===k){ if(sortDir>0)sortDir=-1; else {sortKey=null;sortDir=1;} } else {sortKey=k;sortDir=1;} buildHead(); render(); }
+function render(){
+  let rows=NCRS.map((r,i)=>({r,i})).filter(x=>passes(x.r));
+  if(sortKey){const c=COLS.find(x=>x.k===sortKey);rows.sort((a,b)=>cmp(sortVal(a.r,c),sortVal(b.r,c))*sortDir);}
+  const tb=document.getElementById('tbody');
+  if(!rows.length){tb.innerHTML=`<tr class="empty"><td colspan="${COLS.length}">No NCRs match the filters.</td></tr>`;}
+  else tb.innerHTML=rows.map(({r,i})=>`<tr>${COLS.map(c=>`<td class="${c.cls||''}${c.actions?' actions':''}" ${c.k==='issue'?`title="${r.issue}"`:''}>${cell(c,r,i)}</td>`).join('')}</tr>`).join('');
+  document.getElementById('rowCount').textContent=`${rows.length} of ${NCRS.length} NCRs`;
+  const openN=NCRS.filter(r=>r.status==='OPEN'||r.status==='UNDER REVIEW').length;
+  const loss=NCRS.reduce((s,r)=>s+(r.dispo?lossMt(r):0),0);
+  document.getElementById('meta').textContent=`${openN} open · ${loss.toFixed(2)} MT loss`;
+}
+
+/* ===== Raise NCR ===== */
+function openRaise(){
+  document.getElementById('rSrc').innerHTML=LOTS.map((l,i)=>`<option value="${i}">${l.uid||l.heat} · Heat ${l.heat} · ${l.src}${l.ref?' ('+l.ref+')':''}</option>`).join('');
+  document.getElementById('rAgainst').innerHTML=AGAINST.map(a=>`<option>${a}</option>`).join('');
+  document.getElementById('rCat').innerHTML=CATEGORIES.map(a=>`<option>${a}</option>`).join('');
+  document.getElementById('rSev').innerHTML=SEVERITIES.map(a=>`<option ${a==='Major'?'selected':''}>${a}</option>`).join('');
+  document.getElementById('rTitle').value=''; document.getElementById('rDesc').value=''; srcChange();
+  document.getElementById('raiseOverlay').classList.add('open');
+}
+function srcChange(){
+  const l=LOTS[+document.getElementById('rSrc').value]||{};
+  const el=document.getElementById('rCoilMap'); if(!el)return;
+  if(l.uid){ el.style.display='block'; el.innerHTML='<i class="fa-solid fa-link"></i> Mapped to coil / material <b>'+l.uid+'</b> · Heat '+(l.heat||'—')+' · '+(l.grade||'—')+(l.stage?(' · '+l.stage):''); }
+  else{ el.style.display='none'; }
+}
+function closeRaise(){document.getElementById('raiseOverlay').classList.remove('open');}
+function saveRaise(){
+  const l=LOTS[+document.getElementById('rSrc').value];
+  const n=490+NCRS.length;
+  NCRS.unshift({no:'NCR-2026-0'+n,date:'07-Jul 19:10',src:l.src,ref:l.ref,heat:l.heat,grade:l.grade,uid:l.uid,stage:l.stage,
+    against:document.getElementById('rAgainst').value,cat:document.getElementById('rCat').value,sev:document.getElementById('rSev').value,
+    issue:document.getElementById('rTitle').value||'(non-conformance)',dispo:'',target:'',qtyIn:0,qtyOut:0,status:'OPEN'});
+  closeRaise(); render();
+  MESShell.toast('NCR '+('NCR-2026-0'+n)+' raised for heat '+l.heat, 'success');
+}
+
+/* ---- downgrade grade hierarchy + MES alternate-SO matcher (data-driven from the order book) ---- */
+const DG_MAP={
+ 'API 5L X60'  :['IS 2062 E350','IS 2062 E250'],
+ 'SAILMA 350'  :['IS 2062 E350','IS 2062 E250'],
+ 'IS 2062 E350':['IS 2062 E250'],
+ 'IS 2062 E250':['IS 2062 E200','Commercial CQ'],
+ 'DC01'        :['CQ (commercial)']
+};
+const fmtN=n=>(''+n).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+const numOf=v=>parseFloat(String(v))||0;
+function downTargets(grade){ return DG_MAP[grade]||['Commercial CQ']; }
+function coilDims(uid){ const inv=D.hsmInv||[]; const m=inv.find(s=>uid&&uid.indexOf(s.coilRef)>=0); return m?{thk:m.gauge,width:m.width}:{thk:null,width:null}; }
+function suggestAltSO(toGrade,dims){
+  return (D.orders||[]).filter(o=>/HRC|coil/i.test(o.material)&&o.grade===toGrade).map(o=>{
+    const ot=numOf(o.thickness),ow=numOf(o.width);
+    const exact=dims.thk!=null&&Math.abs(ot-dims.thk)<0.01&&ow===dims.width;
+    return Object.assign({},o,{_exact:exact,_score:(dims.thk!=null?Math.abs(ot-dims.thk):0)+(ow===dims.width?0:5)});
+  }).sort((a,b)=>a._score-b._score);
+}
+function renderAltSO(){
+  const box=document.getElementById('dAltSo'); if(!box)return;
+  const r=NCRS[curDispo]; if(!r)return;
+  const toGrade=document.getElementById('dDown').value, dims=coilDims(r.uid);
+  const best=suggestAltSO(toGrade,dims)[0];
+  if(best){
+    const dimStr=dims.thk!=null?dims.thk.toFixed(2)+' × '+dims.width+' mm':'—';
+    box.innerHTML=`<div class="aso-h"><i class="fa-solid fa-lightbulb"></i> MES-suggested alternate sales order <span class="badge ${best._exact?'b-done':'b-info'}">${best._exact?'Exact match':'Closest match'}</span></div>
+      <div class="aso-row"><b>${best.no}</b> · Line ${best.line} · grade <b>${best.grade}</b></div>
+      <div class="aso-row">${best.customer} · ${fmtN(best.qty)} ${best.uom} open · ${best.thickness} × ${best.width} · del ${best.delivery}</div>
+      <div class="aso-row" style="margin-top:6px;color:var(--color-text-muted)">Coil <b>${r.uid}</b> (${dimStr}) re-classified <b>${r.grade}</b> → <b>${toGrade}</b> and re-booked against this order — a <b>BatchOrderAllocation</b> is recorded and SAP-QM notified.</div>`;
+  } else {
+    box.innerHTML=`<div class="aso-h"><i class="fa-solid fa-circle-info"></i> No open order requires ${toGrade}</div>
+      <div class="aso-row">MES found no open sales order for <b>${toGrade}</b>${dims.thk!=null?' at '+dims.thk.toFixed(2)+' × '+dims.width+' mm':''}. Coil routes to <b>secondary / spot stock</b> for manual allocation.</div>`;
+  }
+}
+
+/* ===== Disposition / Salvage ===== */
+function openDispo(i){
+  curDispo=i; const r=NCRS[i];
+  document.getElementById('dispoCtx').innerHTML=
+    `<span class="chip">NCR <b>${r.no}</b></span><span class="chip">Heat <b>${r.heat}</b></span><span class="chip">Grade <b>${r.grade}</b></span>`+
+    `<span class="chip">Stage <b>${r.stage}</b></span><span class="chip">Sev <b>${r.sev}</b></span><span class="chip">${r.issue}</span>`;
+  document.getElementById('dType').innerHTML=dispoOptions(r);
+  const da=document.getElementById('dUdAgg'); da.className='ud-agg'+(UDMAP[r.heat]?'':' muted'); da.innerHTML=udAggHtml(r);
+  document.getElementById('dTarget').innerHTML=OPERATIONS.map(o=>`<option ${o===r.target?'selected':''}>${o}</option>`).join('');
+  document.getElementById('dDown').value=(DISPOS[r.dispo]&&DISPOS[r.dispo].down)?r.target:'';
+  document.getElementById('dIn').value=r.qtyIn||''; document.getElementById('dOut').value=r.qtyOut||'';
+  document.getElementById('dRemarks').value='';
+  dispoChange();
+  document.getElementById('dispoOverlay').classList.add('open');
+}
+function dispoChange(){
+  const d=DISPOS[document.getElementById('dType').value];
+  document.getElementById('dTargetFld').classList.toggle('hide',!d.target);
+  document.getElementById('dDownFld').classList.toggle('hide',!d.down);
+  document.getElementById('dAltSoFld').classList.toggle('hide',!d.down);
+  if(d.down){
+    const r=NCRS[curDispo], targets=downTargets(r.grade);
+    const want=(r.dispo==='Downgrade'&&r.target&&targets.indexOf(r.target)>=0)?r.target:targets[0];
+    document.getElementById('dDown').innerHTML=targets.map(g=>`<option ${g===want?'selected':''}>${g}</option>`).join('');
+    renderAltSO();
+  }
+  document.getElementById('dRoute').innerHTML='<i class="fa-solid fa-route"></i> '+ROUTEMSG[d.routes];
+  renderSuggest();
+  calcLoss();
+}
+function calcLoss(){
+  const d=DISPOS[document.getElementById('dType').value];
+  const qi=+document.getElementById('dIn').value||0, qo=+document.getElementById('dOut').value||0;
+  const loss=Math.max(0,qi-qo), pct=qi?loss/qi*100:0;
+  document.getElementById('dLossMt').textContent=loss.toFixed(3);
+  document.getElementById('dLossPct').textContent=pct.toFixed(1);
+  document.getElementById('dLossPct').classList.toggle('danger',pct>=10);
+  document.getElementById('dLossMt').classList.toggle('danger',pct>=10);
+  let outcome='—';
+  if(d.terminal&&d.routes==='Supplier')outcome='RETURNED'; else if(d.terminal)outcome='SCRAPPED';
+  else if(qi&&loss===0)outcome='RECOVERED'; else if(loss>0)outcome='PARTIAL'; else if(d.routes!=='None')outcome='RECOVERED';
+  else outcome='ACCEPTED';
+  document.getElementById('dOutcome').textContent=outcome;
+}
+function closeDispo(){document.getElementById('dispoOverlay').classList.remove('open');}
+function saveDispo(){
+  const r=NCRS[curDispo], dt=document.getElementById('dType').value, d=DISPOS[dt];
+  r.dispo=dt;
+  r.target=d.target?document.getElementById('dTarget').value:(d.down?document.getElementById('dDown').value:'');
+  r.qtyIn=+document.getElementById('dIn').value||0; r.qtyOut=+document.getElementById('dOut').value||0;
+  if(r.status==='OPEN'||r.status==='UNDER REVIEW')r.status='DISPOSITIONED';
+  closeDispo(); render();
+  if(dt==='Downgrade'){
+    const best=suggestAltSO(r.target,coilDims(r.uid))[0];
+    MESShell.toast('Downgrade to '+r.target+' recorded'+(best?' — MES re-allocated '+r.uid+' to '+best.no+' ('+best.customer+')':' — coil routed to secondary stock')+'; SAP-QM updated','success');
+  } else {
+    MESShell.toast('Disposition applied to '+r.no+' — '+dt, 'success');
+  }
+}
+
+/* ===== CAPA ===== */
+function openCapa(i){curCapa=i; const r=NCRS[i]; if(!CAPAS[r.no])CAPAS[r.no]=[];
+  document.getElementById('capaTitle').textContent='CAPA — '+r.no;
+  document.getElementById('capaWarn').style.display='none';
+  renderCapa(); document.getElementById('capaOverlay').classList.add('open');}
+function renderCapa(){
+  const r=NCRS[curCapa], list=CAPAS[r.no]||[], cc=capaCount(r.no);
+  const body=`<div class="prep-ctx"><span class="chip">NCR <b>${r.no}</b></span><span class="chip">Heat <b>${r.heat}</b></span><span class="chip">${r.issue}</span></div>`+
+    `<div class="prog"><b>${cc.v}/${cc.t}</b> actions verified</div>`+
+    (list.length?`<ul class="steps">${list.map((a,ai)=>`
+      <li class="${a.status==='VERIFIED'?'done':''}">
+        <input type="checkbox" ${a.status==='VERIFIED'?'checked':''} onchange="toggleCapa(${ai},this.checked)"/>
+        <span class="txt"><span class="captype ct-${a.type.toLowerCase()}">${a.type}</span><b>${a.text}</b>
+          <span class="meta-row">Owner: ${a.resp} · Due: ${a.due} · Status: ${a.status}</span></span>
+      </li>`).join('')}</ul>`:`<div class="note-band">No CAPA actions yet — add a correction / corrective / preventive action.</div>`)+
+    `<div class="note-band"><i class="fa-solid fa-circle-info"></i> All actions must be <b>verified</b> before the NCR can be closed.</div>`;
+  document.getElementById('capaBody').innerHTML=body;
+}
+function toggleCapa(ai,on){const r=NCRS[curCapa];CAPAS[r.no][ai].status=on?'VERIFIED':'OPEN';
+  if(r.status==='DISPOSITIONED')r.status='ACTIONED'; renderCapa(); render();}
+function addCapa(){const r=NCRS[curCapa]; if(curCapa==null)return; (CAPAS[r.no]=CAPAS[r.no]||[]).push({type:'CORRECTIVE',text:'(new action — describe)',resp:'—',due:'—',status:'OPEN'});
+  if(r.status==='DISPOSITIONED')r.status='ACTIONED'; renderCapa(); render();}
+function closeNcr(){const r=NCRS[curCapa]; const cc=capaCount(r.no);
+  if(cc.t===0||cc.v<cc.t){document.getElementById('capaWarn').style.display='block';return;}
+  r.status='CLOSED'; closeCapa(); render(); MESShell.toast('NCR '+r.no+' closed — all CAPA actions verified', 'success');}
+function closeCapa(){document.getElementById('capaOverlay').classList.remove('open');}
+
+/* ===== View record ===== */
+function openViewEl(btn){
+  const tr=btn.closest('tr'); if(!tr)return;
+  const tbl=tr.closest('table'), ths=tbl?tbl.querySelectorAll('thead tr:first-child th'):[];
+  const labs=[].map.call(ths,function(th){return th.textContent.replace(/[▲▼⇅]/g,'').trim();});
+  const tds=tr.children; let out='';
+  for(let k=0;k<tds.length;k++){ if(tds[k].classList.contains('actions'))continue; const lab=labs[k]||''; if(!lab)continue;
+    out+='<div class="vrow"><span class="vk">'+lab+'</span><span class="vv">'+tds[k].innerHTML+'</span></div>'; }
+  document.getElementById('viewBody').innerHTML=out;
+  document.getElementById('viewOv').classList.add('open');
+}
+
+/* ===== Downgrade coil (grade re-classification + alternate-SO re-assignment) ===== */
+function chipEl(k,v){ return h('span',{class:'chip'},[k+' ', h('b',{},[v])]); }
+function openDowngrade(){
+  const DG_ALT={
+    'IS 2062 E200'  : {so:'SO-2026-04412', line:'20', customer:'Meridian Pipe Ltd. — Nashik',  grade:'IS 2062 E200', qty:'3,000 MT', dim:'2.50 × 1250 mm'},
+    'SAILMA 300'    : {so:'SO-2026-04390', line:'10', customer:'Vulcan Forge — Pune',         grade:'SAILMA 300',   qty:'1,800 MT', dim:'2.50 × 1250 mm'},
+    'Commercial CQ' : {so:'SO-2026-04455', line:'10', customer:'Regional Trade — Raigad',     grade:'Commercial CQ', qty:'Open stock', dim:'2.50 × 1250 mm'}
+  };
+  const grades=Object.keys(DG_ALT);
+  const sel=h('select',{ onchange:renderAlt }, grades.map(g=>h('option',{value:g},[g])));
+  const altBox=h('div',{class:'alt-so'});
+  function renderAlt(){
+    const a=DG_ALT[sel.value];
+    altBox.innerHTML=`<div class="aso-h"><i class="fa-solid fa-lightbulb"></i> Suggested alternate sales order</div>
+      <div class="aso-row"><b>${a.so}</b> · Line ${a.line} · grade <b>${a.grade}</b></div>
+      <div class="aso-row">${a.customer} · ${a.qty} · ${a.dim}</div>
+      <div class="aso-row" style="margin-top:6px;color:var(--color-text-muted)">Coil <b>ISWHSM2C2601001</b> (25.9 MT) will be re-assigned from SO-2026-04471 to this order.</div>`;
+  }
+  renderAlt();
+  const modal=MESC.modal({
+    title:'Downgrade coil — ISWHSM2C2601001 (C2601)', icon:'fa-arrow-down-wide-short', size:'lg',
+    body:[
+      h('div',{class:'prep-ctx'},[
+        chipEl('Coil','ISWHSM2C2601001'), chipEl('Ref','C2601'),
+        chipEl('Current grade','IS 2062 E250'), chipEl('Weight','25.9 MT'),
+        chipEl('Current order','SO-2026-04471 · L&T')
+      ]),
+      h('div',{class:'field'},[ h('label',{},['Downgrade to grade']), sel ]),
+      altBox,
+      h('div',{class:'hint mt-8'},['Downgrade re-classifies the coil to the selected grade and re-books it against a matching open order. A quality note is posted to SAP-QM.'])
+    ],
+    footer:[
+      h('button',{class:'btn btn-ghost',onclick:()=>modal.close()},['Cancel']),
+      h('button',{class:'btn btn-primary',onclick:()=>{
+        const rec=NCRS.find(x=>x.uid==='ISWHSM2C2601001');
+        if(rec){ rec.dispo='Downgrade'; rec.target=sel.value; rec.grade='IS 2062 E250 → '+sel.value;
+          if(rec.status==='OPEN'||rec.status==='UNDER REVIEW')rec.status='DISPOSITIONED'; render(); }
+        modal.close();
+        MESShell.toast('Downgrade recorded; batch re-assigned; SAP-QM update triggered', 'success');
+      }},[MESC.icon('fa-check'),'Confirm downgrade'])
+    ]
+  });
+}
+
+/* ===== FG Recall (pull dispatched coils back for re-inspection) ===== */
+function openRecall(){
+  const RECALL_COILS=[
+   {id:'ISWHSM2C2601001', ref:'C2601', heat:'H2601', grade:'IS 2062 E250', wt:'25.9 MT', loc:'CYMS · Bay C-12', st:'Dispatched · Rake RK-2609'},
+   {id:'ISWHSM2C2602001', ref:'C2602', heat:'H2602', grade:'IS 2062 E250', wt:'25.4 MT', loc:'CYMS · Bay C-12', st:'Dispatched · Rake RK-2609'},
+   {id:'ISWHSM2C2603001', ref:'C2603', heat:'H2603', grade:'SAILMA 350',   wt:'24.6 MT', loc:'Dispatch · gate-out', st:'Loaded'},
+   {id:'ISWHSM2C2604001', ref:'C2604', heat:'H2604', grade:'IS 2062 E250', wt:'25.2 MT', loc:'CYMS · Bay C-09', st:'Allocated'},
+   {id:'ISWHSM2C2605001', ref:'C2605', heat:'H2605', grade:'API 5L X60',   wt:'25.0 MT', loc:'Dispatch · gate-out', st:'Loaded'}
+  ];
+  const REASONS=['Chemistry deviation found post-dispatch','Mechanical retest failure','Surface defect — customer complaint','Traceability / mixed-heat suspicion','Mill Test Certificate discrepancy'];
+  const reasonSel=h('select',{}, REASONS.map(x=>h('option',{},[x])));
+  const list=h('ul',{class:'steps'}, RECALL_COILS.map(c=>h('li',{},[
+    h('input',{type:'checkbox', checked:'checked', 'data-id':c.id}),
+    h('span',{class:'txt'},[ h('b',{},[c.id]), ' · '+c.ref+' · '+c.grade,
+      h('span',{class:'meta-row'},['Heat '+c.heat+' · '+c.wt+' · '+c.loc+' · '+c.st]) ])
+  ])));
+  const modal=MESC.modal({
+    title:'FG Recall — dispatched coils', icon:'fa-truck-arrow-right', size:'lg',
+    body:[
+      h('div',{class:'hint mb-8'},['Recall dispatched coils from CYMS / dispatch for re-inspection. Selected coils are flagged and quarantined on return.']),
+      h('div',{class:'field'},[ h('label',{},['Recall reason']), reasonSel ]),
+      h('div',{class:'section-title'},[MESC.icon('fa-list-check'),'Affected coils']),
+      list
+    ],
+    footer:[
+      h('button',{class:'btn btn-ghost',onclick:()=>modal.close()},['Cancel']),
+      h('button',{class:'btn btn-danger',onclick:()=>{
+        const n=list.querySelectorAll('input[type=checkbox]:checked').length;
+        modal.close();
+        MESShell.toast('Recall initiated for '+n+' coil(s); CYMS/dispatch notified; SAP FG Recall message triggered', 'danger');
+      }},[MESC.icon('fa-triangle-exclamation'),'Initiate recall'])
+    ]
+  });
+}
+
+/* ===== init ===== */
+fill('fStatus',STATUSES); fill('fSev',SEVERITIES); fill('fDispo',Object.keys(DISPOS)); fill('fAgainst',AGAINST);
+buildHead(); render();
+
+actions.appendChild(h('button',{class:'btn btn-primary btn-sm',onclick:openRaise},[MESC.icon('fa-plus'),'Raise NCR']));
+actions.appendChild(h('button',{class:'btn btn-outline btn-sm',onclick:openDowngrade},[MESC.icon('fa-arrow-down-wide-short'),'Downgrade coil']));
+actions.appendChild(h('button',{class:'btn btn-ghost btn-sm',onclick:openRecall},[MESC.icon('fa-truck-arrow-right'),'FG Recall']));
+
+/* ===== deep-link handoff: the Inspection & Usage-Decision screens link straight into the Raise-NCR entry ===== */
+function heatFromUid(u){ const m=String(u||'').match(/[HC](\d{4})/); return m?'H'+m[1]:''; }
+function ensureLot(ctx){                                  // map the exact coil id into the source list (inject if new)
+  if(!ctx||!ctx.uid) return -1;
+  let i=LOTS.findIndex(l=>l.uid===ctx.uid);
+  if(i>=0) return i;
+  LOTS.unshift({ ref:ctx.ref||('QC-'+String(ctx.uid).slice(-6)), src:ctx.src||'Inspection',
+    heat:ctx.heat||heatFromUid(ctx.uid), grade:ctx.grade||'', uid:ctx.uid, stage:ctx.stage||'' });
+  return 0;
+}
+function openRaiseFor(ctx){
+  let i=ensureLot(ctx);
+  if(i<0&&ctx&&ctx.src) i=LOTS.findIndex(l=>l.src===ctx.src);
+  openRaise();                                            // re-render #rSrc from LOTS (now includes the mapped coil)
+  const sel=document.getElementById('rSrc'); if(sel&&i>=0) sel.value=String(i);
+  srcChange();
+}
+function checkRaiseHandoff(){
+  try{
+    const raw=sessionStorage.getItem('mes_raise_ncr'); if(!raw)return;
+    const ctx=JSON.parse(raw)||{};
+    sessionStorage.removeItem('mes_raise_ncr');
+    if(ctx.t&&(Date.now()-ctx.t)>15000)return;   // ignore a stale handoff
+    openRaiseFor(ctx);
+  }catch(e){}
+}
+checkRaiseHandoff();                                   // fresh load (tab opened by the link)
+window.addEventListener('mes:activated',checkRaiseHandoff);  // link clicked while this tab was already open
+window.addEventListener('pageshow',checkRaiseHandoff);
+</script>
+</body>
+</html>

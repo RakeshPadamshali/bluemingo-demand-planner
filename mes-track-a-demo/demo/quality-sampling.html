@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sampling — Bluemingo MES</title>
+<link href="assets/vendor/roboto/roboto.css" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/mes-styles.css">
+<style>
+  /* Sampling — screen-specific styles (re-homed from the QA Quality module under the demo shell) */
+
+  /* status badge colours (body uses these) */
+  .b-plan{background:rgba(158,158,158,.16);color:#757575;}
+  .b-info{background:rgba(33,150,243,.12);color:#1565c0;}
+  .b-pend{background:rgba(245,124,0,.14);color:#e65100;}
+  .b-done{background:rgba(56,142,60,.12);color:#2e7d32;}
+  .b-hold{background:rgba(211,47,47,.12);color:#c62828;}
+  .b-clr{background:rgba(103,58,183,.12);color:#5e35b1;}
+
+  /* layout */
+  .samp-top{display:flex;flex-direction:column;gap:12px;height:calc(100vh - 152px);min-height:440px;}
+
+  /* per-heat sample-plan strip */
+  .plan-strip{display:flex;align-items:center;flex-wrap:wrap;gap:8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:9px 12px;}
+  .plan-strip .pl-title{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--color-text-muted);font-weight:600;}
+  .plan-strip .pl-heat{font-weight:600;font-variant-numeric:tabular-nums;}
+  .plan-strip .pl-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:var(--color-bg-alt);border:1px solid var(--color-border-light);border-radius:var(--radius-pill);padding:3px 10px;cursor:pointer;}
+  .plan-strip .pl-chip:hover{border-color:var(--color-primary);background:var(--color-primary-light);}
+  .plan-strip .pl-chip b{font-variant-numeric:tabular-nums;color:var(--color-primary-dark);}
+  .plan-strip .pl-total{margin-left:auto;font-size:12px;color:var(--color-text-muted);}
+  .plan-strip .pl-total b{color:var(--color-text-primary);font-size:14px;}
+
+  /* filter bar */
+  .filterbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+  .filterbar .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--color-text-muted);font-weight:600;}
+  .fsearch{position:relative;}
+  .fsearch i{position:absolute;left:10px;top:9px;color:var(--color-text-hint);font-size:11px;}
+  .fsearch input{width:230px;padding:7px 10px 7px 28px;border:1px solid #ddd;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;}
+  .filterbar select{padding:7px 10px;border:1px solid #ddd;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;background:#fff;}
+  .filterbar input:focus,.filterbar select:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 2px rgba(var(--color-primary-rgb),.15);}
+  .filterbar .meta{margin-left:auto;font-size:12px;color:var(--color-text-muted);}
+
+  /* card + table */
+  .card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);display:flex;flex-direction:column;min-height:0;overflow:hidden;flex:1;}
+  .tbl-wrap{overflow:auto;flex:1;min-height:0;}
+  table.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+  .tbl thead th{position:sticky;top:0;background:#f0f4f7;z-index:2;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;color:var(--color-text-muted);padding:9px 10px;white-space:nowrap;border-bottom:1px solid var(--color-border);cursor:pointer;user-select:none;}
+  .tbl thead th.num{text-align:right;}
+  .tbl thead th .car{font-size:9px;color:#bbb;margin-left:3px;}
+  .tbl thead th .car.on{color:var(--color-primary);}
+  .tbl tbody td{padding:6px 10px;border-bottom:1px solid #f3f3f3;white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis;}
+  .tbl tbody tr:nth-child(even) td{background:#fafbfc;}
+  .tbl tbody tr:hover td{background:#eef7fc;}
+  .tbl td.mono,.tbl th.mono{font-variant-numeric:tabular-nums;}
+  .tbl td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .tbl td.actions{text-align:right;}
+  .tbl td.actions .btn-icon{margin-left:4px;}
+  .tbl th.col-actions,.tbl td.actions{position:sticky;right:0;background:#fff;z-index:3;box-shadow:-7px 0 8px -8px rgba(0,0,0,.18);}
+  .tbl tbody tr:nth-child(even) td.actions{background:#fafbfc;}
+  .tbl tbody tr:hover td.actions{background:#eef7fc;}
+  .empty td{text-align:center;font-style:italic;color:var(--color-text-hint);padding:24px;background:#fff!important;}
+  .pager{display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--color-border-light);font-size:12px;color:var(--color-text-muted);}
+
+  /* small icon button (table row actions) */
+  .btn-icon{width:28px;height:28px;padding:0;display:inline-grid;place-items:center;border:1px solid transparent;border-radius:var(--radius-sm);background:rgba(var(--color-primary-rgb),.1);color:var(--color-primary);font-size:12px;cursor:pointer;}
+  .btn-icon:hover{background:var(--color-primary);color:#fff;}
+
+  /* modal content (rendered inside MESC.modal) */
+  .mgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;}
+  .fld label{display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:4px;}
+  .fld input,.fld select{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;}
+  .fld input:focus,.fld select:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px rgba(var(--color-primary-rgb),.15);}
+  .fld.full{grid-column:1/-1;}
+  .barcode{grid-column:1/-1;background:var(--color-bg-alt);border:1px dashed var(--color-border);border-radius:var(--radius-sm);padding:10px 12px;display:flex;align-items:center;gap:10px;font-size:12px;}
+  .barcode .code{font-family:'Roboto Mono','Consolas',monospace;font-weight:600;letter-spacing:1px;font-size:14px;}
+  .testlist{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 16px;max-height:150px;overflow:auto;border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:10px 12px;background:var(--color-bg-alt);}
+  .testchk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);white-space:nowrap;}
+  .testchk input{width:auto;}
+  .srctag{display:inline-block;padding:0 6px;border-radius:9px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-left:2px;}
+  .srctag.t-tdc{background:rgba(37,169,224,.14);color:#1E8FBF;}
+  .srctag.t-rule{background:rgba(56,142,60,.14);color:#388e3c;}
+  .t-edit{display:inline-block;margin-left:6px;padding:0 6px;border-radius:9px;font-size:10px;font-weight:700;background:rgba(245,124,0,.14);color:#ef6c00;}
+
+  /* prep checklist (inside modal) */
+  .prep-ctx{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+  .prep-ctx .chip{font-size:12px;background:var(--color-bg-alt);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:3px 8px;}
+  .prep-ctx .chip b{color:var(--color-text-primary);}
+  .prog{font-size:12px;color:var(--color-text-muted);margin-bottom:8px;}
+  .prog b{color:var(--color-primary-dark);}
+  .steps{list-style:none;margin:0;padding:0;}
+  .steps li{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border:1px solid var(--color-border-light);border-radius:var(--radius-sm);margin-bottom:6px;}
+  .steps li.done{background:var(--color-success-light);border-color:#c8e6c9;}
+  .steps li input{margin-top:2px;}
+  .steps li .txt{font-size:12px;}
+  .steps li.done .txt{color:#2e7d32;}
+  .note-band{font-size:12px;color:var(--color-primary-dark);background:var(--color-primary-light);border:1px solid #b3e5fc;border-radius:var(--radius-sm);padding:8px 12px;margin-top:12px;}
+
+  @media (max-width:820px){ .samp-top{height:auto;} .mgrid{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<script src="assets/mes-data.js"></script>
+<script src="assets/mes-shell.js"></script>
+<script src="assets/mes-components.js"></script>
+<script>
+const D = MES_DATA;
+const { body, actions } = MESShell.mount({ active: 'q-sampling', title: 'Sampling', crumb: ['Quality', 'Sampling'] });
+
+/* page action buttons (top-right of the page bar) */
+actions.innerHTML =
+  '<button class="btn btn-primary btn-sm" onclick="generateIds()"><i class="fa-solid fa-barcode"></i> Generate sample IDs &amp; barcodes</button>' +
+  '<button class="btn btn-ghost btn-sm" onclick="openIssue()"><i class="fa-solid fa-plus"></i> Issue sample</button>';
+
+body.innerHTML = `
+  <div class="samp-top">
+    <div class="plan-strip" id="planStrip"></div>
+    <div class="filterbar">
+      <span class="lbl">Filters</span>
+      <div class="fsearch"><i class="fa-solid fa-magnifying-glass"></i><input id="search" placeholder="Sample ID / heat / barcode…" oninput="render()"></div>
+      <select id="fPoint" onchange="render()"><option value="">All stages</option></select>
+      <select id="fStatus" onchange="render()"><option value="">All statuses</option></select>
+      <select id="fType" onchange="render()"><option value="">All types</option></select>
+      <select id="fLab" onchange="render()"><option value="">All labs</option></select>
+      <span class="meta" id="meta"></span>
+    </div>
+    <div class="card">
+      <div class="tbl-wrap"><table class="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+      <div class="pager"><span id="rowCount"></span></div>
+    </div>
+  </div>`;
+
+/* ===== reference data — Integrated Steel Works, SMS-2, Shift B, 07 Jul 2026 ===== */
+const HEAT = 'H2601', HEAT_GRADE = 'IS 2062 E250', DRAW_TIME = '07-Jul 18:20';
+const LABS = ['MS Central Lab', 'Container Lab', 'Third-Party TPI'];
+const STATUSES = ['PLANNED', 'ISSUED', 'IN PREP', 'TESTED', 'ON HOLD'];
+const SB = { 'PLANNED': 'b-plan', 'ISSUED': 'b-info', 'IN PREP': 'b-pend', 'TESTED': 'b-done', 'ON HOLD': 'b-hold' };
+const STAGE_CODE = { Torpedo: 'TOR', KR: 'KR', BOF: 'BOF', LF: 'LF', Tundish: 'TUN', CCM: 'CCM' };
+
+/* sample types -> default pieces / size / weight / tests / prep steps + test category */
+const TYPES = {
+  'Immersion (OES)':       { pcs: 1, size: 32,  wt: 0.020, tests: 'Spectro (OES)',             cat: 'CHEMISTRY',     prep: ['Draw immersion sample with sampler lance', 'Break sampler & extract disc', 'Grind disc to bright metal', 'Print & apply barcode sticker'] },
+  'Slag':                  { pcs: 1, size: 0,   wt: 0.050, tests: 'Slag XRF (CaO/SiO2)',       cat: 'SLAG',          prep: ['Scoop slag from the ladle / tundish', 'Cool & crush the sample', 'Press / fuse XRF pellet', 'Print & apply barcode sticker'] },
+  'Product (Mechanical)':  { pcs: 2, size: 300, wt: 0.030, tests: 'Tensile, Impact, Hardness', cat: 'MECHANICAL',    prep: ['Flame-cut a test coupon from the slab', 'Machine tensile specimen (IS 1608)', 'Prepare Charpy & hardness coupons', 'Print & apply barcode sticker'] },
+  'Macro / Sulphur print': { pcs: 1, size: 40,  wt: 0.020, tests: 'Macro etch, Sulphur print', cat: 'METALLURGICAL', prep: ['Section a transverse slab disc', 'Surface-grind the face', 'Hot acid macro etch', 'Baumann sulphur print', 'Photograph & archive'] }
+};
+
+/* test catalogue -> category */
+const TEST_CAT = {
+  'Spectro (OES)': 'CHEMISTRY', 'Combustion C/S': 'CHEMISTRY', 'N (fusion)': 'CHEMISTRY', 'H content': 'CHEMISTRY',
+  'Slag XRF (CaO/SiO2)': 'SLAG', 'FeO in slag': 'SLAG',
+  'Tensile': 'MECHANICAL', 'Impact (Charpy)': 'MECHANICAL', 'Hardness (BHN)': 'MECHANICAL', 'Bend': 'MECHANICAL',
+  'Macro etch': 'METALLURGICAL', 'Sulphur print': 'METALLURGICAL', 'Inclusion rating': 'METALLURGICAL', 'Grain size': 'METALLURGICAL'
+};
+/* grade TDC mandated tests */
+const TDC_TESTS = {
+  'IS 2062 E250': ['Spectro (OES)', 'Combustion C/S', 'Tensile', 'Impact (Charpy)', 'Bend'],
+  'SAILMA 350':   ['Spectro (OES)', 'Tensile', 'Impact (Charpy)'],
+  'API 5L X60':   ['Spectro (OES)', 'Combustion C/S', 'N (fusion)', 'Tensile', 'Impact (Charpy)', 'Sulphur print', 'Inclusion rating']
+};
+/* sampling rules: SMS-2 stage + sample type -> tests (+ draw location) */
+const SAMPLING_RULES = [
+  { op: 'Torpedo', type: 'Immersion (OES)',       tests: ['Spectro (OES)', 'Combustion C/S'],          location: 'Torpedo car' },
+  { op: 'KR',      type: 'Immersion (OES)',       tests: ['Spectro (OES)'],                            location: 'KR station' },
+  { op: 'BOF',     type: 'Immersion (OES)',       tests: ['Spectro (OES)', 'Combustion C/S'],          location: 'BOF turndown' },
+  { op: 'LF',      type: 'Immersion (OES)',       tests: ['Spectro (OES)', 'N (fusion)'],              location: 'LHF' },
+  { op: 'LF',      type: 'Slag',                  tests: ['Slag XRF (CaO/SiO2)', 'FeO in slag'],       location: 'LHF slag door' },
+  { op: 'Tundish', type: 'Immersion (OES)',       tests: ['Spectro (OES)'],                            location: 'CCM tundish' },
+  { op: 'CCM',     type: 'Product (Mechanical)',  tests: ['Tensile', 'Impact (Charpy)', 'Hardness (BHN)'], location: 'CCM product' },
+  { op: 'CCM',     type: 'Macro / Sulphur print', tests: ['Macro etch', 'Sulphur print'],              location: 'Cast slab' }
+];
+function ruleFor(op, type) { return SAMPLING_RULES.find(r => r.op === op && r.type === type) || null; }
+function catOf(type) { return (TYPES[type] || {}).cat; }
+function defaultTests(grade, type, op) {
+  const cat = catOf(type), req = new Set(TDC_TESTS[grade] || []), rule = ruleFor(op, type), rt = new Set(rule ? rule.tests : []);
+  return Object.keys(TEST_CAT).filter(t => TEST_CAT[t] === cat && (rt.has(t) || req.has(t)));
+}
+
+/* ===== module state ===== */
+let sortKey = null, sortDir = 1, curPrep = -1, issueModal = null, prepModal = null, barSeq = 2601000200;
+function pad2(n) { return String(n).padStart(2, '0'); }
+function mkSid(s) { return 'CHM-' + s.heat + '-' + STAGE_CODE[s.point] + '-' + pad2(s.seq); }
+function mkBarcode() { return String(++barSeq); }
+
+/* ===== the H2601 sample plan (Torpedo 1 · KR 2 · BOF 4 · LF 5 · Tundish 1 · CCM 2 = 15) + sibling heats on the floor ===== */
+const SAMPLES = [
+  { sid: 'CHM-H2601-TOR-01', barcode: '2601000101', heat: 'H2601', point: 'Torpedo', seq: 1, type: 'Immersion (OES)', grade: 'IS 2062 E250', issue: '07-Jul 14:35', recv: '07-Jul 14:44', tests: 'Spectro (OES), Combustion C/S', agency: 'MS Central Lab', status: 'TESTED', prepDone: 4 },
+  { sid: 'CHM-H2601-KR-01',  barcode: '2601000102', heat: 'H2601', point: 'KR', seq: 1, type: 'Immersion (OES)', grade: 'IS 2062 E250', issue: '07-Jul 14:58', recv: '07-Jul 15:05', tests: 'Spectro (OES)', agency: 'MS Central Lab', status: 'TESTED', prepDone: 4 },
+  { sid: 'CHM-H2601-KR-02',  barcode: '2601000103', heat: 'H2601', point: 'KR', seq: 2, type: 'Immersion (OES)', grade: 'IS 2062 E250', issue: '07-Jul 15:07', recv: '07-Jul 15:14', tests: 'Spectro (OES)', agency: 'MS Central Lab', status: 'TESTED', prepDone: 4 },
+  { sid: 'CHM-H2601-BOF-01', barcode: '2601000104', heat: 'H2601', point: 'BOF', seq: 1, type: 'Immersion (OES)', grade: 'IS 2062 E250', issue: '07-Jul 15:42', recv: '07-Jul 15:49', tests: 'Spectro (OES), Combustion C/S', agency: 'MS Central Lab', status: 'TESTED', prepDone: 4 },
+  { sid: 'CHM-H2601-BOF-02', barcode: '2601000105', heat: 'H2601', point: 'BOF', seq: 2, type: 'Immersion (OES)', grade: 'IS 2062 E250', issue: '07-Jul 15:44', recv: '07-Jul 15:51', tests: 'Spectro (OES), Combustion C/S', agency: 'MS Central Lab', status: 'TESTED', prepDone: 4 },
+  { sid: 'CHM-H2601-BOF-03', barcode: '2601000106', heat: 'H2601', point: 'BOF', seq: 3, type: 'Immersion (OES)', grade: 'IS 2062 E250', issue: '07-Jul 15:46', recv: '07-Jul 15:52', tests: 'Spectro (OES)', agency: 'MS Central Lab', status: 'IN PREP', prepDone: 2 },
+  { sid: 'CHM-H2601-BOF-04', barcode: '2601000107', heat: 'H2601', point: 'BOF', seq: 4, type: 'Immersion (OES)', grade: 'IS 2062 E250', issue: '07-Jul 15:48', recv: '', tests: 'Spectro (OES)', agency: 'MS Central Lab', status: 'ISSUED', prepDone: 0 },
+  { sid: 'CHM-H2601-LF-01',  barcode: '2601000108', heat: 'H2601', point: 'LF', seq: 1, type: 'Immersion (OES)', grade: 'IS 2062 E250', issue: '07-Jul 16:20', recv: '', tests: 'Spectro (OES), N (fusion)', agency: 'MS Central Lab', status: 'ISSUED', prepDone: 0 },
+  { sid: 'CHM-H2601-LF-02',  barcode: '2601000109', heat: 'H2601', point: 'LF', seq: 2, type: 'Immersion (OES)', grade: 'IS 2062 E250', issue: '07-Jul 16:22', recv: '', tests: 'Spectro (OES), N (fusion)', agency: 'MS Central Lab', status: 'ISSUED', prepDone: 0 },
+  { sid: '', barcode: '', heat: 'H2601', point: 'LF', seq: 3, type: 'Immersion (OES)', grade: 'IS 2062 E250', issue: '', recv: '', tests: 'Spectro (OES), N (fusion)', agency: 'MS Central Lab', status: 'PLANNED', prepDone: 0 },
+  { sid: '', barcode: '', heat: 'H2601', point: 'LF', seq: 4, type: 'Immersion (OES)', grade: 'IS 2062 E250', issue: '', recv: '', tests: 'Spectro (OES), N (fusion)', agency: 'MS Central Lab', status: 'PLANNED', prepDone: 0 },
+  { sid: '', barcode: '', heat: 'H2601', point: 'LF', seq: 5, type: 'Slag', grade: 'IS 2062 E250', issue: '', recv: '', tests: 'Slag XRF (CaO/SiO2), FeO in slag', agency: 'Container Lab', status: 'PLANNED', prepDone: 0 },
+  { sid: '', barcode: '', heat: 'H2601', point: 'Tundish', seq: 1, type: 'Immersion (OES)', grade: 'IS 2062 E250', issue: '', recv: '', tests: 'Spectro (OES)', agency: 'MS Central Lab', status: 'PLANNED', prepDone: 0 },
+  { sid: '', barcode: '', heat: 'H2601', point: 'CCM', seq: 1, type: 'Immersion (OES)', grade: 'IS 2062 E250', issue: '', recv: '', tests: 'Spectro (OES)', agency: 'MS Central Lab', status: 'PLANNED', prepDone: 0 },
+  { sid: '', barcode: '', heat: 'H2601', point: 'CCM', seq: 2, type: 'Immersion (OES)', grade: 'IS 2062 E250', issue: '', recv: '', tests: 'Spectro (OES)', agency: 'MS Central Lab', status: 'PLANNED', prepDone: 0 },
+  /* sibling heats this shift */
+  { sid: 'CHM-H2602-LF-01',  barcode: '2602000101', heat: 'H2602', point: 'LF', seq: 1, type: 'Immersion (OES)', grade: 'IS 2062 E250', issue: '07-Jul 17:05', recv: '', tests: 'Spectro (OES), N (fusion)', agency: 'MS Central Lab', status: 'ISSUED', prepDone: 0 },
+  { sid: 'CHM-H2603-BOF-01', barcode: '2603000101', heat: 'H2603', point: 'BOF', seq: 1, type: 'Immersion (OES)', grade: 'SAILMA 350', issue: '07-Jul 17:14', recv: '07-Jul 17:20', tests: 'Spectro (OES)', agency: 'Container Lab', status: 'TESTED', prepDone: 4 },
+  { sid: 'CHM-H2603-CCM-01', barcode: '2603000102', heat: 'H2603', point: 'CCM', seq: 1, type: 'Product (Mechanical)', grade: 'SAILMA 350', issue: '07-Jul 17:40', recv: '07-Jul 18:02', tests: 'Tensile, Impact (Charpy), Hardness (BHN)', agency: 'MS Central Lab', status: 'TESTED', prepDone: 4 },
+  { sid: 'CHM-H2603-CCM-02', barcode: '2603000103', heat: 'H2603', point: 'CCM', seq: 2, type: 'Macro / Sulphur print', grade: 'SAILMA 350', issue: '07-Jul 17:42', recv: '07-Jul 18:05', tests: 'Macro etch, Sulphur print', agency: 'MS Central Lab', status: 'IN PREP', prepDone: 2 },
+  { sid: 'CHM-H2605-BOF-01', barcode: '2605000101', heat: 'H2605', point: 'BOF', seq: 1, type: 'Immersion (OES)', grade: 'API 5L X60', issue: '07-Jul 18:44', recv: '07-Jul 18:50', tests: 'Spectro (OES), Combustion C/S', agency: 'Container Lab', status: 'ON HOLD', prepDone: 1 }
+];
+
+const COLS = [
+  { k: 'sid',    label: 'Sample ID', cls: 'mono' },
+  { k: 'heat',   label: 'Heat', cls: 'mono' },
+  { k: 'point',  label: 'Stage' },
+  { k: 'type',   label: 'Sample Type' },
+  { k: 'grade',  label: 'Grade' },
+  { k: 'barcode',label: 'Barcode', cls: 'mono' },
+  { k: 'issue',  label: 'Drawn' },
+  { k: 'recv',   label: 'Lab Recv' },
+  { k: 'tests',  label: 'Tests' },
+  { k: 'agency', label: 'Lab' },
+  { k: 'status', label: 'Status', badge: true },
+  { k: 'actions',label: '', actions: true }
+];
+
+/* ===== plan strip (from the shared per-heat sample plan) ===== */
+function renderPlanStrip() {
+  const total = D.samples.reduce((a, s) => a + s.count, 0);
+  const chips = D.samples.map(s => `<span class="pl-chip" onclick="filterPoint('${s.point}')">${s.point} <b>${s.count}</b></span>`).join('');
+  document.getElementById('planStrip').innerHTML =
+    `<span class="pl-title">Sample plan</span><span class="pl-heat">Heat ${HEAT}</span><span class="hint">${HEAT_GRADE}</span>${chips}<span class="pl-total">Planned samples <b>${total}</b></span>`;
+}
+function filterPoint(p) { const sel = document.getElementById('fPoint'); sel.value = (sel.value === p ? '' : p); render(); }
+
+/* ===== table ===== */
+function fill(id, arr) { document.getElementById(id).insertAdjacentHTML('beforeend', arr.map(o => `<option>${o}</option>`).join('')); }
+function cell(c, r, i) {
+  if (c.actions) return `<button class="btn-icon" title="Prep checklist" onclick="openPrep(${i})"><i class="fa-solid fa-list-check"></i></button><button class="btn-icon" title="View" onclick="openView(${i})"><i class="fa-solid fa-eye"></i></button>`;
+  if (c.badge) return `<span class="badge ${SB[r.status]}">${r.status}</span>`;
+  if (c.k === 'tests') return (r.tests || '—') + (r.testsEdited ? ' <span class="t-edit" title="Test list edited at issue">edited</span>' : '');
+  let v = r[c.k];
+  if (v === '' || v == null) v = '—';
+  return v;
+}
+function cmp(a, b) { return ('' + (a == null ? '' : a)).localeCompare('' + (b == null ? '' : b), undefined, { numeric: true, sensitivity: 'base' }); }
+function passes(r) {
+  const q = (document.getElementById('search').value || '').toLowerCase();
+  const fp = document.getElementById('fPoint').value, fs = document.getElementById('fStatus').value, ft = document.getElementById('fType').value, fl = document.getElementById('fLab').value;
+  if (q && !((r.sid + ' ' + r.heat + ' ' + r.barcode + ' ' + r.grade + ' ' + r.point).toLowerCase().includes(q))) return false;
+  if (fp && r.point !== fp) return false;
+  if (fs && r.status !== fs) return false;
+  if (ft && r.type !== ft) return false;
+  if (fl && r.agency !== fl) return false;
+  return true;
+}
+function buildHead() {
+  document.getElementById('thead').innerHTML = '<tr>' + COLS.map(c => {
+    if (c.actions) return '<th class="col-actions"></th>';
+    const car = sortKey === c.k ? `<span class="car on">${sortDir > 0 ? '▲' : '▼'}</span>` : '<span class="car">⇅</span>';
+    return `<th class="${c.cls === 'num' ? 'num' : ''}" onclick="sortBy('${c.k}')">${c.label} ${car}</th>`;
+  }).join('') + '</tr>';
+}
+function sortBy(k) { if (sortKey === k) { if (sortDir > 0) sortDir = -1; else { sortKey = null; sortDir = 1; } } else { sortKey = k; sortDir = 1; } buildHead(); render(); }
+function render() {
+  let rows = SAMPLES.map((r, i) => ({ r, i })).filter(x => passes(x.r));
+  if (sortKey) rows.sort((a, b) => cmp(a.r[sortKey], b.r[sortKey]) * sortDir);
+  const tb = document.getElementById('tbody');
+  if (!rows.length) tb.innerHTML = `<tr class="empty"><td colspan="${COLS.length}">No samples match the filters.</td></tr>`;
+  else tb.innerHTML = rows.map(({ r, i }) => '<tr>' + COLS.map(c => `<td class="${c.cls || ''}${c.actions ? ' actions' : ''}">${cell(c, r, i)}</td>`).join('') + '</tr>').join('');
+  document.getElementById('rowCount').textContent = `${rows.length} of ${SAMPLES.length} samples`;
+  const pending = SAMPLES.filter(s => !s.sid).length;
+  document.getElementById('meta').textContent = pending ? `${pending} sample${pending > 1 ? 's' : ''} pending sticker` : 'All samples bar-coded';
+}
+
+/* ===== bulk generate sample IDs + barcodes (print stickers) ===== */
+function generateIds() {
+  let n = 0;
+  SAMPLES.forEach(s => {
+    if (!s.sid) { s.sid = mkSid(s); s.barcode = mkBarcode(); s.issue = s.issue || DRAW_TIME; s.status = 'ISSUED'; n++; }
+  });
+  render();
+  if (n) MESShell.toast(`Sticker print triggered — ${n} barcode label${n > 1 ? 's' : ''} sent to the lab printer`, 'success');
+  else MESShell.toast('All samples already have IDs & barcodes', 'info');
+}
+
+/* ===== Issue-sample modal ===== */
+const LOTS = [
+  { heat: 'H2601', point: 'LF',      grade: 'IS 2062 E250' },
+  { heat: 'H2601', point: 'Tundish', grade: 'IS 2062 E250' },
+  { heat: 'H2601', point: 'CCM',     grade: 'IS 2062 E250' },
+  { heat: 'H2602', point: 'BOF',     grade: 'IS 2062 E250' },
+  { heat: 'H2603', point: 'BOF',     grade: 'SAILMA 350' },
+  { heat: 'H2605', point: 'BOF',     grade: 'API 5L X60' }
+];
+function openIssue() {
+  const lotOpts = LOTS.map((l, i) => `<option value="${i}">${l.heat} · ${l.point} · ${l.grade}</option>`).join('');
+  const typeOpts = Object.keys(TYPES).map(t => `<option>${t}</option>`).join('');
+  const labOpts = '<option value="">— assign later —</option>' + LABS.map(a => `<option>${a}</option>`).join('');
+  const bodyHtml = `
+    <div class="mgrid">
+      <div class="fld full"><label>Heat &amp; sampling point</label><select id="iLot" onchange="lotChange()">${lotOpts}</select></div>
+      <div class="fld"><label>Sample type</label><select id="iType" onchange="typeChange()">${typeOpts}</select></div>
+      <div class="fld"><label>Grade</label><input id="iGrade" readonly></div>
+      <div class="fld"><label>Drawn at</label><input id="iIssue" value="${DRAW_TIME}"></div>
+      <div class="fld"><label>Draw location</label><input id="iLoc" readonly></div>
+      <div class="fld"><label>Sample size (mm)</label><input id="iSize" type="number" step="any"></div>
+      <div class="fld"><label>Pieces</label><input id="iPcs" type="number"></div>
+      <div class="fld"><label>Sample weight (MT)</label><input id="iWt" type="number" step="any"></div>
+      <div class="fld"><label>Lab</label><select id="iLab">${labOpts}</select></div>
+      <div class="fld full"><label>Tests to perform <span class="hint" style="font-weight:400">— from sampling rule + TDC · QA can override</span> <span id="iRuleNote" style="color:#388e3c;font-weight:400;font-size:11px"></span></label><div class="testlist" id="iTestList"></div></div>
+      <div class="barcode"><i class="fa-solid fa-barcode" style="font-size:22px;color:var(--color-primary-dark)"></i> Barcode <span class="code" id="iBarcode">—</span> <span class="hint">(auto-generated on issue)</span></div>
+    </div>`;
+  issueModal = MESC.modal({
+    title: 'Issue sample', icon: 'fa-vials', size: 'lg',
+    body: [h('div', { html: bodyHtml })],
+    footer: [
+      h('button', { class: 'btn btn-ghost', onclick: () => issueModal.close() }, ['Cancel']),
+      h('button', { class: 'btn btn-primary', onclick: saveIssue }, [MESC.icon('fa-check'), 'Issue & print barcode'])
+    ]
+  });
+  lotChange(); typeChange();
+  document.getElementById('iBarcode').textContent = mkBarcode();
+}
+function lotChange() {
+  const lot = LOTS[+document.getElementById('iLot').value], type = document.getElementById('iType').value;
+  document.getElementById('iGrade').value = lot.grade;
+  const rule = ruleFor(lot.point, type);
+  document.getElementById('iLoc').value = rule ? rule.location : lot.point;
+  renderTestList(lot.grade, type, lot.point);
+}
+function typeChange() {
+  const t = TYPES[document.getElementById('iType').value], lot = LOTS[+document.getElementById('iLot').value];
+  document.getElementById('iSize').value = t.size;
+  document.getElementById('iPcs').value = t.pcs;
+  document.getElementById('iWt').value = t.wt;
+  const rule = lot ? ruleFor(lot.point, document.getElementById('iType').value) : null;
+  document.getElementById('iLoc').value = rule ? rule.location : (lot ? lot.point : '');
+  renderTestList(lot ? lot.grade : '', document.getElementById('iType').value, lot ? lot.point : '');
+}
+function renderTestList(grade, type, op) {
+  const cat = catOf(type), req = new Set(TDC_TESTS[grade] || []), rule = ruleFor(op, type), rt = new Set(rule ? rule.tests : []);
+  const tests = Object.keys(TEST_CAT).filter(t => TEST_CAT[t] === cat);
+  const el = document.getElementById('iTestList'); if (!el) return;
+  el.innerHTML = tests.length ? tests.map(t => {
+    const inRule = rt.has(t), inTdc = req.has(t);
+    const tags = (inRule ? '<span class="srctag t-rule">RULE</span>' : '') + (inTdc ? '<span class="srctag t-tdc">TDC</span>' : '');
+    return `<label class="testchk"><input type="checkbox" value="${t}" ${(inRule || inTdc) ? 'checked' : ''}> ${t} ${tags}</label>`;
+  }).join('') : '<span class="hint" style="font-style:italic">No catalogue tests for this sample type.</span>';
+  const note = document.getElementById('iRuleNote'); if (note) note.textContent = rule ? `Rule: ${rule.op} @ ${rule.location}` : '(no matching sampling rule — TDC only)';
+}
+function checkedTests() { return [...document.querySelectorAll('#iTestList input:checked')].map(c => c.value); }
+function saveIssue() {
+  const lot = LOTS[+document.getElementById('iLot').value], type = document.getElementById('iType').value;
+  const sel = checkedTests(), def = defaultTests(lot.grade, type, lot.point);
+  const edited = sel.slice().sort().join('|') !== def.slice().sort().join('|');
+  const seq = SAMPLES.filter(s => s.heat === lot.heat && s.point === lot.point).length + 1;
+  const sid = 'CHM-' + lot.heat + '-' + STAGE_CODE[lot.point] + '-' + pad2(seq);
+  SAMPLES.unshift({
+    sid: sid, barcode: document.getElementById('iBarcode').textContent, heat: lot.heat, point: lot.point, seq: seq,
+    type: type, grade: lot.grade, issue: document.getElementById('iIssue').value, recv: '',
+    tests: sel.join(', '), testsEdited: edited, agency: document.getElementById('iLab').value, status: 'ISSUED', prepDone: 0
+  });
+  issueModal.close(); render();
+  MESShell.toast(`Sample ${sid} issued — barcode printed`, 'success');
+}
+
+/* ===== Prep-checklist modal ===== */
+function openPrep(i) {
+  curPrep = i;
+  const r = SAMPLES[i];
+  prepModal = MESC.modal({
+    title: 'Sample prep — ' + (r.sid || '(unissued)'), icon: 'fa-list-check', size: 'sm',
+    body: [h('div', { id: 'prepBody' })],
+    footer: [
+      h('button', { class: 'btn btn-ghost', onclick: () => prepModal.close() }, ['Close']),
+      h('button', { class: 'btn btn-primary', onclick: markPrepDone }, [MESC.icon('fa-check'), 'Mark prep complete'])
+    ]
+  });
+  renderPrep();
+}
+function renderPrep() {
+  const r = SAMPLES[curPrep], steps = TYPES[r.type].prep, done = r.prepDone || 0;
+  document.getElementById('prepBody').innerHTML =
+    `<div class="prep-ctx"><span class="chip">Type <b>${r.type}</b></span><span class="chip">Heat <b>${r.heat}</b></span><span class="chip">Stage <b>${r.point}</b></span><span class="chip">Grade <b>${r.grade}</b></span></div>` +
+    `<div class="prog"><b>${done}/${steps.length}</b> steps complete</div>` +
+    `<ul class="steps">${steps.map((s, si) => `<li class="${si < done ? 'done' : ''}"><input type="checkbox" ${si < done ? 'checked' : ''} onchange="toggleStep(${si},this.checked)"><span class="txt">${si + 1}. ${s}</span></li>`).join('')}</ul>` +
+    `<div class="note-band"><i class="fa-solid fa-circle-info"></i> Tests planned: <b>${r.tests}</b>. Assign to a lab once prep is complete.</div>`;
+}
+function toggleStep(si, on) { const r = SAMPLES[curPrep]; r.prepDone = on ? Math.max(r.prepDone || 0, si + 1) : Math.min(r.prepDone || 0, si); renderPrep(); }
+function markPrepDone() {
+  const r = SAMPLES[curPrep]; r.prepDone = TYPES[r.type].prep.length;
+  if (r.status === 'IN PREP' || r.status === 'ISSUED') r.status = 'TESTED';
+  r.recv = r.recv || DRAW_TIME;
+  prepModal.close(); render();
+  MESShell.toast('Prep complete for ' + (r.sid || 'sample') + ' — ready for testing', 'success');
+}
+
+/* ===== View modal ===== */
+function openView(i) {
+  const r = SAMPLES[i];
+  const grid = MESC.kvGrid([
+    ['Sample ID', r.sid || '—', true], ['Barcode', r.barcode || '—', true],
+    ['Heat', r.heat, true], ['Stage', r.point], ['Sample type', r.type], ['Grade', r.grade],
+    ['Drawn at', r.issue || '—'], ['Lab received', r.recv || '—'], ['Tests', r.tests], ['Lab', r.agency || '—']
+  ]);
+  const statusRow = MESC.kv('Status', h('span', { class: 'badge ' + SB[r.status] }, [r.status]));
+  const closeBtn = h('button', { class: 'btn btn-primary' }, ['Close']);
+  const vm = MESC.modal({
+    title: 'Sample ' + (r.sid || '(unissued)'), icon: 'fa-vials', size: 'sm',
+    body: [grid, h('div', { class: 'divider' }), statusRow],
+    footer: [closeBtn]
+  });
+  closeBtn.addEventListener('click', vm.close);
+}
+
+/* ===== init ===== */
+fill('fPoint', ['Torpedo', 'KR', 'BOF', 'LF', 'Tundish', 'CCM']);
+fill('fStatus', STATUSES);
+fill('fType', Object.keys(TYPES));
+fill('fLab', LABS);
+buildHead(); renderPlanStrip(); render();
+</script>
+</body>
+</html>

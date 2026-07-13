@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>INTERNAL — Track A Presenter Run-Sheet</title>
+<link href="assets/vendor/roboto/roboto.css" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/mes-styles.css">
+<style>
+  body { background:var(--color-bg); }
+  .intbar { background:repeating-linear-gradient(45deg,#7a1f1f,#7a1f1f 14px,#611818 14px,#611818 28px); color:#fff; text-align:center; font-weight:700; letter-spacing:.6px; font-size:12px; padding:7px; position:sticky; top:0; z-index:10; }
+  .wrap { max-width:1180px; margin:0 auto; padding:18px 20px 60px; }
+  .rs-head { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:14px 0 6px; }
+  .rs-head h1 { font-size:20px; }
+  .rs-head .sub { color:var(--color-text-muted); font-size:12.5px; }
+  .cover { display:flex; align-items:center; gap:14px; margin:14px 0 18px; flex-wrap:wrap; }
+  .cover .bar { flex:1; min-width:220px; height:12px; background:var(--color-border-light); border-radius:7px; overflow:hidden; }
+  .cover .bar > span { display:block; height:100%; background:var(--color-success); transition:width .25s; }
+  .sec { margin-top:22px; }
+  .sec h2 { font-size:15px; display:flex; align-items:center; gap:9px; margin-bottom:8px; }
+  .sec h2 .code { background:var(--color-primary); color:#fff; border-radius:5px; padding:2px 8px; font-size:12px; }
+  .sec h2 .file { margin-left:auto; font-size:11px; font-weight:400; color:var(--color-text-muted); }
+  table.rs { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--color-border); border-radius:var(--radius-md); overflow:hidden; }
+  table.rs th { background:#f5f5f5; color:var(--color-text-muted); font:600 10px 'Roboto'; text-transform:uppercase; letter-spacing:.4px; text-align:left; padding:8px 10px; border-bottom:1px solid var(--color-border); }
+  table.rs td { padding:9px 10px; border-bottom:1px solid var(--color-border-light); font-size:12.5px; vertical-align:top; }
+  table.rs tr:last-child td { border-bottom:none; }
+  .tag { font-family:monospace; font-size:11px; color:var(--color-primary-dark); font-weight:600; white-space:nowrap; }
+  .where { color:var(--color-text-secondary); }
+  .where b { color:var(--color-text-primary); }
+  .open { color:var(--color-primary); font-size:11px; white-space:nowrap; }
+  .st { border:none; border-radius:5px; font:600 11px 'Roboto'; padding:5px 10px; cursor:pointer; min-width:74px; text-transform:uppercase; letter-spacing:.3px; }
+  .st.none { background:var(--color-bg-alt); color:var(--color-text-muted); border:1px solid var(--color-border); }
+  .st.pass { background:var(--color-success-light); color:#2e7d32; border:1px solid #a5d6a7; }
+  .st.fail { background:var(--color-danger-light); color:#c62828; border:1px solid #ef9a9a; }
+  .toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+<div class="intbar"><i class="fa-solid fa-lock"></i> INTERNAL — Bluemingo presenter run-sheet · coverage tracker · NOT to be shown to the evaluator</div>
+<div class="wrap">
+  <div class="rs-head">
+    <div>
+      <h1>Integrated Works — Track A Demo Run-Sheet</h1>
+      <div class="sub">Functional-fit walkthrough · ~40 scored steps · click a status cell to mark Pass / Fail during the dry run.</div>
+    </div>
+  </div>
+  <div class="cover">
+    <div class="toolbar">
+      <span id="cvText" class="strong"></span>
+      <button class="btn btn-ghost btn-sm" onclick="resetAll()"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+      <button class="btn btn-outline btn-sm" onclick="markAll('pass')"><i class="fa-solid fa-check-double"></i> All pass</button>
+    </div>
+    <div class="bar"><span id="cvBar" style="width:0%"></span></div>
+  </div>
+  <div id="sections"></div>
+</div>
+
+<script>
+/* Track A coverage map. Each row: [tag, expected system response, screen file, where-to-click]. INTERNAL — tags kept on purpose. */
+const RUN = [
+  { code:'A1', title:'Scheduling & Order Management', icon:'fa-calendar-days', file:'scheduling.html', steps:[
+    ['A1.1-1','SO downloaded from SAP-SD becomes an Order object (grade / dims / qty / delivery), ACK returned.', 'scheduling.html', 'Order Management tab → <b>Receive Sales Order from SAP-SD</b> → click the new row.'],
+    ['A1.1-2','24h SMS-2 schedule auto-sequences heats across 3 BOFs / 2 strands (grade nesting, ladle availability).', 'scheduling.html', 'SMS-2 Schedule tab → <b>Auto-sequence heats</b>.'],
+    ['A1.1-3','Time-Plan Gantt across BOF1/2/3 · LHF · RH · CCM1/2 with setup / processing / buffer bands.', 'scheduling.html', 'SMS-2 Schedule tab → scroll to <b>SMS-2 Time Plan — Gantt</b>.'],
+    ['A1.1-4','BOF2 breakdown re-sequences: 2 heats auto-shift to BOF1/BOF3, alert banner, revised plan < 5 min.', 'scheduling.html', 'SMS-2 Schedule tab → <b>Simulate BOF2 breakdown</b>.'],
+    ['A1.1-5','Hot-charge heats flagged to the HSM-2 charging-table queue (CCM → RHF direct path).', 'scheduling.html', 'SMS-2 Schedule tab → <b>Hot-Charging</b> card.'],
+    ['A1.2-1..3','Ladle inventory (status / lining / heats-to-relining); assign & lock ladle to H2601 at BOF1 tapping; ladle schedule aligned to the time plan (conflicts in red).', 'scheduling.html', 'Ladle Scheduling tab → <b>Assign to H2601</b>.']
+  ]},
+  { code:'A2', title:'Operations & Production Tracking', icon:'fa-industry', file:'operations.html', steps:[
+    ['A2.1-1','Live heat H2601: current unit / step / time-at-step + streaming BOF-L2 parameters.', 'operations.html', 'Heat Lifecycle tab → summary + <b>Live Process Parameters</b>.'],
+    ['A2.1-2','Full genealogy: Torpedo → KR → BOF → ARS → LHF → RH → CCM → 2 slab IDs w/ timestamp / operator / key value.', 'operations.html', 'Heat Lifecycle tab → <b>Heat Genealogy</b> tree.'],
+    ['A2.1-3','Manual LHF temperature reading is captured and flagged Manual vs Auto.', 'operations.html', 'Operator Actions → <b>Capture manual reading</b> → Log.'],
+    ['A2.1-4','RH power-interruption delay logged (planned/unplanned, duration, machine availability, flagged for SAP-PM).', 'operations.html', 'Operator Actions → <b>Simulate delay @ RH</b>.'],
+    ['A2.1-5','2 slabs posted (26.4 / 24.8 MT), 14–20-char slab IDs, PDO → CCM-L2, queued for SAP-PP.', 'operations.html', 'Operator Actions → <b>Post slab production</b>.'],
+    ['A2.2-1..4','HSM-2: slab arrival + PDI → Mill-L2, step-track RHF1→Down Coiler, L2 coil ID + load-cell weight, kick-back to yard.', 'operations.html', 'HSM-2 Coil Tracking tab → <b>Confirm arrival</b> → <b>Track next step</b> · <b>Demonstrate kick-back</b>.']
+  ]},
+  { code:'A3', title:'Quality Management', icon:'fa-flask', file:'quality-chemistry.html', steps:[
+    ['A3.1-1','Per-heat sample plan (~15) with barcode / sticker per sampling point.', 'quality-sampling.html', 'Sampling screen.'],
+    ['A3.1-2','Auto chemistry vs IS 2062 E250 TDC → element-wise PASS / FAIL.', 'quality-chemistry.html', 'Heat Chemistry screen → chemistry grid.'],
+    ['A3.1-3','Lab result capture + multi-lab aggregation (MS Central + Container) into the final heat decision.', 'quality-testing.html', 'Testing screen → lab entry + aggregation.'],
+    ['A3.1-4','Out-of-spec S=0.025% @ LHF → auto heat HOLD + corrective action (stir at ARS) + notify.', 'quality-chemistry.html', 'Heat Chemistry → out-of-spec → HOLD.'],
+    ['A3.1-5','Alloy-addition recommendation (CaSi / FeMn with cost) to bring chemistry back within TDC.', 'quality-chemistry.html', 'Heat Chemistry → <b>Alloy design</b>.'],
+    ['A3.2-1','Coil C2601 decision: mech (YS 285 / UTS 420) + online surface both PASS → auto QC Released → batch chars to SAP-QM.', 'quality-usage-decision.html', 'Usage Decision → coil C2601 + Surface SIS auto-input.'],
+    ['A3.2-2','Manual QC hold + defect image review (defect gallery on the record).', 'quality-defects.html', 'Defects screen → defect image gallery.'],
+    ['A3.2-3','Downgrade to IS 2062 E200 + suggest alternate sales order + re-assign batch + SAP-QM update.', 'quality-salvage.html', 'Salvage & NCR → downgrade → alternate SO.'],
+    ['A3.2-4','AUD / concession approval (Shift Mgr → QC Head) → CONDITIONAL clearance + audit.', 'quality-usage-decision.html', 'Usage Decision → Deviation / Concession.'],
+    ['A3.2-5','FG recall: recall dispatched coil batch, list coil IDs, notify CYMS / dispatch, SAP FG-recall.', 'quality-salvage.html', 'Salvage & NCR → FG recall.']
+  ]},
+  { code:'A4', title:'Yard Management · SYMS / CYMS', icon:'fa-warehouse', file:'yard.html', steps:[
+    ['A4-1','SYMS slab-yard grid (~40,000 T): occupied / free / hold slots; search a slab by ID → live bay location.', 'yard.html', 'SYMS tab → <b>Search</b> a slab ID → Locate.'],
+    ['A4-2','Allocate slab SYMS → HSM-2 rolling plan (priority-ranked); SYMS confirmation → “Allocated to HSM Plan”.', 'yard.html', 'SYMS tab → allocation table → <b>Allocate</b>.'],
+    ['A4-3','CYMS coil yard: coil arrival, location update, dispatch staging, search by coil ID.', 'yard.html', 'CYMS tab → <b>Record coil arrival</b> · <b>Stage</b>.'],
+    ['A4-4','Rake yard: rake-wise dispatch plan, wagon entry, railway memo (PDF) generation.', 'yard.html', 'Rake tab → <b>Add wagon</b> · <b>Generate railway memo</b>.']
+  ]},
+  { code:'A5', title:'MIS Reports & Dashboards', icon:'fa-chart-line', file:'reports.html', steps:[
+    ['A5-1','Production dashboard: current-shift vs plan (SMS-2 & HSM-2), KPI traffic-lights, trend + OEE charts, drill-down.', 'reports.html', 'Production Dashboard tab → click a KPI to drill down.'],
+    ['A5-2','Heat-wise 24h report: heat / grade / slab-count / weight / yield; export Excel / PDF.', 'reports.html', 'Heat-wise tab → <b>Excel</b> / <b>PDF</b>.'],
+    ['A5-3','Delay report: planned vs unplanned, Pareto by delay code, submit to SAP-PM.', 'reports.html', 'Delay Report tab → Pareto + <b>Submit to SAP-PM</b>.'],
+    ['A5-4','Quality-hold report: open holds + aging (>24h / >48h escalation) + responsible QC.', 'reports.html', 'Quality Holds tab.'],
+    ['A5-5','Order-tracking report: SO → production % / quality / dispatch readiness per line.', 'reports.html', 'Order Tracking tab.'],
+    ['A5-6','Mobile / tablet responsive dashboard — no horizontal scroll.', 'reports.html', 'Narrow the window (< 900px) — cards stack, charts reflow.']
+  ]},
+  { code:'A6', title:'System Integration', icon:'fa-plug', file:'integration.html', steps:[
+    ['A6.1-1..5','SAP: SO receipt + ACK; production posting BAPI/IDoc (mvt 101 GR); QC → SAP-QM batch chars; delay → SAP-PM notification; SLOC → SAP-MM stock transfer.', 'integration.html', 'SAP Interfaces tab → <b>Trigger</b> each flow.'],
+    ['A6.2-1..3','L2: PDI → BOF-L2 (grade / chem / practice) + ACK; PDO ← CCM-L2 parsed → slab records; PDI → Mill-L2 (thickness / width / temp).', 'integration.html', 'Level-2 tab → <b>Send</b> / <b>Receive</b> each message.'],
+    ['A6.2-4','Interface monitor: all interfaces Green/Amber/Red, last-message time, failed-message retry, message log w/ IDs.', 'integration.html', 'Interface Monitor tab → <b>Retry failed message</b> on SAP-PM.']
+  ]},
+  { code:'A7', title:'Security & Access Control', icon:'fa-shield-halved', file:'security.html', steps:[
+    ['A7-1','Role-based menus: Operator no scheduling; QC no production posting; PPIC full schedule (sidebar re-gates on role switch).', 'security.html', 'Role-Based Access tab → <b>View as …</b> (or header switcher).'],
+    ['A7-2','AD / SSO login: corporate creds, AD-group → role mapping, local fallback.', 'security.html', 'AD / SSO Login tab → <b>Sign in with Azure AD</b>.'],
+    ['A7-3','Plant-based access: SMS-2 user denied HSM-2 quality unless supervisor grants temporary audited access.', 'security.html', 'Plant Segregation tab → <b>Attempt</b> → <b>Grant</b>.'],
+    ['A7-4','Audit trail for a quality-decision change (user / timestamp / old / new / reason; exportable; non-repudiable).', 'security.html', 'Audit Trail tab.'],
+    ['A7-5','Data-encryption indicators: HTTPS / TLS, at-rest AES-256, no plaintext passwords, field-level protection.', 'security.html', 'Data Security tab.']
+  ]}
+];
+
+const KEY = 'jsw_runsheet_status';
+let status = {};
+try { status = JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e) { status = {}; }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(status)); } catch(e){} }
+
+function render() {
+  const host = document.getElementById('sections'); host.innerHTML = '';
+  let total = 0, passed = 0;
+  RUN.forEach(sec => {
+    const wrap = document.createElement('div'); wrap.className = 'sec';
+    const h2 = document.createElement('h2');
+    h2.innerHTML = '<span class="code">' + sec.code + '</span> <i class="fa-solid ' + sec.icon + '" style="color:var(--color-primary)"></i> ' + sec.title +
+      ' <a class="file" href="' + sec.file + '" target="_blank">open module <i class="fa-solid fa-arrow-up-right-from-square"></i></a>';
+    wrap.appendChild(h2);
+    const tbl = document.createElement('table'); tbl.className = 'rs';
+    tbl.innerHTML = '<thead><tr><th style="width:88px">Step</th><th>Expected system response</th><th style="width:250px">Where to click</th><th style="width:86px">Status</th></tr></thead>';
+    const tb = document.createElement('tbody');
+    sec.steps.forEach(s => {
+      total++;
+      const id = s[0];
+      const st = status[id] || 'none';
+      if (st === 'pass') passed++;
+      const tr = document.createElement('tr');
+      const stLabel = st === 'pass' ? 'Pass' : st === 'fail' ? 'Fail' : '—';
+      tr.innerHTML =
+        '<td><span class="tag">' + id + '</span></td>' +
+        '<td>' + s[1] + '</td>' +
+        '<td class="where">' + s[3] + ' <a class="open" href="' + s[2] + '" target="_blank">open ↗</a></td>' +
+        '<td><button class="st ' + st + '" data-id="' + id + '">' + stLabel + '</button></td>';
+      tb.appendChild(tr);
+    });
+    tbl.appendChild(tb); wrap.appendChild(tbl); host.appendChild(wrap);
+  });
+  document.querySelectorAll('button.st').forEach(b => b.addEventListener('click', () => cycle(b.getAttribute('data-id'))));
+  const pct = total ? Math.round(passed / total * 100) : 0;
+  document.getElementById('cvBar').style.width = pct + '%';
+  document.getElementById('cvText').textContent = passed + ' / ' + total + ' steps marked pass (' + pct + '%)';
+}
+function cycle(id) { const cur = status[id] || 'none'; status[id] = cur === 'none' ? 'pass' : cur === 'pass' ? 'fail' : 'none'; save(); render(); }
+function resetAll() { status = {}; save(); render(); }
+function markAll(v) { RUN.forEach(sec => sec.steps.forEach(s => status[s[0]] = v)); save(); render(); }
+render();
+</script>
+</body>
+</html>

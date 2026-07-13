@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Security & Access Control — Bluemingo MES</title>
+<link href="assets/vendor/roboto/roboto.css" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/mes-styles.css">
+<style>
+  /* page-local: Security & Access Control */
+  .access-matrix th:not(:first-child), .access-matrix td:not(:first-child) { text-align:center; }
+  .cell-ic { font-size:15px; }
+  .role-preview { display:flex; gap:8px; flex-wrap:wrap; }
+  .login-card { max-width:460px; }
+  .login-card input { font-variant-numeric:tabular-nums; }
+  .sso-btn { background:#0f1626; color:#fff; }
+  .sso-btn:hover:not(:disabled) { background:#1b2540; }
+  .sso-btn i { color:#2b88d8; }
+  .sec-ind { display:flex; align-items:center; gap:11px; padding:11px 12px; border:1px solid var(--color-border-light); border-radius:var(--radius-sm); background:var(--color-surface); }
+  .sec-ind .si-ic { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; background:var(--color-success-light); color:var(--color-success); }
+  .sec-ind .si-main { font-weight:600; }
+  .sec-ind .si-meta { font-size:11px; color:var(--color-text-hint); }
+  .scope-card { border-left:3px solid var(--color-primary); }
+</style>
+</head>
+<body>
+<script src="assets/mes-data.js"></script>
+<script src="assets/mes-shell.js"></script>
+<script src="assets/mes-components.js"></script>
+<script>
+const D = MES_DATA;
+const { body } = MESShell.mount({ active:'security', title:'Security & Access Control', crumb:['System','Access & Audit'] });
+
+// ---------- module state ----------
+let hsmGranted = false;                    // plant-segregation temporary grant
+const activeRole = MESShell.getRole();     // live role driving the whole app
+
+// session orientation banner (ties page to the header role-switcher)
+body.appendChild(MESC.alert('info', 'Live session',
+  'You are viewing the app as ' + MESShell.role().name + ' (plant scope ' + MESShell.role().plant +
+  '). The role switcher at top-right re-gates the sidebar and every screen instantly — the matrix below is derived from that same navigation model.'));
+
+const tabs = MESC.tabs([
+  { id:'rbac',  label:'Role-Based Access', icon:'fa-user-shield',      render: renderRbac },
+  { id:'auth',  label:'AD / SSO Login',    icon:'fa-right-to-bracket', render: renderAuth },
+  { id:'plant', label:'Plant Segregation', icon:'fa-location-dot',     render: renderPlant },
+  { id:'audit', label:'Audit Trail',       icon:'fa-clipboard-list',   render: renderAudit },
+  { id:'data',  label:'Data Security',     icon:'fa-lock',             render: renderData }
+]);
+body.appendChild(tabs);
+
+/* ===================== A7.1 — ROLE-BASED ACCESS CONTROL ===================== */
+function renderRbac() {
+  const wrap = h('div', {});
+  const roles = MESShell.ROLES;
+  // rows = every menu, flattened straight from the real shell NAV model
+  const items = MESShell.NAV.flatMap(s => s.items.map(it => Object.assign({ group: s.group }, it)));
+
+  const cols = [{
+    key:'module', label:'Module / Menu', render: r => h('div', {}, [
+      h('div', { class:'row gap-8' }, [MESC.icon(r.icon, 'text-primary'), h('span', { class:'strong' }, [r.label])]),
+      h('div', { class:'hint' }, ['nav gate: ' + (r.roles ? r.roles.join(' · ') : 'Public — all roles')])
+    ])
+  }].concat(roles.map(role => ({
+    key: role.id, cls:'center',
+    label: h('span', { class:'col gap-4', style:'align-items:center' }, [
+      h('span', { class:'strong' }, [role.name]),
+      role.id === activeRole ? MESC.badge('Live', 'primary') : h('span', { class:'hint' }, [role.plant])
+    ]),
+    render: r => cell(roleCanSee(role.id, r))
+  })));
+
+  wrap.appendChild(MESC.card({
+    title:'Role → Module Access Matrix', icon:'fa-table-cells',
+    right: MESC.badge('Derived from mes-shell NAV', 'info', 'fa-diagram-project'),
+    body: [
+      h('div', { class:'access-matrix' }, [MESC.table(cols, items)]),
+      h('div', { class:'row gap-16 mt-8 hint wrap' }, [
+        h('span', { class:'row gap-4' }, [MESC.icon('fa-circle-check', 'text-success cell-ic'), 'Allowed']),
+        h('span', { class:'row gap-4' }, [MESC.icon('fa-lock', 'muted cell-ic'), 'Denied — menu hidden & locked']),
+        h('span', {}, ['Rule: admin → everything · a menu with no gate → all roles · otherwise the role must appear in the gate list.'])
+      ])
+    ]
+  }));
+
+  // required callout (verified by the matrix above)
+  wrap.appendChild(MESC.alert('warning', 'Segregation of duties',
+    'Shift Operator cannot access Scheduling; QC Inspector cannot post Production; PPIC sees full schedule.'));
+
+  // prove it live — switch role and reload; sidebar + Live column re-gate
+  wrap.appendChild(MESC.card({
+    title:'Prove it — switch role live', icon:'fa-wand-magic-sparkles', right:'reloads & re-gates the whole app',
+    body: [
+      h('div', { class:'hint mb-12' }, ['Click a role to apply it (identical to the header switcher). Watch the sidebar locks, the ',
+        h('strong', {}, ['Live']), ' column and every screen change on reload.']),
+      h('div', { class:'role-preview' }, roles.map(role => h('button', {
+        class:'btn btn-sm ' + (role.id === activeRole ? 'btn-primary' : 'btn-outline'),
+        onclick: () => switchRole(role.id, role.name)
+      }, [MESC.icon('fa-user'), 'View as ' + role.name]))),
+      h('div', { class:'hint mt-8' }, ['Direct-URL load is intentionally not blocked in this mockup — switch back from the header at any time.'])
+    ]
+  }));
+  return wrap;
+}
+
+/* ===================== A7.2 — AD / SSO LOGIN ===================== */
+function renderAuth() {
+  const wrap = h('div', {});
+  const out = h('div', { class:'mt-12' });
+  const userInp = h('input', { type:'text', value:'jsw\\smanjrekar', spellcheck:'false' });
+  const passInp = h('input', { type:'password', value:'demo-password-01' });
+
+  wrap.appendChild(MESC.card({
+    class:'login-card', title:'Corporate Sign-In', icon:'fa-id-badge', right: MESC.badge('LDAP / Azure AD', 'info'),
+    body: [
+      field2('Domain user', userInp, 'DOMAIN\\username — validated against corporate Active Directory'),
+      field2('Password', passInp, 'Never stored or written to logs in clear text'),
+      h('button', { class:'btn sso-btn mt-4', style:'width:100%', onclick: signInSso },
+        [brandIcon('fa-microsoft'), 'Sign in with Azure AD (SSO)']),
+      h('div', { class:'row gap-8 mt-8 wrap' }, [
+        h('button', { class:'btn btn-ghost', onclick: signInLocal }, [MESC.icon('fa-right-to-bracket'), 'Sign in']),
+        h('span', { class:'hint' }, ['Local fallback user available if AD is unreachable.'])
+      ])
+    ]
+  }));
+  wrap.appendChild(out);
+
+  function signInSso() {
+    out.innerHTML = '';
+    out.appendChild(MESC.alert('success', 'SSO via AD',
+      "role mapped from AD group 'MES_SMS_Operators' → Shift Operator (SMS)"));
+    out.appendChild(MESC.messageLog([
+      { ts:'14:06:09', tag:'AUTH',  cls:'out', text:'SAML request → login.microsoftonline.com (tenant jsw.onmicrosoft.com)' },
+      { ts:'14:06:10', tag:'AUTH',  cls:'in',  text:'Assertion OK · MFA satisfied · groups=[MES_SMS_Operators, DOLVI_ALL]' },
+      { ts:'14:06:10', tag:'RBAC',  cls:'ok',  text:'group MES_SMS_Operators → role=operator, plant scope=SMS-2' },
+      { ts:'14:06:11', tag:'AUDIT', cls:'ok',  text:'login event written (see Audit Trail) · password NOT logged' }
+    ]));
+    out.appendChild(h('div', { class:'row gap-8 mt-8 wrap' }, [
+      h('button', { class:'btn btn-outline btn-sm', onclick: () => switchRole('operator', 'Shift Operator (SMS)') },
+        [MESC.icon('fa-user-check'), 'Apply mapped role (Shift Operator)']),
+      h('span', { class:'hint' }, ['Applies the AD-group mapping to the live session.'])
+    ]));
+    MESShell.toast('Authenticated via Azure AD — mapped to Shift Operator (SMS)', 'success');
+  }
+  function signInLocal() {
+    out.innerHTML = '';
+    out.appendChild(MESC.alert('info', 'Local fallback',
+      'Signed in with local account mes\\svc-operator (used only when AD is unreachable). Reduced privileges; flagged in the audit trail.'));
+    MESShell.toast('Local fallback sign-in', 'info');
+  }
+  return wrap;
+}
+
+/* ===================== A7.3 — PLANT-BASED SEGREGATION ===================== */
+function renderPlant() {
+  const wrap = h('div', {});
+  wrap.appendChild(MESC.card({
+    class:'scope-card', title:'Session scope', icon:'fa-user-lock',
+    body: [ MESC.kvGrid([
+      ['User', 'jsw\\smanjrekar'], ['Role', 'Shift Operator (SMS)'],
+      ['Plant scope', 'SMS-2'], ['Requested resource', 'HSM-2 · Coil QC decisions']
+    ]) ]
+  }));
+
+  const host = h('div', { class:'mt-12' });
+  wrap.appendChild(host);
+
+  function draw() {
+    host.innerHTML = '';
+    host.appendChild(MESC.card({
+      title:'Cross-plant access — SMS-2 → HSM-2', icon:'fa-shield-halved',
+      right: hsmGranted ? MESC.badge('Temp access: GRANTED', 'success', 'fa-unlock')
+                        : MESC.badge('Temp access: REVOKED', 'neutral', 'fa-lock'),
+      body: [
+        h('div', { class:'hint mb-12' }, ['A user scoped to ', h('strong', {}, ['SMS-2']), ' cannot open ',
+          h('strong', {}, ['HSM-2']), ' quality decisions unless a supervisor grants temporary, audited access.']),
+        h('div', { class:'row gap-8 wrap' }, [
+          h('button', { class:'btn btn-primary', onclick: attempt },
+            [MESC.icon('fa-arrow-up-right-from-square'), 'Attempt: SMS-2 user opens HSM-2 Coil QC']),
+          h('button', { class:'btn ' + (hsmGranted ? 'btn-warning' : 'btn-outline'), onclick: toggleGrant },
+            [MESC.icon(hsmGranted ? 'fa-lock' : 'fa-unlock'), hsmGranted ? 'Revoke temporary access' : 'Grant temporary access (supervisor)'])
+        ]),
+        h('div', { id:'plant-out', class:'mt-12' })
+      ]
+    }));
+  }
+
+  function attempt() {
+    const o = document.getElementById('plant-out'); o.innerHTML = '';
+    if (!hsmGranted) {
+      o.appendChild(MESC.alert('danger', 'Permission denied',
+        'plant scope SMS-2 does not include HSM-2 Quality. Attempt logged for user jsw\\smanjrekar (see Audit Trail).'));
+      MESShell.toast('Access denied — plant scope SMS-2 does not include HSM-2 Quality', 'danger');
+    } else {
+      o.appendChild(MESC.alert('success', 'Access granted (temporary)',
+        'Supervisor override active — opening HSM-2 Coil QC for coil ' + D.coil.ref + '. Action is audited and time-boxed to this shift.'));
+      o.appendChild(MESC.card({ title:'HSM-2 · Coil QC — ' + D.coil.ref, icon:'fa-flask', body:[ MESC.kvGrid([
+        ['Coil', D.coil.id], ['Grade', D.coil.grade], ['YS', D.coil.ys + ' MPa'], ['UTS', D.coil.uts + ' MPa'],
+        ['Elongation', D.coil.elong + ' %'], ['Status', D.coil.status]
+      ]) ]}));
+      MESShell.toast('HSM-2 Coil QC opened under temporary grant', 'success');
+    }
+  }
+  function toggleGrant() {
+    hsmGranted = !hsmGranted; draw();
+    MESShell.toast(hsmGranted ? 'Temporary HSM-2 access granted by supervisor (audited)' : 'Temporary HSM-2 access revoked',
+      hsmGranted ? 'success' : 'info');
+  }
+  draw();
+  return wrap;
+}
+
+/* ===================== A7.4 — AUDIT TRAIL ===================== */
+function renderAudit() {
+  const wrap = h('div', {});
+  const rows = [
+    { user:'jsw\\qkulkarni',  ts:'07 Jul 2026 15:33:18', action:'Login (AD SSO)',                     old:'—',           neu:'Session started',   reason:'Shift B — QC round' },
+    { user:'jsw\\qkulkarni',  ts:'07 Jul 2026 15:44:02', action:'QC hold — Coil ' + D.coil.ref,         old:'AVAILABLE',   neu:'ON_HOLD',           reason:'YS/UTS variance vs IS 2062 E250 aim' },
+    { user:'jsw\\qkulkarni',  ts:'07 Jul 2026 15:52:41', action:'Grade downgrade — Coil ' + D.coil.ref, old:'IS 2062 E250', neu:'IS 2062 E200',     reason:'Mech. props meet E200 only (YS 285 / UTS 420)' },
+    { user:'jsw\\aptil',      ts:'07 Jul 2026 16:10:07', action:'AUD approval — Coil ' + D.coil.ref,    old:'PENDING_AUD', neu:'AUD_APPROVED',      reason:'Fit-for-use at E200 per customer waiver WVR-118' },
+    { user:'jsw\\smanjrekar', ts:'07 Jul 2026 16:14:55', action:'Release from hold — Coil ' + D.coil.ref, old:'ON_HOLD',   neu:'RELEASED (E200)',   reason:'AUD approved — re-allocate to alternate order' }
+  ];
+
+  wrap.appendChild(MESC.card({
+    title:'Audit Trail — quality decision change · Coil ' + D.coil.ref, icon:'fa-clipboard-list',
+    right: [
+      MESC.badge('Non-repudiable', 'purple', 'fa-fingerprint'),
+      h('button', { class:'btn btn-outline btn-sm', onclick: exportLog }, [MESC.icon('fa-file-export'), 'Export audit log'])
+    ],
+    body: [
+      MESC.table([
+        { key:'user',   label:'User ID',   render:r => h('span', { class:'mono strong' }, [r.user]) },
+        { key:'ts',     label:'Timestamp', cls:'mono' },
+        { key:'action', label:'Action' },
+        { key:'old',    label:'Old Value', render:r => valBadge(r.old, false) },
+        { key:'neu',    label:'New Value', render:r => valBadge(r.neu, true) },
+        { key:'reason', label:'Reason' }
+      ], rows),
+      h('div', { class:'row gap-6 mt-8 hint wrap' }, [ MESC.icon('fa-lock', 'muted'),
+        'Entries are append-only, timestamped, digitally signed and bound to the AD identity — they cannot be edited or deleted.'])
+    ]
+  }));
+
+  wrap.appendChild(MESC.alert('info', 'Traceability',
+    'Every production-status change, hold/release, downgrade, batch-order allocation and usage decision writes a {user, timestamp, action, old, new, reason} row. Exportable to SAP-QM and as signed CSV / PDF.'));
+
+  function exportLog() { MESShell.toast('Audit log exported — 5 signed entries (CSV) for Coil ' + D.coil.ref, 'success'); }
+  return wrap;
+}
+
+/* ===================== A7.5 — DATA SECURITY ===================== */
+function renderData() {
+  const wrap = h('div', {});
+  const indicators = [
+    { ic:'fa-lock',        main:'HTTPS / TLS 1.3 transport',   meta:'All UI, API and L2 traffic encrypted in transit · HSTS enabled', badge:'Secure' },
+    { ic:'fa-database',    main:'Encryption at rest — AES-256', meta:'Database, backups and file store encrypted · keys held in HSM / KMS', badge:'AES-256' },
+    { ic:'fa-key',         main:'No plaintext passwords in logs', meta:'Credentials hashed (Argon2id) · secrets redacted from app & audit logs', badge:'Redacted' },
+    { ic:'fa-fingerprint', main:'Signed, non-repudiable audit', meta:'Every change signed and chained to the AD identity', badge:'Signed' }
+  ];
+  wrap.appendChild(MESC.card({
+    title:'System Information — Data Security', icon:'fa-shield-halved',
+    right: MESC.badge('All checks green', 'success', 'fa-circle-check'),
+    body: [ h('div', { class:'card-grid cols-2' }, indicators.map(secInd)) ]
+  }));
+
+  const sensitive = [
+    { field:'Aim chemistry / grade recipe', ex:'C·Mn·S·P·Si aim windows (IS 2062 E250)', prot:'Field-level encryption + role gate' },
+    { field:'Lab test results',             ex:'Turndown & product chemistry, mech. props', prot:'Encrypted at rest · QC / PPIC only' },
+    { field:'Alloy addition costs',         ex:'FeMn / FeSi / Al-wire cost per heat',       prot:'Encrypted · admin / PPIC only' },
+    { field:'Customer commercial terms',    ex:'Order price, penalty clauses',              prot:'Encrypted · masked in ops screens' }
+  ];
+  wrap.appendChild(MESC.card({
+    title:'Sensitive fields — field-level protection', icon:'fa-user-lock', right: sensitive.length + ' protected fields',
+    body: [ MESC.table([
+      { key:'field', label:'Sensitive field', render:r => h('span', { class:'row gap-6' }, [MESC.icon('fa-lock', 'text-warning'), h('span', { class:'strong' }, [r.field])]) },
+      { key:'ex',    label:'Example content' },
+      { key:'prot',  label:'Protection', render:r => MESC.badge(r.prot, 'success', 'fa-lock') }
+    ], sensitive) ]
+  }));
+
+  wrap.appendChild(MESC.alert('success', 'Compliance posture',
+    'Transport TLS 1.3 · AES-256 at rest · hashed secrets · signed audit · field-level encryption on chemistry recipes, test results and alloy costs.'));
+  return wrap;
+}
+
+/* ---------- small local helpers ---------- */
+function roleCanSee(roleId, item) { return (!item.roles || roleId === 'admin') ? true : item.roles.includes(roleId); }
+function cell(allowed) {
+  return allowed
+    ? h('span', { title:'Allowed' }, [MESC.icon('fa-circle-check', 'text-success cell-ic')])
+    : h('span', { title:'Denied — menu hidden & locked' }, [MESC.icon('fa-lock', 'muted cell-ic')]);
+}
+function switchRole(id, name) {
+  MESShell.setRole(id);
+  MESShell.toast('Switched to ' + name + ' — reloading to re-gate…', 'info');
+  setTimeout(() => location.reload(), 400);
+}
+function field2(label, ctrl, hint) {
+  return h('div', { class:'field' }, [h('label', {}, [label]), ctrl, hint ? h('span', { class:'hint' }, [hint]) : null]);
+}
+function brandIcon(name) { return h('i', { class:'fa-brands ' + name }); }
+function valBadge(val, isNew) {
+  if (val === '—') return h('span', { class:'muted' }, ['—']);
+  const v = val.toUpperCase();
+  let kind = 'neutral';
+  if (v.indexOf('HOLD') >= 0 || v.indexOf('PENDING') >= 0) kind = 'warning';
+  else if (isNew && (v.indexOf('RELEASED') >= 0 || v.indexOf('APPROVED') >= 0 || v.indexOf('STARTED') >= 0)) kind = 'success';
+  else if (isNew) kind = 'info';
+  return MESC.badge(val, kind);
+}
+function secInd(o) {
+  return h('div', { class:'sec-ind' }, [
+    h('div', { class:'si-ic' }, [MESC.icon(o.ic)]),
+    h('div', { class:'grow' }, [h('div', { class:'si-main' }, [o.main]), h('div', { class:'si-meta' }, [o.meta])]),
+    MESC.badge(o.badge, 'success', 'fa-check')
+  ]);
+}
+</script>
+</body>
+</html>

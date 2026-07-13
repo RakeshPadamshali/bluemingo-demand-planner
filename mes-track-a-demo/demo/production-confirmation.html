@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Production Confirmation — Bluemingo MES</title>
+<link href="assets/vendor/roboto/roboto.css" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/mes-styles.css">
+<style>
+  .bm-content { overflow:hidden; }
+  .page-body  { flex:1; min-height:0; display:flex; flex-direction:column; }
+
+  /* Process -> Operation -> Equipment cascade selector */
+  .op-select-bar { background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-md,6px); padding:10px 14px; margin-bottom:10px; flex-shrink:0; display:flex; flex-direction:column; gap:9px; }
+  .op-cascade { display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; }
+  .casc { display:flex; flex-direction:column; gap:4px; }
+  .casc label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--color-text-muted); }
+  .casc-select { font-size:13.5px; font-weight:600; padding:7px 11px; border:1px solid var(--color-primary); border-radius:6px; background:var(--color-primary-light); color:var(--color-primary-dark); cursor:pointer; min-width:190px; }
+  .casc-select:focus { outline:none; box-shadow:0 0 0 3px rgba(var(--color-primary-rgb),.2); }
+  .casc-sep { color:var(--color-text-disabled); font-size:12px; padding-bottom:9px; }
+  .op-line2 { display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding-top:8px; border-top:1px solid var(--color-border-light); }
+  .op-chip { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--color-text-secondary); }
+  .op-chip i { color:var(--color-primary); font-size:11px; }
+  .op-line2 .flow { margin-left:auto; }
+
+  /* full-width workspace */
+  .right-pane { flex:1; min-height:0; overflow-y:auto; display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:min-content; gap:12px; align-content:start; padding-right:2px; }
+  .right-pane .full { grid-column:1 / -1; }
+
+  /* input-material list */
+  .inp-sum { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .inp-sum .sp { flex:1; }
+  .attr-pill { display:inline-flex; align-items:center; gap:3px; font-size:10px; padding:1px 6px; border-radius:3px; background:var(--color-bg-alt); border:1px solid var(--color-border-light); color:var(--color-text-secondary); white-space:nowrap; }
+  .attr-pill b { color:var(--color-text-muted); font-weight:600; }
+  .bom-select { padding:5px 8px; border:1px solid var(--color-border); border-radius:4px; font-size:12px; background:#fff; }
+  .wrap { flex-wrap:wrap; }
+  .mb-8 { margin-bottom:8px; }
+
+  /* footer */
+  .footer-bar { background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-md,6px); padding:8px 14px; display:flex; align-items:center; gap:16px; margin-top:10px; flex-shrink:0; flex-wrap:wrap; box-shadow:0 -2px 8px rgba(0,0,0,.04); }
+  .footer-bar .summary { display:flex; gap:22px; flex-wrap:wrap; }
+  .footer-bar .summary .lk { font-size:9px; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:.3px; font-weight:600; display:block; }
+  .footer-bar .summary .lv { font-weight:600; color:var(--color-text-primary); font-size:14px; }
+  .footer-bar .actions { margin-left:auto; display:flex; gap:8px; align-items:center; }
+
+  /* fan-out list */
+  .fanout { list-style:none; margin:0; padding:0; }
+  .fanout li { display:flex; align-items:flex-start; gap:11px; padding:8px 2px; border-bottom:1px solid var(--color-border-light); }
+  .fanout li:last-child { border-bottom:none; }
+  .fanout .fx-ic { color:var(--color-success); margin-top:1px; width:16px; text-align:center; flex-shrink:0; }
+  .fanout .fx-main { font-weight:600; font-size:12.5px; }
+  .fanout .fx-sub  { color:var(--color-text-muted); font-size:11.5px; margin-top:1px; }
+
+  /* mass balance */
+  .mbal { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .mbal .bar { flex:1; min-width:160px; height:16px; background:var(--color-border-light); border-radius:8px; overflow:hidden; display:flex; }
+  .mbal .seg { height:100%; transition:width .2s; }
+  .mbal .seg-out { background:var(--color-success); } .mbal .seg-scrap { background:var(--color-warning); }
+  .mbal .fig { font-size:11.5px; color:var(--color-text-secondary); white-space:nowrap; }
+  .mbal .fig b { color:var(--color-text-primary); }
+  .qty-in { width:78px; text-align:right; padding:4px 6px; border:1px solid var(--color-border); border-radius:4px; font:600 12px 'Roboto'; }
+  .qty-in:focus { border-color:var(--color-primary); outline:none; box-shadow:0 0 0 2px rgba(var(--color-primary-rgb),.15); }
+
+  @media (max-width:900px){
+    .bm-content { overflow-y:auto; }
+    .right-pane { grid-template-columns:1fr; overflow:visible; }
+    .casc-select { min-width:0; }
+  }
+</style>
+</head>
+<body>
+<script src="assets/mes-data.js"></script>
+<script src="assets/mes-shell.js"></script>
+<script src="assets/mes-components.js"></script>
+<script>
+const D = MES_DATA;
+const { body } = MESShell.mount({ active: 'pc', title: 'Production Confirmation', crumb: ['Operations', 'Shop Floor · Workstation'] });
+
+const ORDER = 'SO-2026-04471 / 10', GRADE = 'IS 2062 E250';
+const lot = (batch, src, qty, attrs) => ({ batch, src, state: 'AVAILABLE', qty, attrs: attrs || [] });
+const mat = (name, meta, unit, req, lots) => ({ name, meta, unit, req, lots });
+const outp = (id, name, unit, qty, attrs) => ({ id, name, unit, qty, attrs: attrs || [] });
+
+/* ============================================================
+   OPERATIONS — Process -> Operation -> Equipment.
+   Heat H2601 flows: Steelmaking(KR->BOF->LHF->RH) -> Continuous Casting(CCM) -> Hot Rolling(Down Coiling).
+   Production confirmation happens at EACH operation (consume prior output, produce next).
+   ============================================================ */
+const OPS = [
+  /* ---------- STEELMAKING ---------- */
+  { proc: 'Steelmaking', op: 'KR — Desulphurisation', equip: 'KR Station', status: 'CONFIRMED', rel: 'TRANSFORM',
+    heat: 'H2601', operator: 'R. Naik · EMP-10231', confAt: '14:58:20',
+    inputs: [ mat('Hot Metal', 'RM · ex Torpedo TPC-14 · Blast Furnace 2', 'MT', 168, [lot('TPC-14', 'Torpedo car · BF-2', 168, [['Si', '0.42 %', 1], ['S', '0.028 %', 1], ['Temp', '1340 °C', 1]])]) ],
+    outputs: [ outp('H2601', 'Desulphurised heat H2601', 'MT', 167, [['S', '0.006 %', 1], ['Temp', '1332 °C', 1]]) ], scrap: 1 },
+
+  { proc: 'Steelmaking', op: 'BOF — Oxygen Steelmaking', equip: 'BOF1', status: 'READY', rel: 'MERGE',
+    heat: 'H2601', operator: 'S. Kadam · EMP-10482',
+    inputs: [
+      mat('Desulph. Hot Metal', 'IM · ex KR · req Grade parent = liquid steel', 'MT', 148, [lot('H2601·HM', 'KR Station — out', 148, [['S', '0.006 %', 1], ['Si', '0.38 %', 1], ['Temp', '1332 °C', 1]])]),
+      mat('Steel Scrap', 'RM · shredded + HMS · BOM 0.11 MT/MT', 'MT', 18, [lot('SCR-2609-A', 'Scrap bay 3 · magnet-charged', 18, [['Type', 'Shredded', 1], ['Cu', '0.08 %', 1]])])
+    ],
+    outputs: [ outp('H2601', 'Crude steel heat H2601', 'MT', 165, [['C', '0.06 %', 1], ['Mn', '0.98 %', 1], ['Temp', '1662 °C', 1]]) ], scrap: 1,
+    params: [{ p: 'Blow O₂ volume', v: '9,240 Nm³', src: 'AUTO' }, { p: 'Lance height', v: '1.85 m', src: 'AUTO' }, { p: 'Turndown temp', v: '1662 °C', src: 'AUTO' }, { p: 'Turndown C', v: '0.06 %', src: 'MANUAL' }],
+    consumables: [{ c: 'Oxygen', basis: 'PER_UNIT', qty: '9,240 Nm³' }, { c: 'Burnt lime (flux)', basis: 'PER_UNIT', qty: '9,075 kg' }, { c: 'Dololime', basis: 'PER_UNIT', qty: '3,300 kg' }],
+    secEq: [{ e: 'BOF1 lance #LN-07', used: '88 → 89 / 300', rem: '211 left' }, { e: 'Tap-hole sleeve', used: '34 → 35 / 120', rem: '85 left', warn: true }] },
+
+  { proc: 'Steelmaking', op: 'BOF — Oxygen Steelmaking', equip: 'BOF2', status: 'IDLE', heat: '—' },
+  { proc: 'Steelmaking', op: 'BOF — Oxygen Steelmaking', equip: 'BOF3', status: 'IDLE', heat: '—' },
+
+  { proc: 'Steelmaking', op: 'LHF — Ladle-Furnace Refining', equip: 'LHF-1', status: 'READY', rel: 'TRANSFORM',
+    heat: 'H2601', operator: 'S. Kadam · EMP-10482',
+    inputs: [
+      mat('Crude Steel heat', 'IM · ex BOF1 · req Grade = IS 2062 E250', 'MT', 165, [lot('H2601', 'BOF1 — tapped', 165, [['C', '0.06 %', 1], ['Mn', '0.98 %', 1], ['Temp', '1602 °C', 1]])]),
+      mat('Ferro-Manganese (FeMn)', 'RM · alloy add · BOM per Mn aim', 'MT', 0.85, [lot('FEMN-2609', 'Alloy bay', 0.85, [['Mn', '76 %', 1]])]),
+      mat('Ferro-Silicon (FeSi)', 'RM · alloy add', 'MT', 0.32, [lot('FESI-2609', 'Alloy bay', 0.32, [['Si', '75 %', 1]])]),
+      mat('Calcium-Silicon (CaSi)', 'RM · Ca treatment', 'MT', 0.18, [lot('CASI-2609', 'Wire feeder', 0.18, [['Ca', '30 %', 1]])])
+    ],
+    outputs: [ outp('H2601', 'Refined heat H2601', 'MT', 166, [['Mn', '1.20 %', 1], ['Si', '0.20 %', 1], ['Temp', '1595 °C', 1]]) ], scrap: 0.35,
+    params: [{ p: 'Arc power', v: '18 MW', src: 'AUTO' }, { p: 'Heating rate', v: '3.5 °C/min', src: 'AUTO' }, { p: 'Stir Ar flow', v: '18 Nm³/h', src: 'AUTO' }, { p: 'Aim Mn', v: '1.20 %', src: 'MANUAL' }],
+    consumables: [{ c: 'Electricity', basis: 'PER_HOUR', qty: '11.4 MWh' }, { c: 'Argon (stir)', basis: 'PER_HOUR', qty: '52 Nm³' }, { c: 'Electrode paste', basis: 'PER_UNIT', qty: '46 kg' }],
+    secEq: [{ e: 'Graphite electrode #E-221', used: '61 → 62 % worn', rem: '38 % left' }, { e: 'Porous plug (ladle L-02)', used: '18 → 19 / 30 heats', rem: '11 left' }] },
+
+  { proc: 'Steelmaking', op: 'RH — Vacuum Degassing', equip: 'RH-1', status: 'READY', rel: 'TRANSFORM',
+    heat: 'H2601', operator: 'S. Kadam · EMP-10482',
+    inputs: [ mat('Refined Steel heat', 'IM · ex LHF · req Grade = IS 2062 E250', 'MT', 166, [lot('H2601', 'LHF-1 — out', 166, [['Mn', '1.20 %', 1], ['H', '4.2 ppm', 1], ['Temp', '1595 °C', 1]])]) ],
+    outputs: [ outp('H2601', 'Degassed heat H2601', 'MT', 165.6, [['H', '1.6 ppm', 1], ['N', '38 ppm', 1], ['Temp', '1565 °C', 1]]) ], scrap: 0.4,
+    params: [{ p: 'Vacuum', v: '0.8 mbar', src: 'AUTO' }, { p: 'Circulation Ar', v: '140 Nm³/h', src: 'AUTO' }, { p: 'Treatment time', v: '22 min', src: 'AUTO' }, { p: 'Final H', v: '1.6 ppm', src: 'MANUAL' }],
+    consumables: [{ c: 'Argon (lift)', basis: 'PER_HOUR', qty: '51 Nm³' }, { c: 'Steam (ejector)', basis: 'PER_HOUR', qty: '3.4 T' }],
+    secEq: [{ e: 'RH snorkel #SN-14', used: '41 → 42 / 80 heats', rem: '38 left' }] },
+
+  /* ---------- CONTINUOUS CASTING ---------- */
+  { proc: 'Continuous Casting', op: 'CCM — Strand Casting', equip: 'CCM1', status: 'READY', rel: 'SPLIT',
+    heat: 'H2601', operator: 'S. Kadam · EMP-10482',
+    inputs: [ mat('Degassed Steel heat', 'IM · ex RH · via tundish · req Grade = IS 2062 E250', 'MT', 165.6, [lot('H2601', 'RH-1 — out → tundish', 165.6, [['C', '0.061 %', 1], ['Temp', '1548 °C', 1], ['Superheat', '24 °C', 1]])]) ],
+    outputs: [
+      outp('ISWCC1H2601S001', 'Slab (210×1250×9200)', 'MT', 26.4, [['Charge', 'Hot', 1]]),
+      outp('ISWCC1H2601S002', 'Slab (210×1250×8650)', 'MT', 24.8, [['Charge', 'Cold', 1]]),
+      outp('ISWCC1H2601S003', 'Slab (210×1250×9400)', 'MT', 27.2, [['Charge', 'Cold', 1]]),
+      outp('ISWCC1H2601S004', 'Slab (210×1250×9400)', 'MT', 27.1, [['Charge', 'Cold', 1]]),
+      outp('ISWCC1H2601S005', 'Slab (210×1250×9300)', 'MT', 27.0, [['Charge', 'Cold', 1]]),
+      outp('ISWCC1H2601S006', 'Slab (210×1250×9350)', 'MT', 27.1, [['Charge', 'Cold', 1]])
+    ], scrap: 6.0,
+    params: [{ p: 'Tundish temperature', v: '1548 °C', src: 'AUTO' }, { p: 'Casting speed', v: '1.15 m/min', src: 'AUTO' }, { p: 'Mould level', v: '78 %', src: 'AUTO' }, { p: 'Superheat', v: '24 °C', src: 'MANUAL' }],
+    consumables: [{ c: 'Mould powder', basis: 'PER_UNIT', qty: '5.0 kg' }, { c: 'Argon (shroud)', basis: 'PER_HOUR', qty: '42 Nm³' }, { c: 'Electricity', basis: 'PER_HOUR', qty: '1.14 MWh' }],
+    secEq: [{ e: 'SEN nozzle #SEN-2231', used: '6 → 7 / 8 heats', rem: '1 left', warn: true }, { e: 'Tundish #TDS-19', used: '11 → 12 / 20', rem: '8 left' }] },
+
+  { proc: 'Continuous Casting', op: 'CCM — Strand Casting', equip: 'CCM2', status: 'ON_HOLD',
+    heat: 'H2603', operator: '—', hold: 'Chemistry clearance pending — S trending high at LHF (grade SAILMA 350)' },
+
+  /* ---------- HOT ROLLING ---------- */
+  { proc: 'Hot Rolling', op: 'Down Coiling', equip: 'Down Coiler 1', status: 'CONFIRMED', rel: 'TRANSFORM',
+    heat: 'ISWHSM2C2598004', operator: 'A. Pawar · EMP-11731', confAt: '15:12:47',
+    inputs: [ mat('Slab', 'IM · ex CCM', 'MT', 26.7, [lot('ISWCC1H2598S004', 'SYMS', 26.7, [])]) ],
+    outputs: [ outp('ISWHSM2C2598004', 'HR Coil', 'MT', 26.1, []) ], scrap: 0.6 },
+
+  { proc: 'Hot Rolling', op: 'Down Coiling', equip: 'Down Coiler 2', status: 'READY', rel: 'TRANSFORM',
+    heat: 'C2601', operator: 'A. Pawar · EMP-11731', coil: true,
+    inputs: [ mat('Slab · IS 2062 E250', 'IM · ex CCM1 (cast from H2601) · reheated RHF1 → rolled', 'MT', 26.4, [
+      lot('ISWCC1H2601S001', 'Hot charge · from CCM1', 26.4, [['Grade', 'IS 2062 E250', 1], ['Size', '210×1250×9200', 1], ['Charge', 'Hot', 1]]),
+      lot('ISWCC1H2601S003', 'SYMS slab yard · cold', 0, [['Grade', 'IS 2062 E250', 1], ['Size', '210×1250×9400', 1], ['Charge', 'Cold', 1]])
+    ]) ],
+    outputs: [ outp('ISWHSM2C2601001', 'HR Coil C2601 (2.50 × 1250)', 'MT', 25.9, [['YS', '285 MPa', 1], ['Thk', '2.50 mm', 1]]) ], scrap: 0.5,
+    params: [{ p: 'Finishing temperature', v: '882 °C', src: 'AUTO' }, { p: 'Coiling temperature', v: '618 °C', src: 'AUTO' }, { p: 'Finishing mill speed', v: '9.4 m/s', src: 'AUTO' }, { p: 'Exit thickness', v: '2.50 mm', src: 'AUTO' }],
+    consumables: [{ c: 'Rolling emulsion', basis: 'PER_UNIT', qty: '2,300 L' }, { c: 'Electricity', basis: 'PER_UNIT', qty: '3.05 MWh' }],
+    secEq: [{ e: 'Finishing work-roll WR-F3', used: '1,180 → 1,206 T', rem: '294 T to regrind' }] }
+];
+
+let sel = 0;
+const editState = {};  /* per-op: { scrap, out:[qty per output], lots patched in place } */
+
+/* ---------- layout ---------- */
+const opBar     = h('div', { class: 'op-select-bar', id: 'opbar' });
+const rightPane = h('section', { class: 'right-pane', id: 'rightpane' });
+const footHost  = h('div', { class: 'footer-bar', id: 'footbar' });
+body.appendChild(opBar);
+body.appendChild(rightPane);
+body.appendChild(footHost);
+selectDefault();
+renderAll();
+
+function selectDefault() { sel = OPS.findIndex(o => o.status === 'READY'); if (sel < 0) sel = 0; }
+function selectOp(i) { if (i >= 0) { sel = i; renderAll(); } }
+function renderAll() { renderCascade(); renderRight(); renderFooter(); }
+
+function uniq(a) { return a.filter((x, i) => a.indexOf(x) === i); }
+function estate(op) {
+  const key = op.proc + '|' + op.op + '|' + op.equip;
+  if (!editState[key]) editState[key] = { scrap: op.scrap != null ? op.scrap : 0, out: (op.outputs || []).map(o => o.qty) };
+  return editState[key];
+}
+function inTotal(op) { return (op.inputs || []).filter(m => m.unit === 'MT').reduce((s, m) => s + (m.lots || []).reduce((a, l) => a + (+l.qty || 0), 0), 0); }
+function outTotal(op) { const st = estate(op); return (op.outputs || []).reduce((s, o, i) => s + (+st.out[i] || 0), 0); }
+
+/* ===================== CASCADE SELECTOR ===================== */
+function renderCascade() {
+  const cur = OPS[sel];
+  opBar.innerHTML = '';
+  const procs = uniq(OPS.map(o => o.proc));
+  const ops = uniq(OPS.filter(o => o.proc === cur.proc).map(o => o.op));
+  const equips = OPS.filter(o => o.proc === cur.proc && o.op === cur.op).map(o => o.equip);
+  const procSel = mkSel('Process', procs, cur.proc, v => selectOp(OPS.findIndex(o => o.proc === v)));
+  const opSel = mkSel('Operation', ops, cur.op, v => selectOp(OPS.findIndex(o => o.proc === cur.proc && o.op === v)));
+  const eqSel = mkSel('Equipment', equips, cur.equip, v => selectOp(OPS.findIndex(o => o.proc === cur.proc && o.op === cur.op && o.equip === v)));
+  opBar.appendChild(h('div', { class: 'op-cascade' }, [
+    procSel, sep(), opSel, sep(), eqSel,
+    h('span', { style: 'padding-bottom:7px;margin-left:6px' }, [statusBadgeFor(cur)])
+  ]));
+  const line2 = h('div', { class: 'op-line2' }, [
+    ctxChip('fa-cube', (cur.coil ? 'Coil ' : cur.heat && cur.heat !== '—' ? 'Heat ' : '') + (cur.heat || '—')),
+    ctxChip('fa-user', cur.operator || '—'),
+    ctxChip('fa-file-lines', 'Order ' + ORDER),
+    ctxChip('fa-industry', cur.proc)
+  ]);
+  const curIdx = cur.status === 'ON_HOLD' ? 1 : (cur.confirmedNow || cur.status === 'CONFIRMED') ? 3 : cur.status === 'IDLE' ? 0 : 2;
+  line2.appendChild(flowStatus(curIdx));
+  opBar.appendChild(line2);
+}
+function mkSel(label, options, val, onchange) {
+  const s = h('select', { class: 'casc-select' }, options.map(o => h('option', { value: o, selected: o === val ? 'selected' : null }, [o])));
+  s.addEventListener('change', function () { onchange(this.value); });
+  return h('div', { class: 'casc' }, [h('label', {}, [label]), s]);
+}
+function sep() { return h('span', { class: 'casc-sep' }, [MESC.icon('fa-chevron-right')]); }
+function ctxChip(ic, text) { return h('span', { class: 'op-chip' }, [MESC.icon(ic), text]); }
+function statusBadgeFor(op) {
+  return op.status === 'ON_HOLD' ? MESC.statusBadge('on-hold', 'ON HOLD')
+    : op.status === 'IDLE' ? MESC.badge('IDLE', 'neutral')
+    : (op.confirmedNow || op.status === 'CONFIRMED') ? MESC.statusBadge('completed', 'CONFIRMED')
+    : MESC.statusBadge('ready', 'READY');
+}
+function flowStatus(curIdx) {
+  const steps = ['Planned', 'Charged', 'Confirming', 'Confirmed', 'Quality Decision'];
+  return h('div', { class: 'flow' }, steps.flatMap((s, i) => {
+    const node = h('span', { class: 'step ' + (i < curIdx ? 'done' : i === curIdx ? 'current' : '') }, [h('span', { class: 's-dot' }), s]);
+    return i < steps.length - 1 ? [node, h('span', { class: 'arrow' }, [MESC.icon('fa-chevron-right')])] : [node];
+  }));
+}
+
+/* ===================== WORKSPACE ===================== */
+function renderRight() {
+  rightPane.innerHTML = '';
+  const op = OPS[sel];
+  let cards;
+  if (op.confirmedNow) cards = opResult(op);
+  else if (op.status === 'ON_HOLD') cards = [heldPanel(op)];
+  else if (op.status === 'IDLE') cards = [idlePanel(op)];
+  else if (op.status === 'CONFIRMED') cards = [confirmedPanel(op)];
+  else cards = opForm(op);
+  cards.forEach(c => rightPane.appendChild(c));
+  refreshBalance();
+}
+
+function idlePanel(op) {
+  return MESC.card({ class: 'full', title: op.equip + ' — idle', icon: 'fa-power-off', right: MESC.badge('IDLE', 'neutral'),
+    body: [MESC.alert('info', 'No scheduled operation', 'Equipment ' + op.equip + ' has no operation charged for confirmation right now. Select another equipment or operation.')] });
+}
+function heldPanel(op) {
+  return MESC.card({ class: 'full accent-amber', title: op.op + ' — on hold', icon: 'fa-lock', right: MESC.statusBadge('on-hold', 'ON HOLD'),
+    body: [
+      MESC.alert('warning', 'Cannot confirm production', 'A held operation cannot progress and cannot consume or produce inventory. Release is a controlled, audited action requiring authorization.'),
+      MESC.kvGrid([['Operation', op.op], ['Equipment', op.equip], ['Heat', h('span', { class: 'mono' }, [op.heat])], ['Hold reason', h('span', { class: 'strong' }, [op.hold])], ['Held since', '15:26 · Shift B'], ['Held by', 'QC Inspector · EMP-20114']])
+    ] });
+}
+function confirmedPanel(op) {
+  return MESC.card({ class: 'full', title: op.op + ' — confirmed', icon: 'fa-circle-check', right: MESC.statusBadge('completed', 'CONFIRMED'),
+    body: [
+      MESC.alert('success', 'Already confirmed', 'This operation was confirmed earlier this shift; inventory, genealogy and integration postings are complete. Shown for context.'),
+      MESC.kvGrid([['Operation', op.op], ['Equipment', op.equip],
+        ['Consumed', h('span', { class: 'mono' }, [(op.inputs || []).map(m => m.lots[0].batch).join(', ')])],
+        ['Produced', h('span', { class: 'mono' }, [(op.outputs || []).map(o => o.id).join(', ')])],
+        ['Confirmed at', op.confAt || '—'], ['Operator', op.operator]])
+    ] });
+}
+
+/* ---------- confirmable operation form (generic, data-driven) ---------- */
+function opForm(op) {
+  return [inputMaterialsCard(op), produceCard(op), massBalCard(op), paramsCard(op), consumablesCard(op), equipCard(op)].filter(Boolean);
+}
+
+function inputMaterialsCard(op) {
+  const sumHost = h('div', { id: 'inpsum', class: 'mb-8' });
+  const rows = [];
+  (op.inputs || []).forEach(m => (m.lots || []).forEach((l, li) => rows.push({ m, l, first: li === 0 })));
+  const tbl = MESC.table([
+    { label: 'Posting', render: () => MESC.badge('CONSUMPTION', 'neutral') },
+    { label: 'Input material (from BOM)', render: r => h('div', {}, [h('div', { class: 'strong' }, [r.m.name]), h('div', { class: 'hint', style: 'font-size:10.5px' }, [r.m.meta])]) },
+    { label: 'Available batch / lot', render: r => h('div', {}, [h('span', { class: 'mono strong' }, [r.l.batch]), h('div', { class: 'hint', style: 'font-size:10.5px' }, [r.l.src])]) },
+    { label: 'Required', num: true, render: r => r.first ? (r.m.req + ' ' + r.m.unit) : '' },
+    { label: 'Consume', render: r => {
+        const inp = h('input', { class: 'qty-in', type: 'number', step: '0.1', value: String(r.l.qty) });
+        inp.addEventListener('input', () => { r.l.qty = parseFloat(inp.value) || 0; refreshInput(); });
+        return h('span', { class: 'row gap-4', style: 'align-items:center' }, [inp, h('span', { class: 'hint' }, [r.m.unit])]);
+      } },
+    { label: 'Attributes', render: r => attrPills(r.l.attrs) },
+    { label: 'State', render: r => MESC.badge('Available', 'success') }
+  ], rows);
+  const addRow = h('div', { class: 'row gap-8 mt-8 wrap', style: 'align-items:center' }, [
+    h('select', { class: 'bom-select' }, [h('option', {}, ['— pick material from BOM —'])].concat((op.inputs || []).map(m => h('option', {}, [m.name])))),
+    h('button', { class: 'btn-add', onclick: () => MESShell.toast('Binds an AVAILABLE lot for the picked BOM material · consume qty editable (leave 0 to skip).', 'info') }, [MESC.icon('fa-plus'), 'Add batch']),
+    h('span', { class: 'hint', style: 'font-size:11px' }, ['One row per AVAILABLE lot of this operation’s BOM inputs.'])
+  ]);
+  const card = MESC.card({
+    class: 'full', title: 'Input Materials — consume', icon: 'fa-arrow-right-to-bracket', step: 1,
+    right: MESC.badge('BOM-driven · AVAILABLE → CONSUMED', 'info'),
+    body: [sumHost, tbl, addRow, h('div', { class: 'hint mt-8' }, ['Input list is derived from the selected operation’s BOM / routing. Consumed at the operation boundary; order allocation + attributes copy onto the consumption record.'])]
+  });
+  paintInputSummary(sumHost, op);
+  return card;
+}
+function paintInputSummary(host, op) {
+  const mats = (op.inputs || []).filter(m => m.unit === 'MT');
+  const req = mats.reduce((s, m) => s + (+m.req || 0), 0);
+  const alloc = inTotal(op);
+  const ok = req === 0 || Math.abs(alloc - req) <= 0.5;
+  host.innerHTML = '';
+  host.appendChild(h('div', { class: 'inp-sum' }, [
+    h('span', { class: 'hint' }, [(op.inputs || []).length + ' BOM input' + ((op.inputs || []).length > 1 ? 's' : '') + ' · one row per available lot · consume qty editable']),
+    h('span', { class: 'sp' }),
+    h('span', { class: 'hint' }, ['Required ', h('b', { class: 'strong' }, [req.toFixed(1) + ' MT'])]),
+    h('span', { class: 'hint' }, ['Consumed ', h('b', { class: 'strong' }, [alloc.toFixed(1) + ' MT'])]),
+    MESC.badge(ok ? 'Match' : 'Partial', ok ? 'success' : 'warning', ok ? 'fa-check' : 'fa-triangle-exclamation')
+  ]));
+}
+function attrPills(attrs) {
+  return h('div', { class: 'row gap-4 wrap' }, (attrs || []).map(a => h('span', { class: 'attr-pill' }, [h('b', {}, [a[0]]), String(a[1])])));
+}
+
+function produceCard(op) {
+  const st = estate(op);
+  const many = (op.outputs || []).length > 1;
+  const relBadge = op.rel === 'SPLIT' ? MESC.badge('SPLIT · 1 heat → ' + op.outputs.length + ' slabs', 'purple', 'fa-code-branch')
+    : op.rel === 'MERGE' ? MESC.badge('MERGE · ' + (op.inputs || []).length + ' inputs → 1', 'purple', 'fa-object-group')
+    : MESC.badge('TRANSFORM · 1 → 1', 'info', 'fa-arrow-right');
+  return MESC.card({
+    class: 'full', title: 'Produce — output inventory', icon: many ? 'fa-cubes-stacked' : 'fa-cube', step: 2,
+    right: [relBadge, MESC.badge('→ BLOCKED (pending QC)', 'warning')],
+    body: [
+      MESC.table([
+        { label: many ? 'Output ID (auto)' : 'Output batch', render: r => h('span', { class: 'mono strong' }, [r.o.id]) },
+        { label: 'Material', render: r => r.o.name },
+        { label: 'Produced (' + (op.outputs[0].unit) + ')', render: r => {
+            const inp = h('input', { class: 'qty-in', type: 'number', step: '0.1', value: String(st.out[r.i]) });
+            inp.addEventListener('input', () => { st.out[r.i] = parseFloat(inp.value) || 0; refreshInput(); });
+            return inp;
+          } },
+        { label: 'Attributes', render: r => attrPills(r.o.attrs) },
+        { label: 'Batch no.', render: () => MESC.badge('auto', 'neutral', 'fa-hashtag') },
+        { label: 'State', render: () => MESC.badge('Blocked', 'warning', 'fa-lock') }
+      ], (op.outputs || []).map((o, i) => ({ o, i }))),
+      h('div', { class: 'hint mt-8' }, [op.rel === 'SPLIT'
+        ? 'Steel casting is a SPLIT — one heat produces many slabs in one confirmation; each gets its own 14–20-char ID + batch number. Output BLOCKED until the usage decision.'
+        : op.rel === 'MERGE'
+        ? 'Multi-input BOM (MERGE) — several materials combine into one output batch; batch_relations records one row per consumed parent.'
+        : 'TRANSFORM (1 → 1) — the input batch becomes one output batch; output BLOCKED until the usage decision.'])
+    ]
+  });
+}
+function massBalCard(op) {
+  const st = estate(op);
+  const mbalHost = h('div', { id: 'mbal' });
+  const c = MESC.card({ title: 'Mass balance — yield', icon: 'fa-scale-balanced', step: 3,
+    body: [mbalHost, h('div', { class: 'form-row mt-12' }, [field('Scrap / loss (MT)', qtyInput(String(st.scrap), v => { st.scrap = v; refreshInput(); }))])] });
+  return c;
+}
+function paramsCard(op) {
+  if (!op.params) return null;
+  return MESC.card({ title: 'Process parameters', icon: 'fa-gauge-high', step: 4, right: MESC.badge('Level-2', 'info', 'fa-satellite-dish'),
+    body: [MESC.table([
+      { key: 'p', label: 'Parameter', render: r => h('span', { class: 'strong' }, [r.p]) },
+      { key: 'v', label: 'Value', render: r => h('span', { class: 'mono' }, [r.v]) },
+      { key: 'src', label: 'Source', render: r => r.src === 'MANUAL' ? MESC.badge('MANUAL', 'warning', 'fa-pen') : MESC.badge('AUTO', 'info', 'fa-bolt') }
+    ], op.params)] });
+}
+function consumablesCard(op) {
+  if (!op.consumables) return null;
+  return MESC.card({ title: 'Consumables — auto-calculated', icon: 'fa-flask', step: 5,
+    body: [MESC.table([
+      { key: 'c', label: 'Consumable', render: r => h('span', { class: 'strong' }, [r.c]) },
+      { key: 'basis', label: 'Basis', render: r => MESC.badge(r.basis, 'neutral') },
+      { key: 'qty', label: 'Quantity', render: r => h('span', { class: 'mono strong' }, [r.qty]) }
+    ], op.consumables)] });
+}
+function equipCard(op) {
+  if (!op.secEq) return null;
+  return MESC.card({ title: 'Secondary equipment — life', icon: 'fa-screwdriver-wrench', step: 6,
+    body: [MESC.table([
+      { key: 'e', label: 'Instance', render: r => h('span', { class: 'strong' }, [r.e]) },
+      { key: 'used', label: 'Consumed', render: r => h('span', { class: 'mono' }, [r.used]) },
+      { key: 'rem', label: 'Remaining', render: r => MESC.badge(r.rem, r.warn ? 'warning' : 'success') }
+    ], op.secEq)] });
+}
+
+function opResult(op) {
+  const st = estate(op);
+  const inp = inTotal(op), out = outTotal(op);
+  const yieldPct = inp > 0 ? (out / inp * 100).toFixed(1) : '—';
+  const relText = op.rel === 'SPLIT' ? (op.heat + ' → ' + op.outputs.map(o => o.id.slice(-4)).join(' + ') + ' · SPLIT')
+    : op.rel === 'MERGE' ? ((op.inputs || []).map(m => m.lots[0].batch).join(' + ') + ' → ' + op.outputs[0].id + ' · MERGE')
+    : ((op.inputs[0].lots[0].batch) + ' → ' + op.outputs[0].id + ' · TRANSFORM');
+  const fan = MESC.card({ class: 'full', title: 'Transaction fan-out — posted atomically', icon: 'fa-diagram-project', right: MESC.badge('atomic', 'success', 'fa-check'),
+    body: [
+      MESC.alert('success', 'Production confirmed', op.op + ' on ' + op.equip + ' — consumed ' + inp.toFixed(1) + ' MT, produced ' + out.toFixed(1) + ' MT' + (yieldPct !== '—' ? (', yield ' + yieldPct + '%') : '') + '.'),
+      fanout([
+        { m: 'Production recorded', s: out.toFixed(1) + ' ' + op.outputs[0].unit + ' produced · scrap ' + (+st.scrap || 0).toFixed(1) + ' MT · ' + op.equip + ' · ' + op.operator },
+        { m: 'Input inventory consumed', s: (op.inputs || []).map(m => m.lots.filter(l => l.qty > 0).map(l => l.batch + ' ' + l.qty + ' ' + m.unit)).flat().join(' · ') + ' → CONSUMED · allocated to ' + ORDER },
+        { m: 'Output inventory produced', s: (op.outputs || []).length + ' batch(es) → state BLOCKED (pending usage decision / QC)' },
+        { m: 'Batch numbers generated', s: (op.outputs || []).map(o => o.id).join(', ') },
+        { m: 'Batch relations recorded', s: relText },
+        { m: 'Secondary equipment life ticked', s: (op.secEq || []).map(e => e.e + ' ' + e.used).join(' · ') || '—' },
+        { m: 'Consumables recorded', s: (op.consumables || []).map(c => c.c + ' ' + c.qty).join(' · ') || '—' },
+        { m: 'Statuses updated', s: 'Operation → CONFIRMED · next operation → READY · order line → IN_PROGRESS' },
+        { m: 'Integration posted', s: 'PDO → Level-2 · SAP-PP goods receipt (mvt 101) queued · audit row {old, new, user, timestamp}' }
+      ])
+    ] });
+  const gene = MESC.card({ title: 'Batch genealogy', icon: 'fa-sitemap', right: op.rel,
+    body: [MESC.tree((op.inputs || []).filter(m => m.unit === 'MT').map((m, mi) => ({
+      icon: mi === 0 ? 'fa-fire' : 'fa-flask', main: m.lots.filter(l => l.qty > 0).map(l => l.batch).join(', ') + ' — ' + m.name, meta: op.equip + ' · ' + op.operator,
+      right: [MESC.badge('Consumed', 'info', 'fa-circle-minus')],
+      children: mi === 0 ? (op.outputs || []).map((o, i) => ({ icon: op.coil ? 'fa-scroll' : 'fa-cube', main: o.id, meta: st.out[i] + ' ' + o.unit, right: [MESC.badge(op.rel, 'purple'), MESC.badge('Blocked', 'warning', 'fa-lock')] })) : undefined
+    })))] });
+  const log = MESC.card({ title: 'Integration messages', icon: 'fa-satellite-dish',
+    body: [MESC.messageLog([
+      { ts: '—', tag: 'L2', text: 'PDO acknowledged — output booked to ' + op.heat + '.', cls: 'in' },
+      { ts: '—', tag: 'SAP-PP', text: 'Goods receipt (movement type 101) queued.', cls: 'ok' },
+      { ts: '—', tag: 'AUDIT', text: 'Confirmation written — user ' + (op.operator || '').split(' · ').pop() + '.', cls: '' }
+    ])] });
+  return [fan, gene, log];
+}
+
+/* ===================== FOOTER ===================== */
+function renderFooter() {
+  const op = OPS[sel];
+  footHost.innerHTML = '';
+  const summary = h('div', { class: 'summary' });
+  const actions = h('div', { class: 'actions' });
+  if (op.status === 'ON_HOLD') {
+    summary.appendChild(sumItem('Status', MESC.statusBadge('on-hold', 'ON HOLD')));
+    summary.appendChild(sumItem('Reason', h('span', { style: 'font-size:12px;font-weight:500' }, [op.hold])));
+    actions.appendChild(h('button', { class: 'btn btn-outline', onclick: () => MESShell.toast('Release request routed to QC — requires authorization; every hold/release is audited.', 'info') }, [MESC.icon('fa-unlock-keyhole'), 'Request hold release']));
+  } else if (op.status === 'IDLE') {
+    summary.appendChild(sumItem('Status', MESC.badge('IDLE', 'neutral')));
+    actions.appendChild(h('span', { class: 'hint' }, ['No operation charged on this equipment.']));
+  } else if (op.status === 'CONFIRMED' && !op.confirmedNow) {
+    summary.appendChild(sumItem('Status', MESC.statusBadge('completed', 'CONFIRMED')));
+    summary.appendChild(sumItem('Confirmed', h('span', { class: 'lv' }, [op.confAt || '—'])));
+    actions.appendChild(h('span', { class: 'hint' }, ['Confirmed earlier this shift — read-only.']));
+  } else {
+    const st = estate(op), inp = inTotal(op), out = outTotal(op);
+    const yieldPct = inp > 0 ? (out / inp * 100).toFixed(1) : '0.0';
+    summary.appendChild(sumItem('Consumed', h('span', { class: 'lv' }, [inp.toFixed(1) + ' MT'])));
+    summary.appendChild(sumItem('Output', h('span', { class: 'lv' }, [out.toFixed(1) + ' MT'])));
+    summary.appendChild(sumItem('Scrap', h('span', { class: 'lv' }, [(+st.scrap || 0).toFixed(1) + ' MT'])));
+    summary.appendChild(sumItem('Yield', MESC.badge(yieldPct + '%', +yieldPct >= 95 ? 'success' : 'warning')));
+    if (op.confirmedNow) {
+      summary.appendChild(sumItem('Result', MESC.statusBadge('completed', 'CONFIRMED')));
+      actions.appendChild(h('span', { class: 'hint' }, ['Reversible — rollback reverses inventory, genealogy and statuses (audited).']));
+      actions.appendChild(h('button', { class: 'btn btn-outline', onclick: () => { op.confirmedNow = false; op.status = 'READY'; renderAll(); MESShell.toast('Confirmation rolled back — reversed (audited).', 'warning'); } }, [MESC.icon('fa-rotate-left'), 'Roll back']));
+    } else {
+      actions.appendChild(h('button', { class: 'btn btn-ghost', onclick: () => MESShell.toast('Draft saved — not yet posted.', 'info') }, [MESC.icon('fa-floppy-disk'), 'Save draft']));
+      actions.appendChild(h('button', { class: 'btn btn-success', onclick: () => { op.confirmedNow = true; op.status = 'CONFIRMED'; renderAll(); MESShell.toast('Production confirmed — ' + op.op + ' on ' + op.equip + '.', 'success'); } }, [MESC.icon('fa-check-double'), 'Confirm production']));
+    }
+  }
+  footHost.appendChild(summary); footHost.appendChild(actions);
+}
+function sumItem(lk, lv) { return h('div', {}, [h('span', { class: 'lk' }, [lk]), lv]); }
+
+/* ---------- helpers ---------- */
+function refreshInput() { const s = document.getElementById('inpsum'); if (s) paintInputSummary(s, OPS[sel]); refreshBalance(); }
+function refreshBalance() { const host = document.getElementById('mbal'); if (host) paintMbal(host, OPS[sel]); renderFooter(); }
+function fanout(items) {
+  return h('ul', { class: 'fanout' }, items.map(it => h('li', {}, [
+    h('span', { class: 'fx-ic' }, [MESC.icon('fa-circle-check')]),
+    h('div', {}, [h('div', { class: 'fx-main' }, [it.m]), h('div', { class: 'fx-sub' }, [it.s])])
+  ])));
+}
+function paintMbal(host, op) {
+  const st = estate(op), input = inTotal(op), out = outTotal(op), scrap = +st.scrap || 0;
+  const yieldPct = input > 0 ? (out / input * 100) : 0;
+  const outPct = input > 0 ? Math.min(out / input * 100, 100) : 0;
+  const scrapPct = input > 0 ? Math.min(scrap / input * 100, 100 - outPct) : 0;
+  const ok = yieldPct >= 95;
+  host.innerHTML = '';
+  host.appendChild(h('div', { class: 'mbal' }, [
+    h('div', { class: 'fig' }, [h('b', {}, ['In ' + input.toFixed(1) + ' MT'])]),
+    MESC.icon('fa-arrow-right'),
+    h('div', { class: 'bar' }, [h('div', { class: 'seg seg-out', style: 'width:' + outPct + '%' }), h('div', { class: 'seg seg-scrap', style: 'width:' + scrapPct + '%' })]),
+    h('div', { class: 'fig' }, ['Out ', h('b', {}, [out.toFixed(1) + ' MT'])]),
+    MESC.badge('Yield ' + yieldPct.toFixed(1) + '%', ok ? 'success' : 'warning', ok ? 'fa-check' : 'fa-triangle-exclamation')
+  ]));
+}
+function qtyInput(val, onset) { const inp = h('input', { class: 'qty-in', type: 'number', step: '0.1', value: val, style: 'width:110px' }); inp.addEventListener('input', () => onset(parseFloat(inp.value) || 0)); return inp; }
+function field(label, ctrl) { return h('div', { class: 'field' }, [h('label', {}, [label]), ctrl]); }
+</script>
+</body>
+</html>

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>System Integration — Bluemingo MES</title>
+<link href="assets/vendor/roboto/roboto.css" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/mes-styles.css">
+<style>
+  /* page-local: System Integration */
+  .health-grid { display:grid; gap:10px; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); }
+  .health-tile { border:1px solid var(--color-border); border-radius:var(--radius-md); padding:10px 12px; background:var(--color-surface); display:flex; flex-direction:column; gap:6px; position:relative; }
+  .health-tile.red { border-color:var(--color-danger); background:var(--color-danger-light); }
+  .health-tile.amber { border-color:var(--color-warning); background:var(--color-warning-light); }
+  .health-tile .ht-top { display:flex; align-items:center; gap:8px; }
+  .health-tile .ht-name { font-weight:600; font-size:12.5px; }
+  .health-tile .ht-meta { font-size:10.5px; color:var(--color-text-hint); display:flex; justify-content:space-between; gap:8px; }
+  .health-tile .ht-kind { position:absolute; right:10px; top:10px; }
+  .flow-arrow { color:var(--color-text-disabled); font-size:10px; }
+</style>
+</head>
+<body>
+<script src="assets/mes-data.js"></script>
+<script src="assets/mes-shell.js"></script>
+<script src="assets/mes-components.js"></script>
+<script>
+const D = MES_DATA;
+const { body } = MESShell.mount({ active:'integration', title:'System Integration', crumb:['System','SAP · Level-2 · Interfaces'] });
+
+/* ---------- module state ---------- */
+let seq = 8830;
+const idoc = () => 'IDOC-' + (seq++);
+let sapLog = [], l2Log = [];
+let sapState = {}, l2State = {};          // flowId -> {msg, status}
+let pdoParsed = false;
+let ifaces = D.interfaces.map(x => Object.assign({}, x));   // mutable copy for retry demo
+
+const tabs = MESC.tabs([
+  { id:'sap', label:'SAP Interfaces', icon:'fa-server',        render: renderSap },
+  { id:'l2',  label:'Level-2 (L2)',   icon:'fa-microchip',     render: renderL2 },
+  { id:'mon', label:'Interface Monitor', icon:'fa-heart-pulse', render: renderMon }
+]);
+body.appendChild(tabs);
+
+/* ===================== A6.1 — SAP INTERFACES ===================== */
+function renderSap() {
+  const wrap = h('div', {});
+
+  // ---- data-derived interface counts: queued = records pending integration, today = records integrated ----
+  const O = D.orders || [], INV = D.hsmInv || [], SMP = D.samples || [], DLY = D.delays || [], HEATS = (D.schedule && D.schedule.heats) || [];
+  const inProd = O.filter(o => o.status === 'In Production').length;
+  const pendingQC = [D.coil].filter(c => c && /pending/i.test(c.status || '')).length;
+  const samplesTotal = SMP.reduce((a, s) => a + (s.count || 0), 0);
+  const C = {
+    so:   { queued:(D.sapInbox||[]).length, today:O.length    },   // SAP inbox pending · orders received
+    post: { queued:inProd,                  today:HEATS.length },   // orders in production · heats posted (GR)
+    qm:   { queued:pendingQC,               today:samplesTotal },   // coils pending QC · inspection samples sent
+    pm:   { queued:0,                       today:DLY.length   },   // delays -> PM notifications
+    mm:   { queued:0,                       today:INV.length   }    // yard SLOC stock transfers
+  };
+
+  const flows = [
+    { id:'so',   dir:'in',  name:'Sales order receipt', detail:'SAP-SD → MES', proto:'IDoc ORDERS05', sched:'Real-time · event', last:'15:52:41', queued:C.so.queued, today:C.so.today, payload:'SO header + line · grade · qty · dims · delivery',
+      lines: () => [ line('out','SAP-SD','IDoc ORDERS05 requested for open HRC lines'),
+                     line('in','SAP-SD', idoc() + ' · SO ' + D.order.no + ' / ' + D.order.line + ' · ' + MESC.fmt(D.order.qty) + ' MT ' + D.order.grade),
+                     line('ok','MES','Order object created · ACK (ALEAUD) returned to SAP-SD') ] },
+    { id:'post', dir:'out', name:'Production posting (GR)', detail:'MES → SAP-PP / MM', proto:'LOIPRO · BAPI_GOODSMVT', sched:'On confirmation', last:'15:49:03', queued:C.post.queued, today:C.post.today, payload:'Heat / coil GR · mvt 101 · qty · batch',
+      lines: () => [ line('out','SAP-PP', idoc() + ' · LOIPRO confirm · Heat ' + D.heat.no + ' · 2 slabs 51.2 MT'),
+                     line('out','SAP-MM','BAPI_GOODSMVT_CREATE · mvt type 101 · GR to SLOC 2010'),
+                     line('in','SAP','ACK · material doc 4900123761 posted') ] },
+    { id:'qm',   dir:'out', name:'QC → SAP-QM', detail:'MES → SAP-QM', proto:'IDoc QPLEXP', sched:'On usage decision', last:'16:14:55', queued:C.qm.queued, today:C.qm.today, payload:'Inspection lot · usage decision · batch chars',
+      lines: () => [ line('out','SAP-QM', idoc() + ' · inspection lot 040000021 · batch ' + D.coil.ref),
+                     line('out','SAP-QM','batch chars: YS ' + D.coil.ys + ' / UTS ' + D.coil.uts + ' MPa · grade ' + D.coil.grade),
+                     line('ok','SAP-QM','usage decision A (accept) recorded · batch classified') ] },
+    { id:'pm',   dir:'out', name:'Delay → SAP-PM', detail:'MES → SAP-PM', proto:'IDoc PM notif', sched:'On delay event', last:'14:12:55', queued:C.pm.queued, today:C.pm.today, payload:'Maint. notification · unit · downtime',
+      lines: () => [ line('out','SAP-PM', idoc() + ' · notification M2 · RH degasser · power interruption 18 min'),
+                     line('in','SAP-PM','ACK · maintenance notification 10004821 created') ] },
+    { id:'mm',   dir:'out', name:'Stock transfer → SAP-MM', detail:'MES → SAP-MM', proto:'BAPI stock (mvt 311)', sched:'On yard movement', last:'15:50:38', queued:C.mm.queued, today:C.mm.today, payload:'SLOC transfer · material · qty',
+      lines: () => [ line('out','SAP-MM','BAPI stock transfer · mvt 311 · SLOC SYMS → HSM-2 staging'),
+                     line('in','SAP-MM','ACK · material doc 4900123774 · stock updated') ] }
+  ];
+
+  const logHost = h('div', {});
+  const tblHost = h('div', {});
+  const totQueued = flows.reduce((a,f)=>a+f.queued,0);
+  const totToday  = flows.reduce((a,f)=>a+f.today,0);
+
+  wrap.appendChild(h('div',{class:'card-grid cols-4 mb-12'},[
+    MESC.kpi({ label:'Active interfaces', value:flows.length, icon:'fa-plug', accent:'primary', sub:'SD · PP · QM · PM · MM' }),
+    MESC.kpi({ label:'Integrated today', value:totToday, icon:'fa-right-left', accent:'green', sub:'records posted · 99.4% ACK' }),
+    MESC.kpi({ label:'Queued for integration', value:totQueued, icon:'fa-inbox', accent:totQueued?'amber':'green', sub:'pending next run' }),
+    MESC.kpi({ label:'Avg round-trip', value:'0.8', unit:'s', icon:'fa-gauge-high', accent:'primary', sub:'SAP PI/PO latency' })
+  ]));
+
+  wrap.appendChild(MESC.card({
+    title:'SAP Interface Flows — SD · PP · QM · PM · MM', icon:'fa-server',
+    right: [ MESC.badge('SAP S/4HANA · PI/PO', 'primary', 'fa-server'), MESC.badge('IDoc / BAPI', 'info', 'fa-right-left') ],
+    body: [
+      MESC.alert('info', 'SAP integration', 'Bidirectional interface to SAP ERP over PI/PO middleware. Queued & Integrated-today counts are derived live from the demo data (orders, SAP inbox, heats, samples, delays, yard). Trigger a flow to exchange a live message; each is logged with its IDoc / BAPI reference and acknowledgement.'),
+      tblHost
+    ]
+  }));
+  wrap.appendChild(MESC.card({ title:'SAP message log', icon:'fa-terminal', tight:true, body:[ h('div',{style:'padding:10px'},[logHost]) ] }));
+
+  drawTbl(); drawLog();
+  return wrap;
+
+  function drawTbl() {
+    tblHost.innerHTML = '';
+    tblHost.appendChild(MESC.table([
+      { key:'name', label:'Interface flow', render:r => h('div',{},[ h('div',{class:'row gap-6'},[dirIcon(r.dir), h('span',{class:'strong'},[r.name])]), h('div',{class:'hint'},[r.detail + ' · ' + r.payload]) ]) },
+      { key:'proto', label:'Protocol', render:r => MESC.badge(r.proto,'neutral') },
+      { key:'sched', label:'Schedule', render:r => h('span',{class:'hint'},[r.sched]) },
+      { key:'last', label:'Last run', render:r => h('span',{class:'mono hint'},[sapState[r.id]?'just now':r.last]) },
+      { key:'queued', label:'Queued', num:true, render:r => r.queued ? MESC.badge(String(r.queued),'warning','fa-inbox') : h('span',{class:'muted'},['—']) },
+      { key:'today', label:'Integrated today', num:true, render:r => h('span',{class:'mono strong'},[String(sapState[r.id]?r.today+1:r.today)]) },
+      { key:'status', label:'Status', render:r => sapState[r.id] ? MESC.badge('ACK', 'success', 'fa-check') : MESC.badge('Ready','neutral','fa-circle') },
+      { key:'act', label:'', render:r => h('button',{class:'btn btn-outline btn-sm', onclick:()=>trigger(r)},[MESC.icon('fa-paper-plane'),'Run now']) }
+    ], flows));
+  }
+  function drawLog() {
+    logHost.innerHTML = '';
+    logHost.appendChild(MESC.messageLog(sapLog.length ? sapLog : [{ ts:'—', text:'No SAP messages yet — trigger a flow above.', cls:'' }]));
+  }
+  function trigger(r) {
+    const ls = r.lines();
+    ls.forEach(l => sapLog.push(l));
+    sapState[r.id] = { msg: ls[0].raw, status:'ACK' };
+    drawTbl(); drawLog();
+    MESShell.toast(r.name + ' — message sent, ACK received', 'success');
+  }
+}
+
+/* ===================== A6.2 — LEVEL-2 (L2) ===================== */
+function renderL2() {
+  const wrap = h('div', {});
+
+  // ---- data-derived L2 counts: queued = pending exchange, today = integrated ----
+  const HEATS = (D.schedule && D.schedule.heats) || [];
+  const INV = D.hsmInv || [];
+  const hot = INV.filter(s => s.charge === 'Hot').length;
+  const cold = INV.filter(s => s.charge === 'Cold').length;
+  const L = {
+    'pdi-bof':  { queued:0,    today:HEATS.length },   // heats PDI-issued this shift (schedule release)
+    'pdo-ccm':  { queued:0,    today:HEATS.length },   // casts PDO-received (real-time, per cast)
+    'pdi-mill': { queued:cold, today:hot }             // hot-charge slabs charged now · cold slabs awaiting mill call
+  };
+
+  const flows = [
+    { id:'pdi-bof', dir:'out', name:'PDI → BOF-L2', detail:'MES → BOF Level-2', proto:'OPC-UA · L2 msg', sched:'On schedule release', last:'15:38:20', queued:L['pdi-bof'].queued, today:L['pdi-bof'].today, payload:'Grade · aim chemistry · blowing practice · tap wt',
+      lines: () => [ line('out','BOF-L2','PDI · Heat ' + D.heat.no + ' · grade ' + D.heat.grade + ' · aim C 0.04–0.09 / Mn 0.9–1.4 / S ≤0.02'),
+                     line('out','BOF-L2','blowing practice P-14 · tap target ' + D.heat.plannedTapWt + ' MT'),
+                     line('in','BOF-L2','ACK · PDI accepted · practice loaded on L2') ] },
+    { id:'pdo-ccm', dir:'in',  name:'PDO ← CCM-L2', detail:'CCM Level-2 → MES', proto:'OPC-UA · L2 msg', sched:'Real-time · per cast', last:'15:50:12', queued:L['pdo-ccm'].queued, today:L['pdo-ccm'].today, payload:'Slab dims · weight · strand · cut sequence',
+      lines: () => [ line('in','CCM-L2','PDO · Heat ' + D.heat.no + ' · strand CCM1 · cut-seq 1–2'),
+                     line('in','CCM-L2','slab 1 ' + D.slabs[0].wt + ' MT ' + D.slabs[0].size + ' · slab 2 ' + D.slabs[1].wt + ' MT'),
+                     line('ok','MES','PDO parsed → 2 slab records created & queued') ] },
+    { id:'pdi-mill', dir:'out', name:'PDI → Mill-L2 (HSM-2)', detail:'MES → Mill Level-2', proto:'OPC-UA · L2 msg', sched:'On charge', last:'18:20:30', queued:L['pdi-mill'].queued, today:L['pdi-mill'].today, payload:'Target thickness · width · reheat / finish / coil temps',
+      lines: () => [ line('out','Mill-L2','PDI · slab ' + D.slabs[0].id + ' · target ' + D.coil.thickness + ' × ' + D.coil.width),
+                     line('out','Mill-L2','RHF target 1230°C · finishing 880°C · coiling 620°C'),
+                     line('in','Mill-L2','ACK · roll schedule loaded') ] }
+  ];
+
+  const logHost = h('div', {}), tblHost = h('div', {}), parseHost = h('div', {});
+  const totQueued = flows.reduce((a,f)=>a+f.queued,0);
+  const totToday  = flows.reduce((a,f)=>a+f.today,0);
+
+  wrap.appendChild(h('div',{class:'card-grid cols-4 mb-12'},[
+    MESC.kpi({ label:'Active L2 links', value:flows.length, icon:'fa-microchip', accent:'primary', sub:'BOF · CCM · Mill' }),
+    MESC.kpi({ label:'Integrated today', value:totToday, icon:'fa-right-left', accent:'green', sub:'heats · casts · charges' }),
+    MESC.kpi({ label:'Queued for integration', value:totQueued, icon:'fa-inbox', accent:totQueued?'amber':'green', sub:'cold slabs awaiting charge' }),
+    MESC.kpi({ label:'Avg round-trip', value:'120', unit:'ms', icon:'fa-gauge-high', accent:'primary', sub:'OPC-UA L2 latency' })
+  ]));
+
+  wrap.appendChild(MESC.card({
+    title:'Level-2 Message Flows — BOF · CCM · Mill', icon:'fa-microchip',
+    right: [ MESC.badge('OPC-UA · Level-2', 'purple', 'fa-microchip'), MESC.badge('PDI / PDO', 'info', 'fa-right-left') ],
+    body: [
+      MESC.alert('info', 'Level-2 automation link', 'MES exchanges Primary Data In (PDI, setpoints down) and Primary Data Out (PDO, actuals up) with each L2 system over OPC-UA. Queued & Integrated-today counts are derived live from the demo data (heats scheduled, casts, and hot/cold slab charges). The PDO from CCM-L2 is parsed into slab records automatically.'),
+      tblHost
+    ]
+  }));
+  wrap.appendChild(parseHost);
+  wrap.appendChild(MESC.card({ title:'L2 message log', icon:'fa-terminal', tight:true, body:[ h('div',{style:'padding:10px'},[logHost]) ] }));
+
+  drawTbl(); drawLog(); drawParse();
+  return wrap;
+
+  function drawTbl() {
+    tblHost.innerHTML = '';
+    tblHost.appendChild(MESC.table([
+      { key:'name', label:'L2 message', render:r => h('div',{},[ h('div',{class:'row gap-6'},[dirIcon(r.dir), h('span',{class:'strong'},[r.name])]), h('div',{class:'hint'},[r.detail + ' · ' + r.payload]) ]) },
+      { key:'proto', label:'Protocol', render:r => MESC.badge(r.proto,'neutral') },
+      { key:'sched', label:'Schedule', render:r => h('span',{class:'hint'},[r.sched]) },
+      { key:'last', label:'Last run', render:r => h('span',{class:'mono hint'},[l2State[r.id]?'just now':r.last]) },
+      { key:'queued', label:'Queued', num:true, render:r => r.queued ? MESC.badge(String(r.queued),'warning','fa-inbox') : h('span',{class:'muted'},['—']) },
+      { key:'today', label:'Integrated today', num:true, render:r => h('span',{class:'mono strong'},[String(l2State[r.id]?r.today+1:r.today)]) },
+      { key:'status', label:'Status', render:r => l2State[r.id] ? MESC.badge(r.dir==='in'?'Parsed':'ACK', 'success', 'fa-check') : MESC.badge('Ready','neutral','fa-circle') },
+      { key:'act', label:'', render:r => h('button',{class:'btn btn-outline btn-sm', onclick:()=>trigger(r)},[MESC.icon(r.dir==='in'?'fa-arrow-down':'fa-paper-plane'), r.dir==='in'?'Receive':'Send']) }
+    ], flows));
+  }
+  function drawParse() {
+    parseHost.innerHTML = '';
+    if (!pdoParsed) return;
+    parseHost.appendChild(MESC.card({
+      title:'PDO parsed → slab records', icon:'fa-cubes', right: MESC.badge('from CCM-L2', 'success', 'fa-arrow-down'),
+      body:[ MESC.table([
+        { key:'id', label:'Slab ID', render:r => h('span',{class:'mono strong'},[r.id]) },
+        { key:'wt', label:'Weight (MT)', num:true, render:r=>MESC.fmt(r.wt) },
+        { key:'strand', label:'Strand' },
+        { key:'size', label:'Dimensions (T×W×L)' },
+        { key:'seq', label:'Cut seq', render:(r,i)=>String(i+1) }
+      ], D.slabs) ]
+    }));
+  }
+  function drawLog() {
+    logHost.innerHTML = '';
+    logHost.appendChild(MESC.messageLog(l2Log.length ? l2Log : [{ ts:'—', text:'No L2 messages yet — send / receive a flow above.', cls:'' }]));
+  }
+  function trigger(r) {
+    r.lines().forEach(l => l2Log.push(l));
+    l2State[r.id] = true;
+    if (r.id === 'pdo-ccm') pdoParsed = true;
+    drawTbl(); drawLog(); drawParse();
+    MESShell.toast(r.name + (r.dir==='in' ? ' — received & parsed' : ' — sent, ACK received'), 'success');
+  }
+}
+
+/* ===================== A6.2-4 — INTERFACE MONITOR ===================== */
+function renderMon() {
+  const wrap = h('div', {});
+  const gridHost = h('div', {}), logHost = h('div', {});
+  let monLog = [
+    line2('15:52:41','BOF-L2','in','PDI ACK · Heat H2601','in'),
+    line2('15:50:12','CCM-L2','in','PDO · 2 slabs parsed','ok'),
+    line2('15:49:03','SAP-PP','out','IDOC-8821 production confirm · ACK','out'),
+    line2('14:12:55','SAP-PM','out','IDOC-8790 notification · timeout — no ACK','err')
+  ];
+
+  // KPIs
+  function counts() {
+    return { g: ifaces.filter(i=>i.status==='green').length, a: ifaces.filter(i=>i.status==='amber').length, r: ifaces.filter(i=>i.status==='red').length };
+  }
+
+  wrap.appendChild(h('div', { class:'card-grid cols-4 mb-12', id:'mon-kpi' }));
+  wrap.appendChild(MESC.card({
+    title:'Interface Health — L2 · SAP · Yard · Lab', icon:'fa-heart-pulse',
+    right: MESC.badge('auto-poll 30 s', 'info', 'fa-rotate'),
+    body: [ gridHost ]
+  }));
+  wrap.appendChild(MESC.card({ title:'Interface message log', icon:'fa-terminal', tight:true, body:[ h('div',{style:'padding:10px'},[logHost]) ] }));
+
+  drawKpi(); drawGrid(); drawLog();
+  return wrap;
+
+  function drawKpi() {
+    const c = counts();
+    const host = wrap.querySelector('#mon-kpi'); host.innerHTML = '';
+    [ MESC.kpi({ label:'Interfaces', value:ifaces.length, icon:'fa-plug', accent:'primary' }),
+      MESC.kpi({ label:'Healthy', value:c.g, icon:'fa-circle-check', accent:'green' }),
+      MESC.kpi({ label:'Degraded', value:c.a, icon:'fa-triangle-exclamation', accent:'amber' }),
+      MESC.kpi({ label:'Failed', value:c.r, icon:'fa-circle-xmark', accent:'red' })
+    ].forEach(k => host.appendChild(k));
+  }
+  function drawGrid() {
+    gridHost.innerHTML = '';
+    const grid = h('div', { class:'health-grid' });
+    ifaces.forEach(i => {
+      const failed = i.status === 'red', degraded = i.status === 'amber';
+      const tile = h('div', { class:'health-tile ' + (failed?'red':degraded?'amber':'') }, [
+        h('span', { class:'ht-kind' }, [MESC.badge(i.kind, kindBadge(i.kind))]),
+        h('div', { class:'ht-top' }, [ MESC.dot(i.status), h('span', { class:'ht-name' }, [i.name]) ]),
+        h('div', { class:'ht-meta' }, [ h('span',{},[dirText(i.dir)]), h('span',{},['last ' + i.last]) ]),
+        (failed || degraded) ? h('button', { class:'btn btn-warning btn-sm', style:'margin-top:2px', onclick:()=>retry(i) }, [MESC.icon('fa-rotate-right'), 'Retry failed message']) : null
+      ]);
+      grid.appendChild(tile);
+    });
+    gridHost.appendChild(grid);
+  }
+  function drawLog() {
+    logHost.innerHTML = '';
+    logHost.appendChild(MESC.messageLog(monLog));
+  }
+  function retry(i) {
+    monLog.unshift(line2(nowish(), i.name, 'out', 'retry queued · re-sending last failed message', 'warn'));
+    i.status = 'green'; i.last = nowish();
+    monLog.unshift(line2(i.last, i.name, 'in', 'ACK received · interface recovered', 'ok'));
+    drawKpi(); drawGrid(); drawLog();
+    MESShell.toast(i.name + ' — failed message re-sent, interface recovered (green)', 'success');
+  }
+}
+
+/* ---------- helpers ---------- */
+let _t = 15*3600 + 53*60;
+function nowish() { _t = (_t + 47) % 86400; const p=n=>String(n).padStart(2,'0'); return p(Math.floor(_t/3600)) + ':' + p(Math.floor(_t/60)%60); }
+function line(cls, tag, text) { return { ts: nowish(), tag: tag, text: text, cls: mapCls(cls), raw: text }; }
+function line2(ts, tag, dir, text, cls) { return { ts: ts, tag: tag, text: text, cls: mapCls(cls) }; }
+function mapCls(c) { return ({ out:'out', in:'in', ok:'ok', err:'err', warn:'warn' })[c] || ''; }
+function dirIcon(dir) { const m = { in:'fa-arrow-down', out:'fa-arrow-up', both:'fa-arrows-up-down' }; return MESC.icon(m[dir]||'fa-arrows-up-down', dir==='in'?'text-primary':'text-success'); }
+function dirText(dir) { return { in:'inbound', out:'outbound', both:'bi-directional' }[dir] || dir; }
+function kindBadge(k) { return ({ SAP:'primary', L2:'purple', Yard:'info', Lab:'neutral', QC:'success' })[k] || 'neutral'; }
+</script>
+</body>
+</html>

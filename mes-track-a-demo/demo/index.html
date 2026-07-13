@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script>if (window.self === window.top) location.replace('app.html' + location.search);</script>
+<title>Bluemingo MES</title>
+<link href="assets/vendor/roboto/roboto.css" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/mes-styles.css">
+<style>
+  .home-hero { background:linear-gradient(100deg,#1a1a2e,#16213e); color:#fff; border-radius:var(--radius-lg); padding:20px 22px; margin-bottom:18px; display:flex; align-items:center; gap:22px; flex-wrap:wrap; }
+  .home-hero .h-title { font-size:20px; font-weight:700; }
+  .home-hero .h-sub { font-size:12.5px; color:rgba(255,255,255,.7); margin-top:4px; }
+  .home-hero .h-chips { display:flex; gap:8px; margin-left:auto; flex-wrap:wrap; }
+  .home-hero .h-chip { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:8px 12px; font-size:11px; min-width:96px; }
+  .home-hero .h-chip .c-k { color:rgba(255,255,255,.55); font-size:9.5px; text-transform:uppercase; letter-spacing:.4px; }
+  .home-hero .h-chip .c-v { font-size:14px; font-weight:600; margin-top:2px; }
+  .kpi-strip { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:18px; }
+  @media (max-width:900px){ .kpi-strip{ grid-template-columns:repeat(2,1fr);} }
+</style>
+</head>
+<body>
+<script src="assets/mes-data.js"></script>
+<script src="assets/mes-shell.js"></script>
+<script src="assets/mes-components.js"></script>
+<script>
+  const { body } = MESShell.mount({ active: 'home', title: 'Functional Demo — Track A', crumb: ['Overview', 'Home'] });
+  const D = MES_DATA;
+
+  // ---- Hero ----
+  body.appendChild(h('div', { class: 'home-hero' }, [
+    h('div', {}, [
+      h('div', { class: 'h-title' }, ['Integrated Steel Works · MES']),
+      h('div', { class: 'h-sub' }, ['Integrated execution across SMS-2 (KR → BOF → ARS → LHF → RH → CCM) and HSM-2. Pick a module below to walk the scenario.'])
+    ]),
+    h('div', { class: 'h-chips' }, [
+      chip('Shift', D.plant.shift + ' · ' + D.plant.shiftTime),
+      chip('Live Order', D.order.no + ' · ' + D.order.grade),
+      chip('Tracked Heat', D.heat.no + ' @ ' + D.heat.currentUnit),
+      chip('Target Coil', D.coil.ref)
+    ])
+  ]));
+
+  // ---- KPI snapshot ----
+  const k = D.kpis;
+  const strip = h('div', { class: 'kpi-strip' }, [
+    MESC.kpi({ label: 'Heats Cast', value: k.heatsCast.val, sub: ['of ' + k.heatsCast.plan + ' plan'], icon: 'fa-fire', accent: 'primary' }),
+    MESC.kpi({ label: 'Slabs Produced', value: k.slabsProduced.val, sub: ['of ' + k.slabsProduced.plan], icon: 'fa-layer-group', accent: 'blue' }),
+    MESC.kpi({ label: 'Coils Rolled', value: k.coilsRolled.val, sub: ['of ' + k.coilsRolled.plan], icon: 'fa-scroll', accent: 'blue' }),
+    MESC.kpi({ label: 'Yield', value: k.yieldPct.val, unit: '%', sub: ['plan ' + k.yieldPct.plan + '%'], icon: 'fa-percent', accent: 'green' }),
+    MESC.kpi({ label: 'OEE', value: k.oee.val, unit: '%', sub: ['plan ' + k.oee.plan + '%'], icon: 'fa-gauge-high', accent: 'amber' }),
+    MESC.kpi({ label: 'QC Holds', value: k.holds.val, sub: [k.holds.aging + ' aging > 24h'], icon: 'fa-hand', accent: 'red' })
+  ]);
+  body.appendChild(strip);
+
+  // ---- Scenario map ----
+  body.appendChild(h('div', { class: 'section-title' }, [MESC.icon('fa-diagram-project'), 'Functional modules']));
+  const grid = h('div', { class: 'scenario-grid' });
+  D.scenarios.forEach(s => {
+    grid.appendChild(h('a', { class: 'scenario-card', href: s.href }, [
+      h('div', { class: 'sc-top' }, [
+        h('div', { class: 'sc-ic' }, [MESC.icon(s.icon)]),
+        h('div', {}, [h('div', { class: 'sc-code' }, [s.code]), h('div', { class: 'sc-title' }, [s.title])])
+      ]),
+      h('div', { class: 'sc-desc' }, [s.desc]),
+      h('div', { class: 'sc-foot' }, s.tags.map(t => h('span', { class: 'pill' }, [t])))
+    ]));
+  });
+  body.appendChild(grid);
+
+  function chip(k, v) { return h('div', { class: 'h-chip' }, [h('div', { class: 'c-k' }, [k]), h('div', { class: 'c-v' }, [v])]); }
+</script>
+</body>
+</html>

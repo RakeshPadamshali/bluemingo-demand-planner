@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MIS Reports & Dashboards — Bluemingo MES</title>
+<link href="assets/vendor/roboto/roboto.css" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/mes-styles.css">
+<script src="assets/vendor/echarts.min.js"></script>
+<style>
+  /* page-local: MIS Reports */
+  .chart { width:100%; height:280px; }
+  .chart-sm { height:230px; }
+  .kpi.clickable { cursor:pointer; transition:box-shadow .15s, transform .1s; }
+  .kpi.clickable:hover { box-shadow:var(--shadow-md); transform:translateY(-2px); }
+  .prog { height:8px; background:var(--color-border-light); border-radius:5px; overflow:hidden; min-width:90px; }
+  .prog > span { display:block; height:100%; background:var(--color-primary); }
+  .prog.green > span { background:var(--color-success); } .prog.amber > span { background:var(--color-warning); } .prog.red > span { background:var(--color-danger); }
+  .rag { width:11px; height:11px; border-radius:50%; display:inline-block; }
+  .rag.g{background:var(--color-success);} .rag.a{background:var(--color-warning);} .rag.r{background:var(--color-danger);}
+</style>
+</head>
+<body>
+<script src="assets/mes-data.js"></script>
+<script src="assets/mes-shell.js"></script>
+<script src="assets/mes-components.js"></script>
+<script>
+const D = MES_DATA;
+const { body, actions } = MESShell.mount({ active:'reports', title:'MIS Reports & Dashboards', crumb:['Insights','Production · Delay · Quality · Orders'] });
+
+/* ---------- ECharts plumbing (reused from QA dashboard) ---------- */
+const FONT = { fontFamily:"'Roboto',sans-serif" };
+const AXIS_LBL = { color:'#888', fontSize:11, ...FONT };
+const LEGEND = { top:2, left:'center', itemWidth:10, itemHeight:10, textStyle:{ fontSize:11, color:'#666', ...FONT } };
+const charts = {};
+function mkChart(id, opt, tries) {
+  tries = tries || 0;
+  opt.animation = false;          // paint final state immediately (reliable in any tab state / for screenshots)
+  // setTimeout (not rAF): rAF is paused in a backgrounded tab, which would leave charts blank; timers still fire.
+  setTimeout(() => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.clientWidth < 20 && tries < 40) return mkChart(id, opt, tries + 1);
+    if (charts[id]) charts[id].dispose();
+    const c = echarts.init(el); c.setOption(opt); charts[id] = c;
+  }, 0);
+}
+window.addEventListener('resize', () => Object.keys(charts).forEach(k => charts[k].resize()));
+
+// header actions
+actions.appendChild(h('span', { class:'hint' }, ['Shift ' + D.plant.shift + ' · ' + D.plant.shiftTime + ' · ' + D.plant.date]));
+
+const tabs = MESC.tabs([
+  { id:'dash',  label:'Production Dashboard', icon:'fa-gauge-high',   render: renderDash },
+  { id:'heat',  label:'Heat-wise (24h)',      icon:'fa-fire',         render: renderHeatwise },
+  { id:'delay', label:'Delay Report',         icon:'fa-hourglass-half', render: renderDelay },
+  { id:'hold',  label:'Quality Holds',        icon:'fa-hand',         render: renderHolds },
+  { id:'order', label:'Order Tracking',       icon:'fa-truck',        render: renderOrders }
+]);
+body.appendChild(tabs);
+
+/* ===================== A5-1 — PRODUCTION DASHBOARD ===================== */
+function renderDash() {
+  const wrap = h('div', {});
+  const k = D.kpis;
+  const rag = (v, plan) => { const p = v / plan; return p >= 0.98 ? 'green' : p >= 0.88 ? 'amber' : 'red'; };
+
+  wrap.appendChild(h('div', { class:'card-grid cols-3 mb-12' }, [
+    kpiTile({ label:'Heats cast', value:k.heatsCast.val, plan:k.heatsCast.plan, icon:'fa-fire', accent:rag(k.heatsCast.val,k.heatsCast.plan), goto:'heat' }),
+    kpiTile({ label:'Slabs produced', value:k.slabsProduced.val, plan:k.slabsProduced.plan, icon:'fa-cubes-stacked', accent:rag(k.slabsProduced.val,k.slabsProduced.plan), goto:'heat' }),
+    kpiTile({ label:'Coils rolled', value:k.coilsRolled.val, plan:k.coilsRolled.plan, icon:'fa-scroll', accent:rag(k.coilsRolled.val,k.coilsRolled.plan), goto:'heat' }),
+    kpiTile({ label:'Yield', value:k.yieldPct.val, unit:'%', plan:k.yieldPct.plan, icon:'fa-percent', accent:rag(k.yieldPct.val,k.yieldPct.plan), goto:'heat' }),
+    kpiTile({ label:'OEE', value:k.oee.val, unit:'%', plan:k.oee.plan, icon:'fa-gauge-high', accent:rag(k.oee.val,k.oee.plan), goto:null, onclick:()=>MESShell.toast('OEE 82.5% = Availability 91% × Performance 95% × Quality 95.4%', 'info') }),
+    kpiTile({ label:'Quality holds', value:k.holds.val, icon:'fa-hand', accent:k.holds.aging ? 'red' : 'green', sub:k.holds.aging + ' aging > 24h', goto:'hold' })
+  ]));
+
+  wrap.appendChild(h('div', { class:'card-grid cols-2' }, [
+    MESC.card({ title:'Current shift — actual vs plan', icon:'fa-chart-column', tight:true, body:[ h('div', { id:'ch-vsplan', class:'chart', style:'padding:8px' }) ] }),
+    MESC.card({ title:'OEE — SMS-2', icon:'fa-gauge', tight:true, body:[ h('div', { id:'ch-oee', class:'chart', style:'padding:8px' }) ] })
+  ]));
+  wrap.appendChild(MESC.card({ title:'Shift production trend — SMS-2 heats & HSM-2 coils', icon:'fa-chart-line', tight:true,
+    body:[ h('div', { id:'ch-trend', class:'chart', style:'padding:8px' }) ] }));
+
+  wrap.appendChild(h('div', { class:'hint mt-8' }, [MESC.icon('fa-hand-pointer'), ' Traffic-light KPIs — click any tile to drill into its detailed report.']));
+
+  // charts
+  mkChart('ch-vsplan', {
+    textStyle:FONT, grid:{ left:8, right:12, top:34, bottom:20, containLabel:true },
+    tooltip:{ trigger:'axis', axisPointer:{ type:'shadow' } }, legend:LEGEND,
+    xAxis:{ type:'category', data:['Heats','Slabs','Coils'], axisLabel:AXIS_LBL, axisTick:{show:false}, axisLine:{lineStyle:{color:'#ddd'}} },
+    yAxis:{ type:'value', axisLabel:AXIS_LBL, splitLine:{lineStyle:{color:'#eee'}} },
+    series:[
+      { name:'Plan', type:'bar', data:[k.heatsCast.plan,k.slabsProduced.plan,k.coilsRolled.plan], itemStyle:{color:'#cfd8dc',borderRadius:[3,3,0,0]}, barWidth:'34%' },
+      { name:'Actual', type:'bar', data:[k.heatsCast.val,k.slabsProduced.val,k.coilsRolled.val], itemStyle:{color:'#25A9E0',borderRadius:[3,3,0,0]}, barWidth:'34%' }
+    ]
+  });
+  mkChart('ch-oee', {
+    textStyle:FONT, series:[{
+      type:'gauge', startAngle:210, endAngle:-30, min:0, max:100, radius:'92%', center:['50%','58%'],
+      progress:{ show:true, width:14, itemStyle:{ color:'#25A9E0' } },
+      axisLine:{ lineStyle:{ width:14, color:[[0.7,'#ef9a9a'],[0.85,'#ffcc80'],[1,'#a5d6a7']] } },
+      pointer:{ width:5, length:'62%' }, axisTick:{ show:false }, splitLine:{ length:12, lineStyle:{ color:'#bbb' } },
+      axisLabel:{ distance:14, fontSize:9, color:'#999' },
+      detail:{ valueAnimation:true, fontSize:26, fontWeight:700, offsetCenter:[0,'38%'], formatter:'{value}%', color:'#333' },
+      title:{ offsetCenter:[0,'70%'], fontSize:11, color:'#888' },
+      data:[{ value:k.oee.val, name:'OEE · plan ' + k.oee.plan + '%' }]
+    }]
+  });
+  mkChart('ch-trend', {
+    textStyle:FONT, grid:{ left:8, right:16, top:34, bottom:20, containLabel:true },
+    tooltip:{ trigger:'axis' }, legend:LEGEND,
+    xAxis:{ type:'category', boundaryGap:false, data:['14h','15h','16h','17h','18h','19h','20h','21h'], axisLabel:AXIS_LBL, axisTick:{show:false}, axisLine:{lineStyle:{color:'#ddd'}} },
+    yAxis:{ type:'value', axisLabel:AXIS_LBL, splitLine:{lineStyle:{color:'#eee'}} },
+    series:[
+      { name:'Heats (SMS-2)', type:'line', smooth:true, symbol:'circle', symbolSize:6, data:[3,3,2,3,2,2,2,1], lineStyle:{color:'#25A9E0',width:2}, itemStyle:{color:'#25A9E0'},
+        areaStyle:{ color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(37,169,224,.26)'},{offset:1,color:'rgba(37,169,224,.02)'}]) } },
+      { name:'Coils (HSM-2)', type:'line', smooth:true, symbol:'circle', symbolSize:6, data:[4,4,3,4,3,3,4,2], lineStyle:{color:'#388e3c',width:2}, itemStyle:{color:'#388e3c'} }
+    ]
+  });
+  return wrap;
+}
+
+/* ===================== A5-2 — HEAT-WISE PRODUCTION (24h) ===================== */
+function renderHeatwise() {
+  const wrap = h('div', {});
+  const heatRows = D.schedule.heats.map((hd, i) => ({
+    no:hd.no, grade:hd.grade, bof:hd.bof, ccm:hd.ccm,
+    slabs:2, wt:[51.2,50.4,49.9,52.1,50.0,51.5][i], yld:[97.3,97.6,96.9,97.8,97.1,97.4][i],
+    status: i < 3 ? 'Cast' : (i === 3 ? 'Casting' : 'Scheduled')
+  }));
+  const totWt = heatRows.filter(r=>r.status!=='Scheduled').reduce((a,r)=>a+r.wt,0);
+
+  wrap.appendChild(h('div', { class:'card-grid cols-4 mb-12' }, [
+    MESC.kpi({ label:'Heats (24h)', value:heatRows.length, icon:'fa-fire', accent:'primary' }),
+    MESC.kpi({ label:'Slabs', value:heatRows.reduce((a,r)=>a+(r.status!=='Scheduled'?r.slabs:0),0), icon:'fa-cubes-stacked', accent:'blue' }),
+    MESC.kpi({ label:'Cast tonnage', value:MESC.pct(totWt,1), unit:'MT', icon:'fa-weight-hanging', accent:'green' }),
+    MESC.kpi({ label:'Avg yield', value:97.4, unit:'%', icon:'fa-percent', accent:'green' })
+  ]));
+
+  wrap.appendChild(MESC.card({
+    title:'Heat-wise Production Report — last 24 h', icon:'fa-table-list',
+    right: [ h('button',{class:'btn btn-outline btn-sm', onclick:()=>MESShell.toast('Heat-wise report exported to Excel (.xlsx)','success')},[MESC.icon('fa-file-excel'),'Excel']),
+             h('button',{class:'btn btn-outline btn-sm', onclick:()=>MESShell.toast('Heat-wise report exported to PDF','success')},[MESC.icon('fa-file-pdf'),'PDF']) ],
+    body:[ MESC.table([
+      { key:'no', label:'Heat', render:r => h('span',{class:'mono strong'},[r.no, r.no==='H2601'?MESC.badge('Tracked','info'):null]) },
+      { key:'grade', label:'Grade' },
+      { key:'route', label:'BOF · Strand', render:r => r.bof + ' · ' + r.ccm },
+      { key:'slabs', label:'Slabs', num:true, render:r => r.status==='Scheduled'?'—':r.slabs },
+      { key:'wt', label:'Weight (MT)', num:true, render:r => r.status==='Scheduled'?'—':MESC.fmt(r.wt) },
+      { key:'yld', label:'Yield %', num:true, render:r => r.status==='Scheduled'?'—':h('span',{class:r.yld>=97.2?'text-success':'text-warning'},[String(r.yld)]) },
+      { key:'status', label:'Status', render:r => MESC.statusBadge(r.status==='Cast'?'completed':(r.status==='Casting'?'running':'planned'), r.status) }
+    ], heatRows, { rowClass:r => r.no==='H2601'?'is-selected':'' }) ]
+  }));
+
+  wrap.appendChild(MESC.card({ title:'Cast tonnage by grade', icon:'fa-chart-simple', tight:true, body:[ h('div',{id:'ch-grade', class:'chart chart-sm', style:'padding:8px'}) ] }));
+  mkChart('ch-grade', {
+    textStyle:FONT, grid:{ left:8, right:24, top:12, bottom:8, containLabel:true }, tooltip:{ trigger:'axis', axisPointer:{type:'shadow'} },
+    xAxis:{ type:'value', axisLabel:AXIS_LBL, splitLine:{lineStyle:{color:'#eee'}} },
+    yAxis:{ type:'category', data:['API 5L X60','SAILMA 350','IS 2062 E250'], axisLabel:AXIS_LBL, axisTick:{show:false}, axisLine:{lineStyle:{color:'#ddd'}} },
+    series:[{ type:'bar', data:[50.0,49.9,205.8], barWidth:'52%', itemStyle:{color:'#25A9E0',borderRadius:[0,3,3,0]}, label:{show:true,position:'right',color:'#666',fontSize:11,formatter:'{c} MT',...FONT} }]
+  });
+  return wrap;
+}
+
+/* ===================== A5-3 — DELAY REPORT (Pareto) ===================== */
+function renderDelay() {
+  const wrap = h('div', {});
+  const dl = D.delays.slice().sort((a,b) => b.mins - a.mins);
+  const planned = D.delays.filter(d=>d.type==='Planned').reduce((a,d)=>a+d.mins,0);
+  const unplanned = D.delays.filter(d=>d.type==='Unplanned').reduce((a,d)=>a+d.mins,0);
+
+  wrap.appendChild(h('div', { class:'card-grid cols-4 mb-12' }, [
+    MESC.kpi({ label:'Total delay', value:planned+unplanned, unit:'min', icon:'fa-hourglass-half', accent:'amber' }),
+    MESC.kpi({ label:'Unplanned', value:unplanned, unit:'min', icon:'fa-bolt', accent:'red', sub:Math.round(unplanned/(planned+unplanned)*100)+'% of total' }),
+    MESC.kpi({ label:'Planned', value:planned, unit:'min', icon:'fa-calendar-check', accent:'green' }),
+    MESC.kpi({ label:'Events', value:D.delays.length, icon:'fa-list', accent:'primary' })
+  ]));
+
+  wrap.appendChild(h('div', { class:'card-grid cols-2' }, [
+    MESC.card({ title:'Delay Pareto — by delay code', icon:'fa-ranking-star', tight:true, body:[ h('div',{id:'ch-pareto', class:'chart', style:'padding:8px'}) ] }),
+    MESC.card({ title:'Planned vs unplanned', icon:'fa-chart-pie', tight:true, body:[ h('div',{id:'ch-pp', class:'chart', style:'padding:8px'}) ] })
+  ]));
+
+  wrap.appendChild(MESC.card({
+    title:'Delay Report — Shift ' + D.plant.shift, icon:'fa-hourglass-half',
+    right: h('button',{class:'btn btn-outline btn-sm', onclick:()=>MESShell.toast('Delay report submitted to SAP-PM (Plant Maintenance)','success')},[MESC.icon('fa-share'),'Submit to SAP-PM']),
+    body:[ MESC.table([
+      { key:'code', label:'Code', render:r=>h('span',{class:'mono strong'},[r.code]) },
+      { key:'desc', label:'Description' },
+      { key:'unit', label:'Unit' },
+      { key:'heat', label:'Heat', render:r=>h('span',{class:'mono'},[r.heat]) },
+      { key:'type', label:'Type', render:r => MESC.badge(r.type, r.type==='Unplanned'?'danger':'success') },
+      { key:'mins', label:'Duration (min)', num:true }
+    ], D.delays) ]
+  }));
+
+  mkChart('ch-pareto', {
+    textStyle:FONT, grid:{ left:8, right:44, top:20, bottom:20, containLabel:true }, tooltip:{ trigger:'axis', axisPointer:{type:'shadow'} },
+    xAxis:{ type:'category', data:dl.map(d=>d.code.replace('DLY-','')), axisLabel:{...AXIS_LBL,interval:0}, axisTick:{show:false}, axisLine:{lineStyle:{color:'#ddd'}} },
+    yAxis:[ { type:'value', name:'min', nameTextStyle:AXIS_LBL, axisLabel:AXIS_LBL, splitLine:{lineStyle:{color:'#eee'}} },
+            { type:'value', min:0, max:100, axisLabel:{...AXIS_LBL,formatter:'{value}%'}, splitLine:{show:false} } ],
+    series:[
+      { name:'Duration', type:'bar', data:dl.map(d=>d.mins), barWidth:'46%', itemStyle:{color:'#f57c00',borderRadius:[3,3,0,0]} },
+      { name:'Cumulative %', type:'line', yAxisIndex:1, data:cumPct(dl.map(d=>d.mins)), symbol:'circle', symbolSize:6, lineStyle:{color:'#d32f2f',width:2}, itemStyle:{color:'#d32f2f'} }
+    ]
+  });
+  mkChart('ch-pp', {
+    textStyle:FONT, tooltip:{ trigger:'item', formatter:'{b}: {c} min ({d}%)' },
+    legend:{ orient:'vertical', right:8, top:'center', itemWidth:10, itemHeight:10, textStyle:{fontSize:11,color:'#666',...FONT} },
+    series:[{ type:'pie', radius:['46%','70%'], center:['38%','52%'], itemStyle:{borderColor:'#fff',borderWidth:2}, label:{show:false},
+      data:[ { value:unplanned, name:'Unplanned', itemStyle:{color:'#d32f2f'} }, { value:planned, name:'Planned', itemStyle:{color:'#388e3c'} } ] }]
+  });
+  return wrap;
+}
+
+/* ===================== A5-4 — QUALITY HOLD REPORT ===================== */
+function renderHolds() {
+  const wrap = h('div', {});
+  const holds = [
+    { id:D.coil.ref, type:'Coil', reason:'YS/UTS below E250 aim', ageH:0.6, qc:'Q. Kulkarni', sev:'g' },
+    { id:'H2601', type:'Heat', reason:'S 0.025% out of spec @ LHF', ageH:1.4, qc:'Q. Kulkarni', sev:'a' },
+    { id:'ISWCC1H2585S021', type:'Slab', reason:'Surface crack — awaiting review', ageH:26, qc:'A. Patil', sev:'r' }
+  ];
+  const aging24 = holds.filter(h=>h.ageH>24).length, aging48 = holds.filter(h=>h.ageH>48).length;
+
+  wrap.appendChild(h('div', { class:'card-grid cols-4 mb-12' }, [
+    MESC.kpi({ label:'Open holds', value:holds.length, icon:'fa-hand', accent:'amber' }),
+    MESC.kpi({ label:'Aging > 24 h', value:aging24, icon:'fa-triangle-exclamation', accent:aging24?'red':'green' }),
+    MESC.kpi({ label:'Aging > 48 h', value:aging48, icon:'fa-clock', accent:aging48?'red':'green' }),
+    MESC.kpi({ label:'Responsible QC', value:2, icon:'fa-user-shield', accent:'primary', sub:'inspectors' })
+  ]));
+
+  if (aging24) wrap.appendChild(MESC.alert('danger', 'Aging hold breach', aging24 + ' hold(s) exceed the 24 h escalation threshold — escalated to QC Head.'));
+
+  wrap.appendChild(MESC.card({
+    title:'Quality Hold Report — open holds & aging', icon:'fa-hand',
+    right: MESC.badge('escalation @ 24h / 48h', 'warning', 'fa-bell'),
+    body:[ MESC.table([
+      { key:'sev', label:'', render:r => h('span',{class:'rag '+r.sev, title:r.sev==='r'?'>24h':'ok'}) },
+      { key:'id', label:'Entity', render:r => h('span',{class:'mono strong'},[r.id]) },
+      { key:'type', label:'Type', render:r => MESC.badge(r.type,'neutral') },
+      { key:'reason', label:'Hold reason' },
+      { key:'age', label:'Age', num:true, render:r => h('span',{class:r.ageH>24?'text-danger strong':(r.ageH>8?'text-warning':'')},[ r.ageH<1 ? Math.round(r.ageH*60)+' min' : r.ageH+' h' ]) },
+      { key:'aging', label:'Aging', render:r => r.ageH>48?MESC.badge('> 48h','danger','fa-clock'):r.ageH>24?MESC.badge('> 24h','danger','fa-clock'):MESC.badge('Within SLA','success') },
+      { key:'qc', label:'Responsible QC' }
+    ], holds, { rowClass:r => r.ageH>24?'is-selected':'' }) ]
+  }));
+  return wrap;
+}
+
+/* ===================== A5-5 — ORDER TRACKING ===================== */
+function renderOrders() {
+  const wrap = h('div', {});
+  // driven from the order book (D.orders); per-order tracking state, tracked SO pinned first
+  const TRACK = {
+    'SO-2026-04455': { prod:76,  qual:'Cleared', disp:'Staging'   },
+    'SO-2026-04460': { prod:100, qual:'Cleared', disp:'Ready'     },
+    'SO-2026-04463': { prod:45,  qual:'In test', disp:'Not ready' },
+    'SO-2026-04468': { prod:12,  qual:'Pending', disp:'Not ready' },
+    'SO-2026-04471': { prod:38,  qual:'In test', disp:'Not ready' },
+    'SO-2026-04474': { prod:8,   qual:'Pending', disp:'Not ready' },
+    'SO-2026-04477': { prod:0,   qual:'Pending', disp:'Not ready' },
+    'SO-2026-04480': { prod:28,  qual:'In test', disp:'Not ready' },
+    'SO-2026-04483': { prod:62,  qual:'Cleared', disp:'Staging'   },
+    'SO-2026-04485': { prod:94,  qual:'Cleared', disp:'Ready'     },
+    'SO-2026-04487': { prod:18,  qual:'Pending', disp:'Not ready' }
+  };
+  const book = D.orders || [];
+  const ordered = book.filter(o => o.no === D.order.no).concat(book.filter(o => o.no !== D.order.no));
+  const rows = ordered.map(o => Object.assign(
+    { no:o.no, line:o.line, cust:o.customer.split('—')[0].trim(), grade:o.grade, qty:o.qty },
+    TRACK[o.no] || { prod:0, qual:'Pending', disp:'Not ready' }
+  ));
+  const readyBadge = s => s==='Ready'?MESC.badge('Ready','success','fa-check'):s==='Staging'?MESC.badge('Staging','info','fa-truck-fast'):MESC.badge('Not ready','neutral');
+  const qualBadge = s => s==='Cleared'?MESC.badge('Cleared','success'):s==='In test'?MESC.badge('In test','info'):MESC.badge('Pending','warning');
+
+  wrap.appendChild(MESC.card({
+    title:'Order Tracking Report — production · quality · dispatch readiness', icon:'fa-truck',
+    right: [ MESC.badge(rows.length+' orders','neutral','fa-list-ol'),
+             MESC.badge(rows.filter(r=>r.disp==='Ready').length+' ready','success','fa-check'),
+             h('button',{class:'btn btn-outline btn-sm', onclick:()=>MESShell.toast('Order tracking report exported (PDF)','success')},[MESC.icon('fa-file-pdf'),'Export']) ],
+    body:[ MESC.table([
+      { key:'no', label:'Sales order', render:r => h('div',{},[ h('span',{class:'mono strong'},[r.no]), h('span',{class:'hint'},[' / '+r.line]) ]) },
+      { key:'cust', label:'Customer' },
+      { key:'grade', label:'Grade' },
+      { key:'qty', label:'Qty (MT)', num:true, render:r=>MESC.fmt(r.qty) },
+      { key:'prod', label:'Production', render:r => h('div',{class:'row gap-8'},[ progBar(r.prod), h('span',{class:'hint mono'},[r.prod+'%']) ]) },
+      { key:'qual', label:'Quality', render:r => qualBadge(r.qual) },
+      { key:'disp', label:'Dispatch', render:r => readyBadge(r.disp) }
+    ], rows, { rowClass:r => r.no===D.order.no?'is-selected':'' }) ]
+  }));
+  wrap.appendChild(MESC.alert('info', 'Line-level tracking', 'Each order line progresses independently — production %, quality clearance and dispatch readiness are tracked separately from the promised delivery date.'));
+  return wrap;
+}
+
+/* ---------- helpers ---------- */
+function kpiTile(o) {
+  const tile = MESC.kpi({ label:o.label, value:o.value, unit:o.unit, icon:o.icon, accent:o.accent,
+    sub: o.sub ? o.sub : (o.plan != null ? [ h('span', { class:'rag ' + o.accent[0] }), 'plan ' + o.plan + (o.unit||'') ] : null) });
+  if (o.goto || o.onclick) { tile.classList.add('clickable'); tile.addEventListener('click', o.onclick || (() => tabs.activate(o.goto))); }
+  return tile;
+}
+function progBar(pct) {
+  const cls = pct>=100?'green':pct>=50?'':'amber';
+  return h('div', { class:'prog ' + cls }, [ h('span', { style:'width:' + pct + '%' }) ]);
+}
+function cumPct(arr) {
+  const tot = arr.reduce((a,b)=>a+b,0); let run = 0;
+  return arr.map(v => { run += v; return Math.round(run/tot*100); });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Heat Chemistry — Bluemingo MES</title>
+<link href="assets/vendor/roboto/roboto.css" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/mes-styles.css">
+<style>
+  /* Heat Chemistry — screen-specific styles (re-homed from the QA Quality module under the demo shell) */
+  .b-pass{background:rgba(76,175,80,.12);color:#388e3c;}
+  .b-fail{background:rgba(244,67,54,.12);color:#d32f2f;}
+  .b-pend{background:rgba(255,152,0,.12);color:#ef6c00;}
+  .b-hold{background:rgba(244,67,54,.12);color:#c62828;}
+  .b-clr{background:rgba(103,58,183,.12);color:#673ab7;}
+  .b-rep{background:rgba(158,158,158,.16);color:#757575;}
+  .badge.big{font-size:13px;}
+
+  .hc-wrap{display:grid;grid-template-columns:300px 1fr;gap:12px;height:calc(100vh - 152px);min-height:440px;}
+  .card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+  .hc-list .lhead{padding:12px;border-bottom:1px solid var(--color-border-light);}
+  .hc-list .lh-title{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--color-text-muted);font-weight:600;margin-bottom:6px;}
+  .hc-list .lsearch{position:relative;}
+  .hc-list .lsearch i{position:absolute;left:10px;top:9px;color:var(--color-text-hint);font-size:11px;}
+  .hc-list .lsearch input{width:100%;padding:7px 10px 7px 28px;border:1px solid #ddd;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;}
+  .hc-list .lsearch input:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px rgba(var(--color-primary-rgb),.15);}
+  .litems{overflow-y:auto;flex:1;}
+  .litem{padding:9px 12px;border-bottom:1px solid #f3f3f3;cursor:pointer;border-left:3px solid transparent;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .litem:hover{background:#eef7fc;}
+  .litem.sel{background:var(--color-primary-light);border-left-color:var(--color-primary);}
+  .litem .lh{font-weight:600;font-size:12px;font-variant-numeric:tabular-nums;}
+  .litem .lg{font-size:11px;color:var(--color-text-muted);}
+  .hc-detail{min-width:0;}
+  .hc-dhead{padding:12px 16px;border-bottom:1px solid var(--color-border-light);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
+  .hc-heat{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;}
+  .hc-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .hc-chips .chip{font-size:12px;color:var(--color-text-secondary);background:var(--color-bg-alt);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:3px 8px;}
+  .hc-chips .chip b{color:var(--color-text-primary);font-weight:600;margin-left:3px;}
+  .hc-chips .chip.src{background:var(--color-primary-light);border-color:#b3e5fc;color:var(--color-primary-dark);}
+  .hc-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .hc-tabs{display:flex;gap:2px;padding:8px 16px 0;border-bottom:1px solid var(--color-border-light);}
+  .hc-tab{padding:8px 16px;font-size:12px;font-weight:500;color:var(--color-text-muted);cursor:pointer;border-bottom:2px solid transparent;}
+  .hc-tab:hover{color:var(--color-primary);}
+  .hc-tab.on{color:var(--color-primary);border-bottom-color:var(--color-primary);}
+  .hc-grid-wrap{flex:1;min-height:0;overflow:auto;padding:0 16px;}
+  table.hc-grid{width:100%;border-collapse:collapse;font-size:12px;}
+  .hc-grid thead th{position:sticky;top:0;background:#f0f4f7;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.3px;color:var(--color-text-muted);font-weight:600;padding:9px 10px;border-bottom:1px solid var(--color-border);white-space:nowrap;}
+  .hc-grid td{padding:4px 10px;border-bottom:1px solid #f3f3f3;white-space:nowrap;}
+  .hc-grid tbody tr:hover td{background:#fafbfc;}
+  .hc-grid .el{font-weight:600;}
+  .hc-grid .spec{color:var(--color-text-muted);font-variant-numeric:tabular-nums;}
+  .srctag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:9px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;vertical-align:middle;}
+  .srctag.t-tdc{background:rgba(37,169,224,.14);color:#1E8FBF;}
+  .srctag.t-rep{background:rgba(158,158,158,.16);color:#757575;}
+  .hc-grid input{width:110px;padding:5px 8px;border:1px solid #ddd;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;font-variant-numeric:tabular-nums;text-align:right;}
+  .hc-grid input:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px rgba(var(--color-primary-rgb),.15);}
+  .hc-grid input.bad{border-color:var(--color-danger);background:#fff5f5;}
+  .hc-grid input.good{border-color:#a5d6a7;}
+  .hc-foot{padding:12px 16px;border-top:1px solid var(--color-border-light);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+  .hc-foot .ov{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--color-text-muted);}
+  .hc-note{font-size:12px;}
+  .hc-note.ok{color:var(--color-success);}
+  .hc-note.warn{color:var(--color-danger);}
+  .alloy-tbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px;}
+  .alloy-tbl th,.alloy-tbl td{padding:7px 10px;border-bottom:1px solid var(--color-border-light);text-align:left;}
+  .alloy-tbl th{font-size:10px;text-transform:uppercase;letter-spacing:.3px;color:var(--color-text-muted);}
+  .alloy-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  @media (max-width:820px){ .hc-wrap{grid-template-columns:1fr;height:auto;} }
+</style>
+</head>
+<body>
+<script src="assets/mes-data.js"></script>
+<script src="assets/mes-shell.js"></script>
+<script src="assets/mes-components.js"></script>
+<script>
+const D = MES_DATA;
+const { body } = MESShell.mount({ active: 'q-chem', title: 'Heat Chemistry', crumb: ['Quality', 'Heat Chemistry'] });
+
+body.innerHTML = `
+  <div class="hc-wrap">
+    <div class="card hc-list">
+      <div class="lhead">
+        <div class="lh-title">Heats — chemistry (current shift)</div>
+        <div class="lsearch"><i class="fa-solid fa-magnifying-glass"></i><input id="heatSearch" placeholder="Type heat no…"></div>
+      </div>
+      <div class="litems" id="heatList"></div>
+    </div>
+    <div class="card hc-detail" id="detail"></div>
+  </div>`;
+
+/* ===== Chemistry sourcing =====
+   CHEM_FAMILY = the standing spectro element set (same columns for every heat).
+   TDC_CHEM    = each heat's Technical Delivery Condition element limits, keyed by TDC no.
+   specFor(heat) -> one row per element: [code, unit, min, max, src].
+   Limits come from the heat's TDC; elements with no TDC limit are measured but REPORT-only (no pass/fail). */
+const CHEM_FAMILY = [
+  ['C','%'],['Mn','%'],['Si','%'],['S','%'],['P','%'],
+  ['Cr','%'],['Ni','%'],['Cu','%'],['N','%'],['Nb','%'],['V','%'],['Mo','%']
+];
+const TDC_CHEM = {
+  'TDC-E250'  : { C:[null,0.090], Mn:[null,1.400], Si:[null,0.250], S:[null,0.020], P:[null,0.030] },
+  'TDC-SLM350': { C:[null,0.200], Mn:[null,1.500], Si:[null,0.450], S:[null,0.045], P:[null,0.040] },
+  'TDC-X60'   : { C:[null,0.160], Mn:[null,1.600], Si:[null,0.450], S:[null,0.015], P:[null,0.025], Nb:[0.010,0.050], V:[null,0.100] }
+};
+function specFor(h){
+  const lim = TDC_CHEM[h.tdc] || {};
+  return CHEM_FAMILY.map(([code,unit]) => {
+    const l = lim[code];
+    return [code, unit, l ? l[0] : null, l ? l[1] : null, l ? 'TDC' : 'REPORT'];
+  });
+}
+function srcTag(s){ return ` <span class="srctag ${s==='TDC'?'t-tdc':'t-rep'}" title="${s==='TDC'?'Limit from the heat TDC':'Measured but no TDC limit — report-only'}">${s}</span>`; }
+const TYPES = ['Ladle','Product','Check'];
+
+/* Integrated Works SMS-2 heats — current shift B. H2601 is the tracked heat; its BOF turndown sample values mirror the demo scenario. */
+const HEATS = [
+  { heat:'H2601', grade:'IS 2062 E250', tdc:'TDC-E250',   sample:'CHM-H2601-BOF-01', cast:'07-Jul 15:42', furnace:'BOF1', lab:'MS Central Lab', state:'PASS',
+    actuals:{ C:0.061, Mn:1.20, Si:0.180, S:0.005, P:0.018, Cr:0.03, Ni:0.02, Cu:0.04, N:0.006, Nb:0.002, V:0.003, Mo:0.01 } },
+  { heat:'H2602', grade:'IS 2062 E250', tdc:'TDC-E250',   sample:'CHM-H2602-BOF-01', cast:'07-Jul 16:27', furnace:'BOF2', lab:'MS Central Lab', state:'PENDING' },
+  { heat:'H2603', grade:'SAILMA 350',   tdc:'TDC-SLM350', sample:'CHM-H2603-BOF-01', cast:'07-Jul 17:14', furnace:'BOF3', lab:'Container Lab',  state:'PASS' },
+  { heat:'H2604', grade:'IS 2062 E250', tdc:'TDC-E250',   sample:'CHM-H2604-BOF-01', cast:'07-Jul 17:59', furnace:'BOF1', lab:'MS Central Lab', state:'PENDING' },
+  { heat:'H2605', grade:'API 5L X60',   tdc:'TDC-X60',    sample:'CHM-H2605-BOF-01', cast:'07-Jul 18:44', furnace:'BOF2', lab:'Container Lab',  state:'HOLD' },
+  { heat:'H2606', grade:'IS 2062 E250', tdc:'TDC-E250',   sample:'CHM-H2606-BOF-01', cast:'07-Jul 19:29', furnace:'BOF3', lab:'MS Central Lab', state:'PENDING' }
+];
+const BADGE = { PASS:'b-pass', FAIL:'b-fail', PENDING:'b-pend', HOLD:'b-hold', CLEARED:'b-clr' };
+
+/* ===== deterministic mock actuals (for heats without an explicit sheet) ===== */
+function rnd(v){ const a=Math.abs(v); return a<1 ? +v.toFixed(3) : a<100 ? +v.toFixed(2) : Math.round(v); }
+function hashIdx(str,n){ let h=0; for(const ch of str) h=(h*33+ch.charCodeAt(0))>>>0; return n?h%n:0; }
+function deriveVal(heat,i,e,isFail){
+  const min=e[2], max=e[3]; let h=0, s=heat+'#'+i; for(const ch of s) h=(h*31+ch.charCodeAt(0))>>>0; const f=(h%1000)/1000;
+  if(isFail){ if(max!=null) return rnd(max*(1.06+f*0.05)); if(min!=null) return rnd(min*(0.90-f*0.05)); return rnd(99); }
+  if(min!=null&&max!=null) return rnd(min+(0.25+0.5*f)*(max-min));
+  if(min!=null) return rnd(min*(1.05+f*0.10));
+  if(max!=null) return rnd(max*(0.35+0.5*f));
+  return rnd(f*0.04);
+}
+/* store[heat] = {Ladle:{el:val}, Product:{}, Check:{}, _src:{Ladle:'L2'} } */
+const store = {};
+HEATS.forEach(h => {
+  store[h.heat] = { Ladle:{}, Product:{}, Check:{}, _src:{} };
+  if(h.state !== 'PENDING'){
+    const spec = specFor(h), gi = spec.map((e,i)=>i).filter(i => spec[i][2]!=null || spec[i][3]!=null);
+    const failEl = (h.state==='FAIL'||h.state==='HOLD') ? gi[hashIdx(h.heat,gi.length)] : -1;
+    spec.forEach((e,i) => {
+      store[h.heat].Ladle[e[0]] = (h.actuals && h.actuals[e[0]]!=null) ? h.actuals[e[0]] : deriveVal(h.heat,i,e,i===failEl);
+    });
+    store[h.heat]._src.Ladle = h.actuals ? 'L2' : 'L2';
+  }
+});
+
+let cur = 0, curType = 'Ladle';
+
+/* ===== eval ===== */
+function elResult(e,v){
+  if(e[2]==null && e[3]==null) return 'NA';               /* no TDC limit -> report-only */
+  if(v===''||v==null||isNaN(parseFloat(v))) return '';
+  const n=parseFloat(v);
+  if(e[2]!=null && n<e[2]) return 'FAIL';
+  if(e[3]!=null && n>e[3]) return 'FAIL';
+  return 'PASS';
+}
+function overall(){
+  const h=HEATS[cur], spec=specFor(h), vals=store[h.heat][curType];
+  let fail=false, empty=false;
+  spec.forEach(e => { const r=elResult(e,vals[e[0]]); if(r==='NA')return; if(r==='')empty=true; else if(r==='FAIL')fail=true; });
+  return fail ? 'FAIL' : (empty ? 'PENDING' : 'PASS');
+}
+function fmtSpec(e){
+  const mn=e[2], mx=e[3];
+  if(mn!=null&&mx!=null) return mn.toFixed(mn<1?3:2)+' – '+mx.toFixed(mx<1?3:2);
+  if(mx!=null) return '≤ '+mx.toFixed(mx<1?3:2);
+  if(mn!=null) return '≥ '+mn.toFixed(mn<1?3:2);
+  return '—';
+}
+
+/* ===== render list ===== */
+function renderList(){
+  const q=(document.getElementById('heatSearch').value||'').toLowerCase();
+  document.getElementById('heatList').innerHTML = HEATS.map((h,i) => {
+    if(q && !(h.heat+' '+h.grade).toLowerCase().includes(q)) return '';
+    return `<div class="litem ${i===cur?'sel':''}" onclick="selectHeat(${i})">
+      <div><div class="lh">${h.heat}</div><div class="lg">${h.grade} · ${h.sample}</div></div>
+      <span class="badge ${BADGE[h.state]}">${h.state}</span></div>`;
+  }).join('');
+}
+function selectHeat(i){ cur=i; curType='Ladle'; renderList(); renderDetail(); }
+
+/* ===== render detail ===== */
+function renderDetail(){
+  const h=HEATS[cur], spec=specFor(h), vals=store[h.heat][curType], src=store[h.heat]._src[curType]||'—';
+  const chips=[['Grade',h.grade],['TDC',h.tdc],['Sample',h.sample],['Cast',h.cast],['Furnace',h.furnace],['Lab',h.lab]]
+    .map(p=>`<span class="chip">${p[0]}<b>${p[1]}</b></span>`).join('')
+    + `<span class="chip src">Source<b>${src}</b></span>`;
+  const tabs=TYPES.map(t=>`<div class="hc-tab ${t===curType?'on':''}" onclick="setType('${t}')">${t}${t==='Ladle'?'':' <span style="font-size:10px;color:#999">(opt)</span>'}</div>`).join('');
+  const rows=spec.map((e,i)=>{
+    const v=vals[e[0]]??'', r=elResult(e,v), cls=r==='FAIL'?'bad':(r==='PASS'?'good':'');
+    const badge = r==='NA' ? '<span class="badge b-rep">report-only</span>'
+      : r==='' ? '<span class="badge b-pend">—</span>'
+      : `<span class="badge ${r==='PASS'?'b-pass':'b-fail'}">${r}</span>`;
+    return `<tr><td class="el">${e[0]}${srcTag(e[4])}</td><td class="spec">${e[1]}</td><td class="spec">${fmtSpec(e)}</td>
+      <td><input class="${cls}" data-el="${e[0]}" type="number" step="any" value="${v}" placeholder="—" oninput="onEdit(this)"></td>
+      <td>${badge}</td></tr>`;
+  }).join('');
+  const ov=overall();
+  document.getElementById('detail').innerHTML = `
+    <div class="hc-dhead">
+      <div>
+        <div class="hc-heat">Heat ${h.heat} <span class="badge ${BADGE[h.state]}">${h.state}</span></div>
+        <div class="hc-chips">${chips}</div>
+      </div>
+      <div class="hc-actions">
+        <button class="btn btn-ghost btn-sm" onclick="importL2()"><i class="fa-solid fa-satellite-dish"></i> Import from L2</button>
+        <button class="btn btn-ghost btn-sm" onclick="simulateOOS()"><i class="fa-solid fa-flask-vial"></i> LHF re-sample (out-of-spec)</button>
+        <button class="btn btn-ghost btn-sm" onclick="alloyDesign()"><i class="fa-solid fa-calculator"></i> Alloy design</button>
+      </div>
+    </div>
+    <div class="hc-tabs">${tabs}</div>
+    <div class="hc-grid-wrap">
+      <table class="hc-grid">
+        <thead><tr><th>Element</th><th>Unit</th><th>TDC Spec</th><th style="text-align:right">Actual</th><th>Result</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="hc-foot">
+      <div class="ov">Overall chemistry: <span class="badge big ${ov==='PASS'?'b-pass':ov==='FAIL'?'b-fail':'b-pend'}" id="ovBadge">${ov}</span> <span class="hc-note" id="hcNote"></span></div>
+      <button class="btn ${ov==='FAIL'?'btn-danger':'btn-primary'}" id="clrBtn" onclick="doClearance()" ${ov==='PENDING'?'disabled':''}>
+        <i class="fa-solid ${ov==='FAIL'?'fa-ban':'fa-circle-check'}"></i> ${ov==='FAIL'?'Put heat on hold':'Record chemistry clearance'}</button>
+    </div>`;
+}
+function setType(t){ curType=t; renderDetail(); }
+function onEdit(inp){
+  const h=HEATS[cur]; store[h.heat][curType][inp.dataset.el]=inp.value;
+  store[h.heat]._src[curType]='Manual';
+  const e=specFor(h).find(x=>x[0]===inp.dataset.el), r=elResult(e,inp.value);
+  inp.className=r==='FAIL'?'bad':(r==='PASS'?'good':'');
+  inp.closest('tr').querySelector('td:last-child').innerHTML = r==='NA' ? '<span class="badge b-rep">report-only</span>' : r==='' ? '<span class="badge b-pend">—</span>' : `<span class="badge ${r==='PASS'?'b-pass':'b-fail'}">${r}</span>`;
+  refreshOverall();
+  const chip=document.querySelector('.hc-chips .chip.src b'); if(chip)chip.textContent='Manual';
+}
+function refreshOverall(){
+  const ov=overall(), b=document.getElementById('ovBadge'); if(!b)return;
+  b.textContent=ov; b.className='badge big '+(ov==='PASS'?'b-pass':ov==='FAIL'?'b-fail':'b-pend');
+  const btn=document.getElementById('clrBtn');
+  btn.disabled=ov==='PENDING';
+  btn.className='btn '+(ov==='FAIL'?'btn-danger':'btn-primary');
+  btn.innerHTML=`<i class="fa-solid ${ov==='FAIL'?'fa-ban':'fa-circle-check'}"></i> ${ov==='FAIL'?'Put heat on hold':'Record chemistry clearance'}`;
+}
+function importL2(){
+  const h=HEATS[cur], spec=specFor(h), gi=spec.map((e,i)=>i).filter(i=>spec[i][2]!=null||spec[i][3]!=null);
+  const failEl=(h.state==='FAIL'||h.state==='HOLD')?gi[hashIdx(h.heat,gi.length)]:-1;
+  spec.forEach((e,i)=> store[h.heat][curType][e[0]] = (h.actuals&&curType==='Ladle'&&h.actuals[e[0]]!=null) ? h.actuals[e[0]] : deriveVal(h.heat,i,e,i===failEl));
+  store[h.heat]._src[curType]='L2';
+  renderDetail();
+  const n=document.getElementById('hcNote'); n.textContent='✓ Pulled spectro analysis from '+h.lab+' (L2)'; n.className='hc-note ok';
+  MESShell.toast('Spectro result imported from L2 — '+h.lab, 'success');
+}
+/* gap-fill: one-click LHF re-sample that lands S out of TDC aim (mirrors the out-of-spec step) */
+function simulateOOS(){
+  const h=HEATS[cur];
+  store[h.heat][curType]['S']=0.025; store[h.heat]._src[curType]='Manual';
+  h.state='HOLD';                          // A3.1-4: out-of-spec auto-holds the heat
+  renderList(); renderDetail();
+  correctiveModal(h);
+  const n=document.getElementById('hcNote'); n.textContent='⚠ LHF re-sample received — S 0.025% exceeds TDC aim 0.020%'; n.className='hc-note warn';
+  MESShell.toast('Out-of-spec at LHF — S 0.025% (aim ≤ 0.020%). Shift manager notified.', 'warning');
+}
+/* A3.1-4: out-of-spec → auto-hold + corrective action (Argon stir at ARS) + notify */
+function correctiveModal(ht){
+  const modal = MESC.modal({
+    title:'Out-of-Spec — Auto Hold & Corrective Action · '+ht.heat, icon:'fa-triangle-exclamation', size:'lg',
+    body:[
+      MESC.alert('danger','Heat auto-placed ON HOLD','LHF re-sample S = 0.025% exceeds the IS 2062 E250 TDC aim (S ≤ 0.020%). Heat '+ht.heat+' is blocked from casting until corrected and re-cleared.'),
+      h('div',{class:'section-title mt-8'},[MESC.icon('fa-screwdriver-wrench'),'Recommended corrective action']),
+      MESC.table([
+        {label:'Step', render:r=>h('span',{class:'strong'},[r.s])},
+        {label:'Station', render:r=>r.st},
+        {label:'Detail', render:r=>h('span',{class:'hint'},[r.d])}
+      ],[
+        {s:'1 · Argon stir', st:'ARS — Argon Rinsing Station', d:'Bottom-stir 6–8 min to homogenise the bath and float inclusions'},
+        {s:'2 · Desulphurise', st:'LHF', d:'CaSi cored-wire injection + reslag — target S ≤ 0.010%'},
+        {s:'3 · Re-sample', st:'LHF', d:'Fresh spectro sample, re-run chemistry vs TDC'}
+      ]),
+      h('div',{class:'section-title mt-12'},[MESC.icon('fa-bell'),'Notifications sent']),
+      h('div',{class:'row gap-6 wrap'},[ MESC.badge('Shift Manager','info','fa-user'), MESC.badge('QC Inspector','info','fa-user-shield'), MESC.badge('LHF Operator','info','fa-user-gear'), MESC.badge('SAP-QM','neutral','fa-plug') ])
+    ],
+    footer:[
+      h('button',{class:'btn btn-ghost',onclick:()=>modal.close()},['Close']),
+      h('button',{class:'btn btn-primary',onclick:()=>{ modal.close(); applyCorrective(ht); }},[MESC.icon('fa-wand-magic-sparkles'),'Apply corrective action (Argon stir @ ARS)'])
+    ]
+  });
+}
+function applyCorrective(ht){
+  store[ht.heat][curType]['S']=0.006; store[ht.heat]._src[curType]='Manual';   // post-treatment re-sample back in spec
+  renderList(); renderDetail();
+  const n=document.getElementById('hcNote'); if(n){ n.textContent='✓ Corrective applied — Argon stir @ ARS + CaSi desulph; re-sample S 0.006% back within TDC. Record clearance to release the hold.'; n.className='hc-note ok'; }
+  MESShell.toast('Corrective action applied — Argon stir @ ARS + CaSi; S back to 0.006% within TDC. Heat ready for re-clearance.', 'success');
+}
+function doClearance(){
+  const h=HEATS[cur], ov=overall(); const n=()=>document.getElementById('hcNote');
+  if(ov==='PASS'){ h.state='CLEARED'; renderList(); renderDetail(); n().textContent='✓ Chemistry cleared — heat released to production'; n().className='hc-note ok'; MESShell.toast('Heat '+h.heat+' chemistry cleared — released to production', 'success'); }
+  else if(ov==='FAIL'){ h.state='HOLD'; renderList(); renderDetail(); n().textContent='⚠ Heat held — chemistry out of TDC; route to disposition / re-test'; n().className='hc-note warn'; MESShell.toast('Heat '+h.heat+' put ON HOLD — chemistry out of TDC', 'danger'); }
+}
+
+/* gap-fill (A3): alloy-addition recommendation to bring chemistry back within TDC */
+function alloyDesign(){
+  const ht=HEATS[cur], vals=store[ht.heat][curType], spec=specFor(ht);
+  const get=c=>parseFloat(vals[c]); const lim=c=>{const e=spec.find(x=>x[0]===c);return e?e[3]:null;};
+  const recs=[];
+  const s=get('S');  if(!isNaN(s)&&lim('S')!=null&&s>lim('S'))  recs.push(['CaSi (Ca-Si cored wire)', Math.max(40,Math.round((s-lim('S'))*8000)), 'Desulphurisation + inclusion modification', 185]);
+  const mn=get('Mn');if(!isNaN(mn)&&mn<0.95) recs.push(['Fe-Mn (HC ferro-manganese)', Math.round((1.15-mn)*165*1.65), 'Raise Mn toward aim', 118]);
+  const si=get('Si');if(!isNaN(si)&&si<0.12) recs.push(['Fe-Si 75%', Math.round((0.16-si)*165*1.33), 'Raise Si / deoxidation', 96]);
+  if(!recs.length) recs.push(['Ca-Si trim', 25, 'Inclusion shape control (final trim)', 185]);
+  const totalCost=recs.reduce((a,r)=>a+r[1]*r[3],0);
+  const rowsHtml=recs.map(r=>`<tr><td><b>${r[0]}</b></td><td class="num">${r[1]}</td><td>${r[2]}</td><td class="num">₹ ${(r[1]*r[3]).toLocaleString('en-IN')}</td></tr>`).join('');
+  const modal = MESC.modal({
+    title:'Alloy Design — '+ht.heat+' ('+ht.grade+')', icon:'fa-calculator', size:'lg',
+    body:[ h('div',{class:'hint mb-8'},['Recommended additions to bring the heat within its TDC — computed on the 165 MT bath at BOF/LHF. Quantities are indicative; confirm against LHF trim practice.']),
+      h('div',{class:'table-wrap'},[ h('table',{class:'alloy-tbl'},[
+        h('thead',{},[h('tr',{},[h('th',{},['Addition']),h('th',{class:'num'},['Qty (kg)']),h('th',{},['Purpose']),h('th',{class:'num'},['Est. cost'])])]),
+        h('tbody',{html:rowsHtml}),
+        h('tfoot',{},[h('tr',{},[h('td',{},['']),h('td',{class:'num'},['']),h('td',{class:'strong'},['Total']),h('td',{class:'num strong'},['₹ '+totalCost.toLocaleString('en-IN')])])])
+      ])])
+    ],
+    footer:[ h('button',{class:'btn btn-ghost',onclick:()=>modal.close()},['Cancel']),
+      h('button',{class:'btn btn-primary',onclick:()=>{ modal.close(); MESShell.toast('Alloy addition confirmed & logged for '+ht.heat+' — routed to LHF', 'success'); }},[MESC.icon('fa-check'),'Confirm & log addition']) ]
+  });
+}
+
+document.getElementById('heatSearch').oninput = renderList;
+renderList(); renderDetail();
+</script>
+</body>
+</html>

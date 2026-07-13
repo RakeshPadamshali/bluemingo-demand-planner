@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inspection — Bluemingo MES</title>
+<link href="assets/vendor/roboto/roboto.css" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/mes-styles.css">
+<style>
+  /* Inspection / QC Worklist — screen-specific styles (re-homed from the QA Quality module under the demo shell) */
+
+  /* icon button (shell provides .btn / .btn-*) */
+  .btn-icon{width:30px;height:30px;padding:0;display:inline-grid;place-items:center;border:1px solid transparent;border-radius:var(--radius-sm);background:rgba(var(--color-primary-rgb),.1);color:var(--color-primary);font-size:13px;}
+  .btn-icon:hover{background:var(--color-primary);color:#fff;}
+  .btn-icon.danger{background:rgba(211,47,47,.1);color:var(--color-danger);}
+  .btn-icon.danger:hover{background:var(--color-danger);color:#fff;}
+
+  /* full-height worklist wrapper */
+  .insp-wrap{display:flex;flex-direction:column;height:calc(100vh - 152px);min-height:440px;}
+
+  /* exclusive (multi-select) filter bar */
+  .filterbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px;}
+  .filterbar .fb-label{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--color-text-muted);font-weight:600;margin-right:4px;}
+  .fb-btn{padding:7px 12px;font-size:12px;gap:6px;}
+  .fb-btn.fb-active{border-color:var(--color-primary);color:var(--color-primary);background:var(--color-primary-light);}
+  .fb-count{background:var(--color-primary);color:#fff;border-radius:10px;font-size:10px;padding:0 6px;font-weight:600;line-height:16px;}
+  .fb-clear{color:var(--color-primary);font-size:12px;cursor:pointer;margin-left:4px;}
+  .filterbar .picker-panel{top:38px;left:0;right:auto;}
+  .picker-search{display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--color-border-light);}
+  .picker-search i{color:var(--color-text-hint);font-size:11px;}
+  .picker-search input{flex:1;border:1px solid #ddd;border-radius:var(--radius-sm);padding:5px 8px;font-size:12px;font-family:inherit;}
+  .picker-search input:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 2px rgba(var(--color-primary-rgb),.15);}
+
+  /* card */
+  .card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden;flex:1;display:flex;flex-direction:column;min-height:0;}
+  .card-head{padding:12px 16px;border-bottom:1px solid var(--color-border-light);display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .card-head .title{font-weight:600;font-size:14px;}
+  .card-head .title .ch-sub{font-weight:400;color:var(--color-text-muted);font-size:12px;}
+  .card-head .meta{font-size:12px;color:var(--color-text-muted);}
+
+  /* table */
+  .tbl-wrap{overflow:auto;flex:1;min-height:0;}
+  table.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+  .tbl thead th{position:sticky;top:0;background:#f0f4f7;z-index:2;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;color:var(--color-text-muted);padding:9px 10px;white-space:nowrap;border-bottom:1px solid var(--color-border);}
+  .tbl thead tr.filters th{top:33px;background:#f7fafc;padding:5px 8px;z-index:2;}
+  .tbl thead tr.filters input{width:100%;padding:4px 7px;border:1px solid #ddd;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;}
+  .tbl thead tr.filters input:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px rgba(var(--color-primary-rgb),.15);}
+  .tbl thead tr.filters input.active{background:#fff7e1;border-color:#f0c14b;}
+  .tbl thead th.sortable{cursor:pointer;user-select:none;}
+  .tbl thead th.sortable:hover{color:var(--color-primary);}
+  .tbl thead th .caret{font-size:9px;color:#c2c2c2;margin-left:3px;}
+  .tbl thead th .caret.on{color:var(--color-primary);}
+  .tbl tbody td{padding:5px 10px;border-bottom:1px solid #f3f3f3;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis;color:var(--color-text-primary);}
+  .tbl tbody tr:nth-child(even) td{background:#fafbfc;}
+  .tbl tbody tr:hover td{background:#eef7fc;}
+  .tbl td.mono,.tbl td .mono{font-variant-numeric:tabular-nums;}
+  .tbl td.actions{text-align:right;}
+  .tbl td.actions .btn-icon{margin-left:4px;}
+  /* Frozen Actions column — stays visible despite horizontal scroll */
+  .tbl th.col-actions{position:sticky;right:0;z-index:4;}
+  .tbl td.actions{position:sticky;right:0;z-index:1;background:#fff;}
+  .tbl tbody tr:nth-child(even) td.actions{background:#fafbfc;}
+  .tbl tbody tr:hover td.actions{background:#eef7fc;}
+  .tbl th.col-actions,.tbl td.actions{box-shadow:-7px 0 8px -8px rgba(0,0,0,.18);}
+  .empty-row td{text-align:center;font-style:italic;color:var(--color-text-hint);padding:24px;background:#fff!important;}
+
+  /* result / status badge colours (badge base comes from the shared design system) */
+  .b-pass{background:rgba(76,175,80,.12);color:#388e3c;}
+  .b-fail{background:rgba(244,67,54,.12);color:#d32f2f;}
+  .b-pend{background:rgba(255,152,0,.12);color:#ef6c00;}
+  .b-cond{background:rgba(33,150,243,.12);color:#1976d2;}
+  .b-hold{background:rgba(244,67,54,.12);color:#c62828;}
+  .b-draft{background:rgba(158,158,158,.14);color:#757575;}
+  .b-prog{background:rgba(33,150,243,.12);color:#2196f3;}
+  .b-done{background:rgba(76,175,80,.12);color:#388e3c;}
+  .b-clr{background:rgba(103,58,183,.12);color:#673ab7;}
+  .b-rej{background:rgba(244,67,54,.12);color:#d32f2f;}
+  .b-insp{background:rgba(37,169,224,.12);color:#1E8FBF;}
+  .b-test{background:rgba(103,58,183,.12);color:#673ab7;}
+
+  /* pagination */
+  .pager{display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--color-border-light);font-size:12px;color:var(--color-text-muted);}
+  .pager .pg{padding:5px 10px;border:1px solid var(--color-border);background:#fff;border-radius:var(--radius-sm);color:var(--color-text-secondary);cursor:pointer;}
+  .pager .pg:hover:not(:disabled){border-color:var(--color-primary);color:var(--color-primary);}
+  .pager .pg:disabled{opacity:.45;cursor:not-allowed;}
+  .pager select{padding:5px 8px;border:1px solid var(--color-border);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;}
+  .pager .info{margin:0 8px;}
+
+  /* column / filter dropdown panel */
+  .picker{position:relative;}
+  .picker-panel{position:absolute;right:0;top:38px;z-index:50;background:#fff;border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);width:230px;display:none;}
+  .picker-panel.open{display:block;}
+  .picker-acts{display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--color-border-light);}
+  .picker-acts a{color:var(--color-primary);font-size:12px;cursor:pointer;}
+  .picker-list{max-height:280px;overflow:auto;padding:8px;}
+  .picker-list label{display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:12px;border-radius:var(--radius-sm);cursor:pointer;}
+  .picker-list label:hover{background:var(--color-bg-alt);}
+  .picker-list input{accent-color:var(--color-primary);}
+
+  /* record-result / group modal internals (chrome comes from the shared .modal) */
+  .modal.lg .modal-body{padding:0;}
+  .rm-ctx{display:flex;flex-wrap:wrap;gap:8px;padding:12px 20px;background:var(--color-bg-alt);border-bottom:1px solid var(--color-border-light);}
+  .rm-ctx .chip{font-size:12px;color:var(--color-text-secondary);background:#fff;border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:3px 8px;}
+  .rm-ctx .chip b{color:var(--color-text-primary);font-weight:600;margin-left:3px;}
+  .rm-grid-wrap{padding:12px 20px;max-height:44vh;overflow:auto;}
+  table.rm-grid{width:100%;border-collapse:collapse;font-size:12px;}
+  .rm-grid th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:var(--color-text-muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--color-border);white-space:nowrap;}
+  .rm-grid td{padding:4px 8px;border-bottom:1px solid #f3f3f3;}
+  .rm-grid input,.rm-grid select{padding:5px 8px;border:1px solid #ddd;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;width:100%;}
+  .rm-grid input:focus,.rm-grid select:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px rgba(var(--color-primary-rgb),.15);}
+  .rm-grid .spec{color:var(--color-text-muted);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .srctag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:9px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;vertical-align:middle;}
+  .srctag.t-tdc{background:rgba(37,169,224,.14);color:#1E8FBF;}
+  .srctag.t-def{background:rgba(158,158,158,.16);color:#757575;}
+  .rm-defects{padding:12px 20px;border-top:1px solid var(--color-border-light);}
+  .rmd-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .rmd-head b{font-size:14px;} .rmd-head .btn{margin-left:auto;}
+  table.rmd-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+  .rmd-tbl th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:var(--color-text-muted);font-weight:600;padding:4px 6px;border-bottom:1px solid var(--color-border);white-space:nowrap;}
+  .rmd-tbl td{padding:3px 6px;border-bottom:1px solid #f3f3f3;}
+  .rmd-tbl select,.rmd-tbl input{padding:5px 6px;border:1px solid #ddd;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;width:100%;}
+  .rmd-empty{color:#888;font-style:italic;font-size:12px;padding:6px 0;}
+  .rm-foot-bar{display:flex;align-items:center;gap:16px;padding:10px 20px;border-top:1px solid var(--color-border-light);}
+  .rm-foot-bar input{flex:1;padding:7px 12px;border:1px solid #ddd;border-radius:var(--radius-sm);font-family:inherit;font-size:12px;}
+  .helper{font-size:12px;color:var(--color-text-secondary);background:var(--color-primary-light);border:1px solid #b3e5fc;border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:12px;display:flex;gap:8px;align-items:flex-start;}
+  .helper i{color:var(--color-primary-dark);margin-top:2px;}
+  @media (max-width:820px){ .insp-wrap{height:auto;} }
+</style>
+</head>
+<body>
+<script src="assets/mes-data.js"></script>
+<script src="assets/mes-shell.js"></script>
+<script src="assets/mes-components.js"></script>
+<script>
+const D = MES_DATA;
+const { body, actions } = MESShell.mount({ active: 'q-inspection', title: 'Inspection', crumb: ['Quality', 'Inspection'] });
+
+/* open the Salvage & NCR screen straight into its Raise-NCR entry (deep-link handoff via sessionStorage) */
+function raiseSalvage(ctx){
+  try{ sessionStorage.setItem('mes_raise_ncr', JSON.stringify(Object.assign({t:Date.now()}, ctx||{}))); }catch(e){}
+  try{ if(window.parent&&window.parent!==window&&window.parent.MESHost&&window.parent.MESHost.open){ window.parent.MESHost.open('q-salvage'); return; } }catch(e){}
+  location.href='quality-salvage.html';
+}
+
+/* ===== Page toolbar (rendered into the shell page-bar actions) ===== */
+actions.innerHTML = `
+  <div class="picker">
+    <button class="btn btn-ghost" id="colBtn"><i class="fa-solid fa-table-columns"></i> Columns</button>
+    <div class="picker-panel" id="colPanel">
+      <div class="picker-acts"><a id="colAll">Select all</a><a id="colClear">Clear</a></div>
+      <div class="picker-list" id="colList"></div>
+    </div>
+  </div>
+  <button class="btn btn-ghost" id="savedBtn"><i class="fa-solid fa-filter"></i> Saved filters</button>
+  <button class="btn btn-ghost" id="exportBtn"><i class="fa-solid fa-file-export"></i> Export</button>
+  <button class="btn btn-primary" id="newBtn"><i class="fa-solid fa-plus"></i> Raise Inspection</button>`;
+
+/* ===== Worklist body ===== */
+body.innerHTML = `
+  <div class="insp-wrap">
+    <div class="filterbar" id="filterbar"></div>
+    <div class="card">
+      <div class="card-head">
+        <span class="title">Lots &amp; Records <span class="ch-sub">— SMS-2 &amp; HSM-2 · Shift ${D.plant.shift} · ${D.plant.date}</span></span>
+        <span class="meta" id="rowMeta"></span>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table>
+      </div>
+      <div class="pager">
+        <button class="pg" id="pgFirst" title="First">&laquo;</button>
+        <button class="pg" id="pgPrev" title="Prev">&lsaquo;</button>
+        <span class="info" id="pgInfo">Page 1</span>
+        <button class="pg" id="pgNext" title="Next">&rsaquo;</button>
+        <button class="pg" id="pgLast" title="Last">&raquo;</button>
+        <span style="flex:1"></span>
+        <span>Rows:</span>
+        <select id="pgSize"><option>50</option><option>100</option><option>250</option><option>500</option></select>
+      </div>
+    </div>
+  </div>`;
+
+/* ===== Columns ===== */
+const COLS=[
+  {key:'no',label:'QC No'},{key:'pc',label:'Confirmation'},{key:'kind',label:'Kind'},{key:'type',label:'Type'},{key:'seq',label:'Seq'},{key:'stage',label:'Operation'},
+  {key:'heat',label:'Heat No'},{key:'uid',label:'Material / UID'},{key:'grade',label:'Grade'},{key:'form',label:'Form'},
+  {key:'result',label:'Result'},{key:'status',label:'Status'},{key:'date',label:'Date'},{key:'by',label:'Inspector'},
+  {key:'actions',label:'',noFilter:true}
+];
+let visible=COLS.map(c=>c.key);
+
+/* ===== Worklist data — Integrated Works SMS-2 / HSM-2, current shift B ===== */
+const RAW=[
+ ['CHM-2627-0101','Test','Chemical','BOF Tapping','H2601','L-02 · Ladle sample','IS 2062 E250','Heat','PASS','CLEARED','07-Jul 15:48','L2 / OES'],
+ ['CHM-2627-0102','Test','Chemical','LHF Trim','H2601','L-02 · Trim sample','IS 2062 E250','Heat','PASS','CLEARED','07-Jul 16:20','MS Central Lab'],
+ ['INS-2627-0201','Inspection','Dimensional','CCM Casting','H2601','ISWCC1H2601S001','IS 2062 E250','Slab','PASS','COMPLETED','07-Jul 17:05','A. Patil'],
+ ['INS-2627-0202','Inspection','Surface','CCM Casting','H2601','ISWCC1H2601S001','IS 2062 E250','Slab','PASS','COMPLETED','07-Jul 17:12','P. Jadhav'],
+ ['UT-2627-0031','Inspection','UT','CCM Casting','H2601','ISWCC1H2601S001','IS 2062 E250','Slab','PASS','COMPLETED','07-Jul 17:20','S. More'],
+ ['INS-2627-0203','Inspection','Dimensional','CCM Casting','H2601','ISWCC1H2601S002','IS 2062 E250','Slab','PENDING','IN PROGRESS','07-Jul 17:40','A. Patil'],
+ ['INS-2627-0204','Inspection','Dimensional','HSM-2 Finishing','H2601','ISWHSM2C2601001','IS 2062 E250','Coil','PASS','COMPLETED','07-Jul 19:30','A. Patil'],
+ ['INS-2627-0205','Inspection','Surface','HSM-2 Finishing','H2601','ISWHSM2C2601001','IS 2062 E250','Coil','COND','COMPLETED','07-Jul 19:36','Surface SIS'],
+ ['TST-2627-0051','Test','Mechanical','HSM-2 Finishing','H2601','ISWHSM2C2601001','IS 2062 E250','Coil','PENDING','IN PROGRESS','07-Jul 20:05','MS Central Lab'],
+ ['CHM-2627-0103','Test','Chemical','BOF Tapping','H2602','L-05 · Ladle sample','IS 2062 E250','Heat','PENDING','DRAFT','07-Jul 16:32','—'],
+ ['INS-2627-0206','Inspection','Dimensional','CCM Casting','H2602','ISWCC1H2602S001','IS 2062 E250','Slab','PASS','COMPLETED','07-Jul 18:10','A. Patil'],
+ ['INS-2627-0207','Inspection','Surface','CCM Casting','H2602','ISWCC1H2602S001','IS 2062 E250','Slab','PASS','COMPLETED','07-Jul 18:16','P. Jadhav'],
+ ['CHM-2627-0104','Test','Chemical','LHF Trim','H2603','L-03 · Trim sample','SAILMA 350','Heat','PASS','CLEARED','07-Jul 17:22','Container Lab'],
+ ['INS-2627-0208','Inspection','Dimensional','CCM Casting','H2603','ISWCC2H2603S001','SAILMA 350','Slab','FAIL','REJECTED','07-Jul 18:55','A. Patil'],
+ ['UT-2627-0032','Inspection','UT','CCM Casting','H2603','ISWCC2H2603S001','SAILMA 350','Slab','PASS','COMPLETED','07-Jul 19:02','S. More'],
+ ['CHM-2627-0105','Test','Chemical','BOF Tapping','H2604','L-01 · Ladle sample','IS 2062 E250','Heat','FAIL','HOLD','07-Jul 18:02','L2 / OES'],
+ ['INS-2627-0209','Inspection','Dimensional','CCM Casting','H2604','ISWCC1H2604S001','IS 2062 E250','Slab','PENDING','IN PROGRESS','07-Jul 19:20','A. Patil'],
+ ['CHM-2627-0106','Test','Chemical','RH Degassing','H2605','L-02 · Degas sample','API 5L X60','Heat','PASS','CLEARED','07-Jul 19:10','Container Lab'],
+ ['TST-2627-0052','Test','Mechanical','HSM-2 Finishing','H2605','ISWHSM2C2605001','API 5L X60','Coil','PENDING','DRAFT','07-Jul 20:40','—'],
+ ['INS-2627-0210','Inspection','Surface','HSM-2 Finishing','H2605','ISWHSM2C2605001','API 5L X60','Coil','FAIL','REJECTED','07-Jul 20:48','Surface SIS'],
+ ['CHM-2627-0107','Test','Chemical','BOF Tapping','H2606','L-06 · Ladle sample','IS 2062 E250','Heat','PASS','CLEARED','07-Jul 19:35','L2 / OES'],
+ ['INS-2627-0211','Inspection','Dimensional','CCM Casting','H2606','ISWCC1H2606S001','IS 2062 E250','Slab','PASS','COMPLETED','07-Jul 20:15','A. Patil'],
+ ['INS-2627-0212','Inspection','Surface','CCM Casting','H2606','ISWCC1H2606S001','IS 2062 E250','Slab','PASS','COMPLETED','07-Jul 20:22','P. Jadhav'],
+ ['INS-2627-0213','Inspection','Dimensional','Down Coiler','H2601','ISWHSM2C2601001','IS 2062 E250','Coil','PASS','COMPLETED','07-Jul 20:30','A. Patil'],
+];
+const DATA=RAW.map(r=>({no:r[0],kind:r[1],type:r[2],stage:r[3],heat:r[4],uid:r[5],grade:r[6],form:r[7],result:r[8],status:r[9],date:r[10],by:r[11]}));
+/* Inspection group = production confirmation: QC items sharing heat + operation, ordered by seq */
+let _pc=4416; const PCG={};
+DATA.forEach(r=>{const k=r.heat+'|'+r.stage; if(!PCG[k]){_pc++;PCG[k]={pc:'PC-2627-0'+_pc,n:0};} PCG[k].n++; r.pc=PCG[k].pc; r.seq=PCG[k].n;});
+function groupOf(pc){return DATA.filter(r=>r.pc===pc).sort((a,b)=>a.seq-b.seq);}
+function groupStatus(pc){const g=groupOf(pc); if(g.some(r=>r.result==='FAIL'))return 'FAIL'; if(g.some(r=>r.result==='PENDING'||r.result==='COND'))return 'IN PROGRESS'; return 'CLEARED';}
+let groupClose=null;
+function openGroup(pc){
+  const g=groupOf(pc); if(!g.length)return; const f=g[0];
+  const ctxHtml=[['Confirmation',pc],['Operation',f.stage],['Heat',f.heat],['Material',f.uid],['Grade',f.grade],['Form',f.form],['Group',groupStatus(pc)]].map(p=>`<span class="chip">${p[0]}<b>${p[1]}</b></span>`).join('');
+  const gridHtml='<thead><tr><th>Seq</th><th>QC No</th><th>Kind</th><th>Type</th><th>Result</th><th>Status</th><th>Inspector</th><th></th></tr></thead><tbody>'+g.map(row=>`<tr><td><b>${row.seq}</b></td><td>${row.no}</td><td><span class="badge ${row.kind==='Test'?'b-test':'b-insp'}">${row.kind}</span></td><td>${row.type}</td><td><span class="badge ${RESULT_B[row.result]||'b-draft'}">${row.result}</span></td><td><span class="badge ${STATUS_B[row.status]||'b-draft'}">${row.status}</span></td><td>${row.by}</td><td><button class="btn-icon" title="Open" onclick="closeGroup();openRecord('${row.no}','edit')"><i class="fa-solid fa-pen"></i></button></td></tr>`).join('')+'</tbody>';
+  const modal=MESC.modal({ title:'Inspection Group — '+pc, icon:'fa-layer-group', size:'lg',
+    body:[ h('div',{class:'rm-ctx',html:ctxHtml}), h('div',{class:'rm-grid-wrap'},[h('table',{class:'rm-grid',html:gridHtml})]) ],
+    footer:[ h('button',{class:'btn btn-ghost',onclick:()=>closeGroup()},['Close']) ] });
+  groupClose=modal.close;
+}
+function closeGroup(){ if(groupClose)groupClose(); groupClose=null; }
+
+/* ===== Defect recording at inspection ===== */
+const DEFECT_CAT=['Surface crack','Longitudinal crack','Transverse crack','Corner crack','Sliver','Scab','Scale / Oxide','Roll mark','Edge crack','Centre segregation','Inclusion','Blowhole / Pinhole','Lamination','Camber / Bow','Thickness OOS','Width OOS','UT indication','Coil edge wave'];
+const DEF_SEV={'Surface crack':'CRITICAL','Longitudinal crack':'CRITICAL','Transverse crack':'CRITICAL','Lamination':'CRITICAL','Corner crack':'MAJOR','Sliver':'MAJOR','Scab':'MAJOR','Inclusion':'MAJOR','Centre segregation':'MAJOR','UT indication':'MAJOR','Thickness OOS':'MAJOR','Width OOS':'MAJOR','Edge crack':'MAJOR','Blowhole / Pinhole':'MAJOR','Scale / Oxide':'MINOR','Roll mark':'MINOR','Camber / Bow':'MINOR','Coil edge wave':'MINOR'};
+const SEVS=['CRITICAL','MAJOR','MINOR'];
+const LOC_TYPES=['NONE','LENGTH','SURFACE_XY','EDGE','CORNER','FACE_TOP','FACE_BOT','ZONE'];
+const DISPOS=['—','REWORK','SCARFING','DOWNGRADE','CONCESSION','REJECT','SCRAP'];
+let rmDefects=[], rmRO=false;
+function seedDefects(row){
+  if(row.result==='FAIL'||row.status==='REJECTED'||row.status==='HOLD'){
+    const d=row.type==='UT'?'Lamination':row.type==='Surface'?'Sliver':row.type==='Visual'?'Surface crack':row.type==='Dimensional'?'Thickness OOS':'Inclusion';
+    return [{defect:d,sev:DEF_SEV[d]||'MAJOR',qty:1,loc:row.type==='Dimensional'?'LENGTH':'SURFACE_XY',pos:row.type==='Dimensional'?'@ 4.2 m':'Top face',dispo:row.type==='Dimensional'?'REWORK':'DOWNGRADE'}];
+  }
+  return [];
+}
+function defectRow(d,i){const dis=rmRO?'disabled':'';
+  return '<tr><td><select '+dis+' data-di="'+i+'" data-df="defect" onchange="syncDefects();onDefSev('+i+')">'+DEFECT_CAT.map(o=>'<option'+(o===d.defect?' selected':'')+'>'+o+'</option>').join('')+'</select></td>'+
+  '<td><select '+dis+' data-di="'+i+'" data-df="sev" onchange="syncDefects();evalRm()">'+SEVS.map(o=>'<option'+(o===d.sev?' selected':'')+'>'+o+'</option>').join('')+'</select></td>'+
+  '<td><input '+dis+' data-di="'+i+'" data-df="qty" type="number" step="any" value="'+(d.qty==null?1:d.qty)+'" style="width:58px"/></td>'+
+  '<td><select '+dis+' data-di="'+i+'" data-df="loc">'+LOC_TYPES.map(o=>'<option'+(o===d.loc?' selected':'')+'>'+o+'</option>').join('')+'</select></td>'+
+  '<td><input '+dis+' data-di="'+i+'" data-df="pos" value="'+(d.pos||'')+'" placeholder="pos / ref" style="width:108px"/></td>'+
+  '<td><select '+dis+' data-di="'+i+'" data-df="dispo">'+DISPOS.map(o=>'<option'+(o===d.dispo?' selected':'')+'>'+o+'</option>').join('')+'</select></td>'+
+  (rmRO?'':'<td><button class="btn-icon danger" title="Remove" onclick="delDefect('+i+')"><i class="fa-solid fa-trash"></i></button></td>')+'</tr>';
+}
+function renderDefects(){
+  const head='<div class="rmd-head"><b>Defects</b> <span style="color:#888;font-size:11px">— type · severity · location · disposition</span>'+(rmRO?'':'<button class="btn btn-ghost btn-sm" onclick="addDefect()"><i class="fa-solid fa-plus"></i> Add defect</button>')+'</div>';
+  const body2=rmDefects.length?'<table class="rmd-tbl"><thead><tr><th>Defect</th><th>Severity</th><th>Qty</th><th>Location</th><th>Position</th><th>Disposition</th>'+(rmRO?'':'<th></th>')+'</tr></thead><tbody>'+rmDefects.map((d,i)=>defectRow(d,i)).join('')+'</tbody></table>':'<div class="rmd-empty">No defects recorded.</div>';
+  const el=document.getElementById('rmDefects'); if(el)el.innerHTML=head+body2;
+}
+function syncDefects(){document.querySelectorAll('#rmDefects [data-di]').forEach(el=>{const i=+el.dataset.di,f=el.dataset.df;let v=el.value;if(f==='qty')v=(+v||0);if(rmDefects[i])rmDefects[i][f]=v;});}
+function onDefSev(i){if(rmDefects[i])rmDefects[i].sev=DEF_SEV[rmDefects[i].defect]||'MINOR';renderDefects();evalRm();}
+function addDefect(){syncDefects();rmDefects.push({defect:DEFECT_CAT[0],sev:DEF_SEV[DEFECT_CAT[0]]||'MINOR',qty:1,loc:'NONE',pos:'',dispo:'—'});renderDefects();evalRm();}
+function delDefect(i){syncDefects();rmDefects.splice(i,1);renderDefects();evalRm();}
+
+/* ===== Badges ===== */
+const RESULT_B={PASS:'b-pass',FAIL:'b-fail',PENDING:'b-pend',COND:'b-cond'};
+const STATUS_B={'COMPLETED':'b-done','IN PROGRESS':'b-prog','DRAFT':'b-draft','CLEARED':'b-clr','HOLD':'b-hold','REJECTED':'b-rej'};
+function cell(c,row){
+  const v=row[c.key];
+  if(c.key==='kind') return `<span class="badge ${v==='Test'?'b-test':'b-insp'}">${v}</span>`;
+  if(c.key==='result') return `<span class="badge ${RESULT_B[v]||'b-draft'}">${v}</span>`;
+  if(c.key==='status') return `<span class="badge ${STATUS_B[v]||'b-draft'}">${v}</span>`;
+  if(c.key==='actions') return `<button class="btn-icon" title="Inspection group" onclick="openGroup('${row.pc}')"><i class="fa-solid fa-layer-group"></i></button><button class="btn-icon" title="View (read-only)" onclick="openRecord('${row.no}','view')"><i class="fa-solid fa-eye"></i></button><button class="btn-icon" title="${row.result==='PENDING'?'Record result':'Edit result'}" onclick="openRecord('${row.no}','edit')"><i class="fa-solid fa-pen"></i></button><button class="btn-icon" title="Raise Salvage / NCR for ${row.uid}" onclick="raiseSalvage({uid:'${row.uid}',heat:'${row.heat}',grade:'${row.grade}',stage:'${row.stage}',ref:'${row.no}',src:'Inspection'})"><i class="fa-solid fa-screwdriver-wrench"></i></button>`;
+  return v??'';
+}
+
+/* ===== State ===== */
+const filters={}; let page=1, pageSize=50, sortKey=null, sortDir=1;
+
+/* Head — filter row rebuilt on column change; sort row updated in place so sorting never disturbs filter focus */
+function buildHead(){
+  const cols=COLS.filter(c=>visible.includes(c.key));
+  const h2=cols.map(c=>c.noFilter?'<th class="col-actions"></th>':`<th><input data-k="${c.key}" placeholder="filter…" value="${filters[c.key]||''}"/></th>`).join('');
+  document.getElementById('thead').innerHTML=`<tr id="hRow"></tr><tr class="filters">${h2}</tr>`;
+  buildSortRow();
+  document.querySelectorAll('.filters input').forEach(inp=>{
+    inp.classList.toggle('active',!!inp.value);
+    inp.addEventListener('input',e=>{const k=e.target.dataset.k;filters[k]=e.target.value;e.target.classList.toggle('active',!!e.target.value);page=1;renderBody();});
+  });
+}
+function buildSortRow(){
+  const cols=COLS.filter(c=>visible.includes(c.key));
+  document.getElementById('hRow').innerHTML=cols.map(c=>{
+    if(c.noFilter) return '<th class="col-actions"></th>';
+    const car=sortKey===c.key?`<span class="caret on">${sortDir>0?'▲':'▼'}</span>`:'<span class="caret">⇅</span>';
+    return `<th class="sortable" data-sk="${c.key}">${c.label} ${car}</th>`;
+  }).join('');
+  document.querySelectorAll('#hRow .sortable').forEach(th=>th.onclick=()=>{
+    const k=th.dataset.sk;
+    if(sortKey===k){ if(sortDir>0) sortDir=-1; else { sortKey=null; sortDir=1; } }
+    else { sortKey=k; sortDir=1; }
+    buildSortRow(); renderBody();
+  });
+}
+function cmp(x,y){return (''+(x??'')).localeCompare(''+(y??''),undefined,{numeric:true,sensitivity:'base'});}
+function passes(row){
+  for(const p of PICKERS){ if(!picked[p.key].has(row[p.key])) return false; }   /* exclusive multi-select filters */
+  return COLS.every(c=>{const f=(filters[c.key]||'').trim().toLowerCase();return !f|| String(row[c.key]??'').toLowerCase().includes(f);});
+}
+function renderBody(){
+  const cols=COLS.filter(c=>visible.includes(c.key));
+  let rows=DATA.filter(passes);
+  if(sortKey) rows=rows.slice().sort((a,b)=>cmp(a[sortKey],b[sortKey])*sortDir);
+  const pages=Math.max(1,Math.ceil(rows.length/pageSize)); if(page>pages)page=pages;
+  const slice=rows.slice((page-1)*pageSize,page*pageSize);
+  const tb=document.getElementById('tbody');
+  if(!slice.length){tb.innerHTML=`<tr class="empty-row"><td colspan="${cols.length}">No records match the current filters.</td></tr>`;}
+  else{tb.innerHTML=slice.map(r=>`<tr>${cols.map(c=>`<td class="${c.key==='actions'?'actions':''}">${cell(c,r)}</td>`).join('')}</tr>`).join('');}
+  document.getElementById('rowMeta').textContent=`${rows.length} of ${DATA.length} records`;
+  document.getElementById('pgInfo').textContent=`Page ${page} / ${pages}`;
+  document.getElementById('pgFirst').disabled=document.getElementById('pgPrev').disabled=page<=1;
+  document.getElementById('pgNext').disabled=document.getElementById('pgLast').disabled=page>=pages;
+}
+
+/* ===== Exclusive (multi-select) filters ===== */
+const PICKERS=[
+  {key:'kind',label:'Kind'},{key:'type',label:'Type'},{key:'stage',label:'Operation'},
+  {key:'result',label:'Result'},{key:'status',label:'Status'},{key:'heat',label:'Heat No',search:true}
+];
+const distinct=k=>[...new Set(DATA.map(r=>r[k]))].sort(cmp);
+const picked={};
+PICKERS.forEach(p=>picked[p.key]=new Set(distinct(p.key)));   /* default: all selected = no filter */
+function closeAllPanels(){document.querySelectorAll('.picker-panel').forEach(p=>p.classList.remove('open'));}
+function pickerBtnHtml(key){
+  const all=picked[key].size===distinct(key).length, lbl=PICKERS.find(p=>p.key===key).label;
+  return `${lbl}${all?'':` <span class="fb-count">${picked[key].size}</span>`} <i class="fa-solid fa-chevron-down" style="font-size:9px"></i>`;
+}
+function buildFilterBar(){
+  const bar=document.getElementById('filterbar');
+  bar.innerHTML=`<span class="fb-label">Filters</span>`+PICKERS.map(p=>{
+    const vals=distinct(p.key),sel=picked[p.key],all=sel.size===vals.length;
+    return `<div class="picker" data-fp="${p.key}">
+      <button class="btn btn-ghost fb-btn ${all?'':'fb-active'}">${pickerBtnHtml(p.key)}</button>
+      <div class="picker-panel">
+        <div class="picker-acts"><a data-act="all">Select all</a><a data-act="clear">Clear</a></div>
+        ${p.search?`<div class="picker-search"><i class="fa-solid fa-magnifying-glass"></i><input type="text" placeholder="Type heat no…" data-search="${p.key}"/></div>`:''}
+        <div class="picker-list">${vals.map(v=>`<label><input type="checkbox" value="${v}" ${sel.has(v)?'checked':''}/> ${v}</label>`).join('')}</div>
+      </div></div>`;
+  }).join('')+`<a class="fb-clear" id="fbClear">Reset all</a>`;
+  bar.querySelectorAll('.picker').forEach(pk=>{
+    const key=pk.dataset.fp,btn=pk.querySelector('.fb-btn');
+    btn.onclick=e=>{const panel=pk.querySelector('.picker-panel'),open=panel.classList.contains('open');closeAllPanels();if(!open)panel.classList.add('open');e.stopPropagation();};
+    pk.querySelectorAll('.picker-list input').forEach(cb=>cb.onchange=()=>{cb.checked?picked[key].add(cb.value):picked[key].delete(cb.value);applyPicker(pk,key);});
+    pk.querySelector('[data-act="all"]').onclick=()=>{picked[key]=new Set(distinct(key));syncChecks(pk,key);applyPicker(pk,key);};
+    pk.querySelector('[data-act="clear"]').onclick=()=>{picked[key]=new Set();syncChecks(pk,key);applyPicker(pk,key);};
+    const sb=pk.querySelector('[data-search]');
+    if(sb)sb.oninput=()=>{const q=sb.value.trim().toLowerCase();pk.querySelectorAll('.picker-list label').forEach(lb=>{lb.style.display=lb.textContent.trim().toLowerCase().includes(q)?'':'none';});};
+  });
+  document.getElementById('fbClear').onclick=()=>{PICKERS.forEach(p=>picked[p.key]=new Set(distinct(p.key)));buildFilterBar();page=1;renderBody();};
+}
+function applyPicker(pk,key){
+  const btn=pk.querySelector('.fb-btn');
+  btn.classList.toggle('fb-active',picked[key].size!==distinct(key).length);
+  btn.innerHTML=pickerBtnHtml(key);
+  page=1;renderBody();
+}
+function syncChecks(pk,key){pk.querySelectorAll('.picker-list input').forEach(cb=>cb.checked=picked[key].has(cb.value));}
+
+/* ===== Column picker ===== */
+function buildPicker(){
+  document.getElementById('colList').innerHTML=COLS.filter(c=>c.label).map(c=>`<label><input type="checkbox" data-k="${c.key}" ${visible.includes(c.key)?'checked':''}/> ${c.label}</label>`).join('');
+  document.querySelectorAll('#colList input').forEach(i=>i.addEventListener('change',e=>{
+    const k=e.target.dataset.k; visible=COLS.filter(c=>c.key===k?e.target.checked:visible.includes(c.key)).map(c=>c.key);
+    buildHead();renderBody();
+  }));
+}
+const colBtn=document.getElementById('colBtn'), colPanel=document.getElementById('colPanel');
+colBtn.onclick=e=>{const open=colPanel.classList.contains('open');closeAllPanels();if(!open)colPanel.classList.add('open');e.stopPropagation();};
+document.addEventListener('click',e=>{if(!e.target.closest('.picker'))closeAllPanels();});
+document.getElementById('colAll').onclick=()=>{visible=COLS.map(c=>c.key);buildPicker();buildHead();renderBody();};
+document.getElementById('colClear').onclick=()=>{visible=['no','actions'];buildPicker();buildHead();renderBody();};
+
+/* ===== Pager ===== */
+document.getElementById('pgFirst').onclick=()=>{page=1;renderBody();};
+document.getElementById('pgPrev').onclick=()=>{page--;renderBody();};
+document.getElementById('pgNext').onclick=()=>{page++;renderBody();};
+document.getElementById('pgLast').onclick=()=>{page=1e9;renderBody();};
+document.getElementById('pgSize').onchange=e=>{pageSize=+e.target.value;page=1;renderBody();};
+
+/* ===== Record Result modal =====
+   Demo characteristic sets per inspection/test type. Slab vs coil dimensional sets differ;
+   the heat TDC overrides chemistry & mechanical limits per grade. */
+const TYPE_ATTRS={
+  Dimensional:[],
+  Visual:[],
+  Surface:[],
+  UT:[{n:'Internal soundness',u:'',min:null,max:null,text:true},{n:'Max indication',u:'mm',min:null,max:2.0}],
+  Chemical:[{n:'C',u:'%',min:0.040,max:0.090},{n:'Mn',u:'%',min:0.900,max:1.400},{n:'Si',u:'%',min:0.100,max:0.250},{n:'S',u:'%',min:null,max:0.020},{n:'P',u:'%',min:null,max:0.030}],
+  Mechanical:[{n:'YS 0.2%',u:'MPa',min:250,max:null},{n:'UTS',u:'MPa',min:410,max:510},{n:'Elongation',u:'%',min:23,max:null},{n:'Bend test',u:'',min:null,max:null,text:true}]
+};
+const DIM_SLAB=[{n:'Thickness',u:'mm',min:207,max:213},{n:'Width',u:'mm',min:1246,max:1254},{n:'Length',u:'mm',min:8600,max:9300},{n:'Camber',u:'mm/m',min:null,max:3.0}];
+const DIM_COIL=[{n:'Thickness',u:'mm',min:2.45,max:2.55},{n:'Width',u:'mm',min:1247,max:1253},{n:'Coil ID',u:'mm',min:600,max:620},{n:'Telescopicity',u:'mm',min:null,max:15}];
+const TDC_NO={'IS 2062 E250':'TDC-E250','SAILMA 350':'TDC-SLM350','API 5L X60':'TDC-X60'};
+function tdcOf(g){return TDC_NO[g]||'—';}
+const TDC_LIMIT={
+ 'IS 2062 E250':{'YS 0.2%':[250,null],'UTS':[410,510],'Elongation':[23,null],'S':[null,0.020],'C':[0.040,0.090]},
+ 'SAILMA 350':{'YS 0.2%':[350,null],'UTS':[490,null],'Elongation':[22,null],'C':[null,0.200]},
+ 'API 5L X60':{'YS 0.2%':[415,565],'UTS':[520,760],'Elongation':[20,null],'S':[null,0.015]}
+};
+function attrsFor(row){
+  let base=TYPE_ATTRS[row.type]||[];
+  if(row.type==='Dimensional') base=row.form==='Coil'?DIM_COIL:DIM_SLAB;
+  const ov=TDC_LIMIT[row.grade]||{};
+  return base.map(a=>{const o=ov[a.n]; return o?{...a,min:o[0],max:o[1],src:'TDC'}:{...a,src:'DEFAULT'};});
+}
+function srcTag(s){return ` <span class="srctag ${s==='TDC'?'t-tdc':'t-def'}" title="${s==='TDC'?'From the heat TDC':'Attribute default'}">${s}</span>`;}
+let rmRow=null, rmClose=null;
+function openRecord(no,mode){
+  mode=mode||'edit';
+  rmRow=DATA.find(r=>r.no===no); if(!rmRow)return;
+  const ro=mode==='view', recorded=rmRow.result!=='PENDING', willFail=rmRow.result==='FAIL';
+  const ctxHtml=[['Kind',rmRow.kind],['Type',rmRow.type],['Operation',rmRow.stage],['Heat',rmRow.heat],['Material',rmRow.uid],['Grade',rmRow.grade],['Form',rmRow.form],['TDC',tdcOf(rmRow.grade)]].map(p=>`<span class="chip">${p[0]}<b>${p[1]}</b></span>`).join('');
+  const attrs=attrsFor(rmRow);
+  let hv=0; for(const ch of rmRow.no) hv=(hv*33+ch.charCodeAt(0))>>>0; const failIdx=attrs.length?hv%attrs.length:-1;
+  const head='<tr><th>Characteristic</th><th>Unit</th><th>Spec Min</th><th>Spec Max</th><th>Actual</th><th>Meas. source</th><th>Result</th></tr>';
+  const bodyRows=attrs.length?attrs.map((a,i)=>{
+    const val=derive(rmRow,a,i,recorded,willFail&&i===failIdx);
+    const actual=a.text
+      ?`<select data-i="${i}" ${ro?'disabled':''} onchange="evalRm()"><option value=""></option><option ${val==='OK'?'selected':''}>OK</option><option ${val==='NOT OK'?'selected':''}>NOT OK</option></select>`
+      :`<input data-i="${i}" type="number" step="any" value="${val}" placeholder="enter…" ${ro?'disabled':''} oninput="evalRm()"/>`;
+    return `<tr><td>${a.n}${srcTag(a.src)}</td><td>${a.u||'—'}</td><td class="spec">${a.min==null?'—':a.min}</td><td class="spec">${a.max==null?'—':a.max}</td><td>${actual}</td><td><select ${ro?'disabled':''}><option>L2</option><option>Lab</option><option>Manual</option><option>Instrument</option></select></td><td><span class="badge b-pend" id="rmr-${i}">—</span></td></tr>`;
+  }).join(''):`<tr><td colspan="7" style="color:#888;font-style:italic;padding:14px;">No measured characteristics for a ${rmRow.type} inspection — record defects only.</td></tr>`;
+  rmRO=ro; rmDefects=seedDefects(rmRow);
+  const modal=MESC.modal({
+    title:(ro?'View Result — ':(recorded?'Edit Result — ':'Record Result — '))+rmRow.no,
+    icon:'fa-clipboard-check', size:'lg',
+    body:[
+      h('div',{class:'rm-ctx',html:ctxHtml}),
+      h('div',{class:'rm-grid-wrap'},[h('table',{class:'rm-grid',html:head+bodyRows})]),
+      h('div',{class:'rm-defects',id:'rmDefects'}),
+      h('div',{class:'rm-foot-bar'},[ h('div',{html:'Overall:&nbsp;<span id="rmOverall" class="badge b-pend">PENDING</span>'}), h('input',{id:'rmRemark',placeholder:'Remarks…',disabled:ro?'disabled':null}) ])
+    ],
+    footer: ro
+      ? [ h('button',{class:'btn btn-ghost',onclick:()=>rmClose&&rmClose()},['Close']) ]
+      : [ h('button',{class:'btn btn-ghost',onclick:()=>rmClose&&rmClose()},['Cancel']),
+          h('button',{class:'btn btn-primary',onclick:saveResult},[MESC.icon('fa-check'),'Save result']) ]
+  });
+  rmClose=modal.close;
+  renderDefects(); evalRm();
+}
+function rnd(v){const a=Math.abs(v);return a<1?+v.toFixed(3):a<100?+v.toFixed(2):Math.round(v);}
+function derive(row,a,i,recorded,isFail){
+  if(!recorded) return '';
+  if(a.text) return isFail?'NOT OK':'OK';
+  let hv=0,s=row.no+'#'+i; for(const ch of s) hv=(hv*31+ch.charCodeAt(0))>>>0; const f=(hv%1000)/1000;
+  if(isFail){ if(a.max!=null) return rnd(a.max*(1.03+f*0.05)); if(a.min!=null) return rnd(a.min*(0.90-f*0.05)); return rnd(999); }
+  if(a.min!=null&&a.max!=null) return rnd(a.min+(0.25+0.5*f)*(a.max-a.min));
+  if(a.min!=null) return rnd(a.min*(1.02+f*0.08));
+  if(a.max!=null) return rnd(a.max*(0.4+f*0.5));
+  return rnd(50+f*50);
+}
+function evalRm(){
+  const attrs=attrsFor(rmRow); let anyFail=false,anyEmpty=false,any=false;
+  attrs.forEach((a,i)=>{
+    const ctrl=document.querySelector(`[data-i="${i}"]`); const badge=document.getElementById('rmr-'+i);
+    const v=ctrl?ctrl.value:''; let res='—',cls='b-pend';
+    if(v===''){anyEmpty=true;}
+    else{any=true;
+      if(a.text){res=v==='OK'?'PASS':'FAIL';}
+      else{const n=parseFloat(v);let ok=true;if(a.min!=null&&n<a.min)ok=false;if(a.max!=null&&n>a.max)ok=false;res=ok?'PASS':'FAIL';}
+      cls=res==='PASS'?'b-pass':'b-fail'; if(res==='FAIL')anyFail=true;
+    }
+    if(badge){badge.textContent=res;badge.className='badge '+cls;}
+  });
+  syncDefects();
+  const defFail=rmDefects.some(d=>d.sev==='CRITICAL'||d.sev==='MAJOR');
+  const o=document.getElementById('rmOverall'); let ov='PENDING',oc='b-pend';
+  if(attrs.length){ if(anyFail||defFail){ov='FAIL';oc='b-fail';} else if(!anyEmpty&&any){ov='PASS';oc='b-pass';} }
+  else { ov=defFail?'FAIL':'PASS'; oc=defFail?'b-fail':'b-pass'; }
+  if(o){o.textContent=ov;o.className='badge '+oc;}
+}
+function saveResult(){
+  syncDefects();
+  const oEl=document.getElementById('rmOverall'); const ov=oEl?oEl.textContent:'PENDING';
+  rmRow.result=ov; rmRow.status=ov==='FAIL'?'REJECTED':(ov==='PASS'?'COMPLETED':'IN PROGRESS'); rmRow.defects=rmDefects.slice();
+  if(rmClose)rmClose();
+  renderBody();
+  MESShell.toast('Result saved — '+rmRow.no+' · '+ov, ov==='FAIL'?'danger':'success');
+}
+
+/* ===== Raise Inspection (ad-hoc / re-inspection) ===== */
+function openRaise(){
+  const modal=MESC.modal({ title:'Raise Inspection', icon:'fa-plus',
+    body:[
+      h('div',{class:'helper',html:'<i class="fa-solid fa-circle-info"></i><span>Most QC items are created automatically when a lot is confirmed at a QC-required operation. Use this only for an ad-hoc inspection or a re-inspection after rework.</span>'}),
+      h('div',{class:'form-row'},[
+        h('div',{class:'field'},[ h('label',{},['Production lot']), h('select',{html:'<option>PC-2627-04419 · CCM Casting · Heat H2601</option><option>PC-2627-04420 · HSM-2 Finishing · Heat H2601</option>'}) ]),
+        h('div',{class:'field'},[ h('label',{},['QC item']), h('select',{html:'<option>Inspection · Dimensional</option><option>Inspection · Surface</option><option>Inspection · UT</option><option>Test · Chemical</option><option>Test · Mechanical</option>'}) ])
+      ]),
+      h('div',{class:'field'},[ h('label',{},['Reason']), h('input',{placeholder:'e.g. re-inspection after slab surface scarfing'}) ])
+    ],
+    footer:[ h('button',{class:'btn btn-ghost',onclick:()=>modal.close()},['Cancel']),
+      h('button',{class:'btn btn-primary',onclick:()=>{ modal.close(); MESShell.toast('Ad-hoc inspection raised', 'success'); }},['Raise']) ]
+  });
+}
+document.getElementById('newBtn').onclick=openRaise;
+document.getElementById('exportBtn').onclick=()=>MESShell.toast('Worklist export queued', 'info');
+document.getElementById('savedBtn').onclick=()=>MESShell.toast('No saved filters yet', 'info');
+
+/* ===== Init ===== */
+buildHead();buildPicker();buildFilterBar();renderBody();
+</script>
+</body>
+</html>

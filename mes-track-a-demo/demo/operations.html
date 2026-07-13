@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Operations — Bluemingo MES</title>
+<link href="assets/vendor/roboto/roboto.css" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/mes-styles.css">
+<style>
+  .hot-band  { border-left:3px solid var(--color-warning); }
+  .kick-band { border-left:3px solid var(--color-danger); }
+  .op-actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .row-pick { cursor:pointer; }
+  .row-pick:hover { background:rgba(37,99,235,.06); }
+  .live-dot { animation:blink 1.4s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.25;} }
+</style>
+</head>
+<body>
+<script src="assets/mes-data.js"></script>
+<script src="assets/mes-shell.js"></script>
+<script src="assets/mes-components.js"></script>
+<script>
+const D = MES_DATA;
+const { body } = MESShell.mount({ active: 'operations', title: 'Operations & Production Tracking', crumb: ['Operations', 'Shop Floor · SMS-2 / HSM-2'] });
+
+// ---------- module state ----------
+let slabsPosted = false, capturedDelays = [];
+let manualReadings = [];                       // manual entries appended by operator
+let hotCharge = D.slabs[0].hotCharge;          // charging mode for HSM-2 (true = hot from CCM)
+let selSlab = 0, slabProg = {}, kickbacks = [];   // HSM-2: selected slab + per-slab progress
+let millLog = [];                              // Mill-L2 message stream
+let _smsSec = 15 * 3600 + 58 * 60;             // SMS reading clock (15:58:00)
+let _hsmSec = 18 * 3600 + 18 * 60;             // HSM mill clock  (18:18:00)
+
+const tabs = MESC.tabs([
+  { id: 'heat', label: 'Heat Lifecycle · SMS-2', icon: 'fa-fire',   render: renderHeat },
+  { id: 'coil', label: 'HSM-2 Coil Tracking',    icon: 'fa-scroll', render: renderCoil }
+]);
+body.appendChild(tabs);
+
+/* ===================== A2.1 — HEAT LIFECYCLE (SMS-2) ===================== */
+function renderHeat() {
+  const wrap = h('div', {});
+  const logHost  = h('div', { class: 'mt-12' });
+  const geneHost = h('div', { class: 'mt-12' });
+  const dynHost  = h('div', { class: 'mt-12' });
+
+  wrap.appendChild(summaryCard());
+  wrap.appendChild(pdoCard());
+  wrap.appendChild(slabPdoCard());
+  wrap.appendChild(liveParamsCard());
+  wrap.appendChild(logHost);
+  wrap.appendChild(geneHost);
+  wrap.appendChild(actionsCard());
+  wrap.appendChild(dynHost);
+  draw1();
+  return wrap;
+
+  function draw1() {
+    logHost.innerHTML  = ''; logHost.appendChild(manualLogCard());
+    geneHost.innerHTML = ''; geneHost.appendChild(genealogyCard());
+    dynHost.innerHTML  = '';
+    if (capturedDelays.length) dynHost.appendChild(delayCaptureCard());
+    if (slabsPosted) dynHost.appendChild(slabPostCard());
+  }
+
+  // --- summary: current unit / step / time-at-step / chemistry ---
+  function summaryCard() {
+    const smsCur = D.smsRoute.findIndex(u => D.heat.currentUnit.startsWith(u));
+    return MESC.card({
+      title: 'Tracked Heat ' + D.heat.no + ' — live lifecycle', icon: 'fa-fire',
+      right: [MESC.badge('Live', 'success', 'fa-circle'), MESC.badge('Shift ' + D.plant.shift, 'neutral')],
+      body: [
+        MESC.kvGrid([
+          ['Heat', h('span', { class: 'strong mono' }, [D.heat.no])],
+          ['Grade', D.heat.grade],
+          ['Current unit', MESC.badge(D.heat.currentUnit, 'info', 'fa-location-crosshairs')],
+          ['Current step', D.heat.currentStep],
+          ['Entered step', D.heat.enteredStep],
+          ['Time at step', D.heat.elapsed],
+          ['Ladle', D.heat.ladle],
+          ['Cast strand', D.heat.castStrand],
+          ['Planned tap wt', MESC.fmt(D.heat.plannedTapWt) + ' ' + D.heat.uom],
+          ['Chemistry', MESC.badge(D.heat.chemistryStatus, 'warning')],
+          ['BOF line', D.units.BOF.join(' · ')],
+          ['Casters', D.units.CCM.join(' · ')]
+        ]),
+        h('div', { class: 'divider' }),
+        h('div', { class: 'section-title' }, [MESC.icon('fa-route'), 'SMS-2 route progress']),
+        flowStepper(D.smsRoute, smsCur, true)
+      ]
+    });
+  }
+
+  // --- PDO: Production Data Order (grade practice + casting setpoints -> CCM-L2) ---
+  function pdoCard() {
+    const pdoNo = 'PDO-' + D.heat.no + '-' + D.heat.castStrand;
+    const slab = (D.schedule && D.schedule.slab) || { thk: 210, width: 1250 };
+    const g = D.gradeSpecs[D.heat.grade] || [];
+    const spec = el => g.find(x => x.el === el);
+    const aim = el => {
+      const s = spec(el);
+      if (!s || s.min == null) return { v: '—', tol: '—' };
+      return { v: ((s.min + s.max) / 2).toFixed(2) + ' %', tol: s.min.toFixed(2) + '–' + s.max.toFixed(2) + ' %' };
+    };
+    const aC = aim('C'), aMn = aim('Mn'), aSi = aim('Si');
+    const setpts = [
+      { grp: 'Product',   p: 'Slab section (T × W)', v: slab.thk + ' × ' + slab.width + ' mm', tol: '± 3 mm T · ± 5 mm W', src: 'MES → L2' },
+      { grp: 'Product',   p: 'Cut length (aim)',         v: '9200 mm',                tol: '± 100 mm',       src: 'MES → L2' },
+      { grp: 'Casting',   p: 'Casting speed',            v: '1.10 m/min',             tol: '± 0.05',         src: 'MES → L2' },
+      { grp: 'Casting',   p: 'Tundish superheat',        v: '30 °C',             tol: '25 – 35 °C', src: 'MES → L2' },
+      { grp: 'Casting',   p: 'Tundish temperature',      v: '1545 °C',           tol: '± 8 °C',    src: 'MES → L2' },
+      { grp: 'Casting',   p: 'Mould level setpoint',     v: '78 %',                   tol: '± 3 %',          src: 'MES → L2' },
+      { grp: 'Casting',   p: 'Mould M-EMS (stir)',       v: 'ON · 320 A / 4 Hz', tol: '—',              src: 'MES → L2' },
+      { grp: 'Casting',   p: 'Secondary cooling',        v: 'Pattern C · 0.42 L/kg', tol: 'per grade',       src: 'MES → L2' },
+      { grp: 'Chemistry', p: 'Aim C',  v: aC.v,  tol: aC.tol,  src: 'Grade practice' },
+      { grp: 'Chemistry', p: 'Aim Mn', v: aMn.v, tol: aMn.tol, src: 'Grade practice' },
+      { grp: 'Chemistry', p: 'Aim Si', v: aSi.v, tol: aSi.tol, src: 'Grade practice' }
+    ];
+    return MESC.card({
+      title: 'PDO — Production Data Order (setpoints → CCM-L2)', icon: 'fa-file-export',
+      right: [MESC.badge(pdoNo, 'primary', 'fa-hashtag'), MESC.badge('Acknowledged by L2', 'success', 'fa-circle-check')],
+      body: [
+        MESC.kvGrid([
+          ['PDO No.', h('span', { class: 'mono strong' }, [pdoNo])],
+          ['Destination', MESC.badge('CCM-L2 (Level-2)', 'info', 'fa-satellite-dish')],
+          ['Grade', D.heat.grade],
+          ['Cast strand', D.heat.castStrand],
+          ['Ladle', D.heat.ladle],
+          ['Planned tap wt', MESC.fmt(D.heat.plannedTapWt) + ' ' + D.heat.uom],
+          ['Transmitted', h('span', { class: 'mono' }, ['15:38:20'])],
+          ['L2 ack', MESC.badge('OK · 15:38:22', 'success', 'fa-circle-check')]
+        ]),
+        h('div', { class: 'divider' }),
+        h('div', { class: 'section-title' }, [MESC.icon('fa-sliders'), 'Grade practice & casting setpoints']),
+        MESC.table([
+          { key: 'grp', label: 'Group', render: r => MESC.badge(r.grp, 'neutral') },
+          { key: 'p', label: 'Parameter', render: r => h('span', { class: 'strong' }, [r.p]) },
+          { key: 'v', label: 'Setpoint', render: r => h('span', { class: 'mono' }, [r.v]) },
+          { key: 'tol', label: 'Tolerance', render: r => h('span', { class: 'hint' }, [r.tol]) },
+          { key: 'src', label: 'Source', render: r => MESC.badge(r.src, r.src === 'Grade practice' ? 'info' : 'primary', 'fa-arrow-right-to-bracket') }
+        ], setpts),
+        h('div', { class: 'hint mt-8' }, ['Production Data Order (grade practice, slab section, casting setpoints and aim chemistry) transmitted to CCM Level-2. L2 acknowledges and executes the practice; as-cast actuals stream back into Live Process Parameters below.'])
+      ]
+    });
+  }
+
+  // --- PDO: per-slab Production Data Orders (CCM cut-to-length -> HSM-2) ---
+  function slabPdoCard() {
+    const totWt = D.slabs.reduce((a, s) => a + s.wt, 0);
+    const hot = D.slabs.filter(s => s.hotCharge).length;
+    const dest = s => s.hotCharge ? 'HSM-2 · RHF-1 (hot charge)' : 'Slab Yard · cold stack';
+    const rollOrder = s => (D.coil && D.coil.fromSlab === s.id) ? D.coil.ref : (s.hotCharge ? 'ROL — pending' : '—');
+    const rows = D.slabs.map(s => ({
+      pdo: 'PDO-' + s.heat + '-' + s.id.slice(-4),
+      id: s.id, size: s.size, wt: s.wt, grade: s.grade, hotCharge: s.hotCharge,
+      dest: dest(s), roll: rollOrder(s), status: s.status
+    }));
+    return MESC.card({
+      title: 'PDO — Slab Production Data Orders (CCM-L2 → HSM-2)', icon: 'fa-cubes',
+      right: [MESC.badge(D.slabs.length + ' slab PDOs', 'primary', 'fa-layer-group'), MESC.badge('CCM-L2 → HSM-2', 'info', 'fa-arrow-right-to-bracket'), MESC.badge('Queued for SAP-PP', 'success', 'fa-clock')],
+      body: [
+        MESC.kvGrid([
+          ['Parent heat', h('span', { class: 'mono strong' }, [D.heat.no])],
+          ['Cast strand', D.heat.castStrand],
+          ['Slabs cut', String(D.slabs.length)],
+          ['Total cast wt', MESC.fmt(totWt) + ' MT'],
+          ['Hot charge', hot + ' / ' + D.slabs.length + ' → HSM-2'],
+          ['Grade (inherited)', D.heat.grade]
+        ]),
+        h('div', { class: 'divider' }),
+        h('div', { class: 'section-title' }, [MESC.icon('fa-list-check'), 'Per-slab production data orders']),
+        MESC.table([
+          { key: 'pdo', label: 'Slab PDO No.', render: r => h('span', { class: 'mono strong' }, [r.pdo]) },
+          { key: 'id', label: 'Slab ID', render: r => h('span', { class: 'mono' }, [r.id]) },
+          { key: 'size', label: 'Section (T×W×L)' },
+          { key: 'wt', label: 'Weight (MT)', num: true, render: r => MESC.fmt(r.wt) },
+          { key: 'grade', label: 'Grade' },
+          { key: 'charge', label: 'Charging', render: r => r.hotCharge ? MESC.badge('Hot Charge', 'warning', 'fa-fire') : MESC.badge('Cold', 'neutral', 'fa-snowflake') },
+          { key: 'dest', label: 'Next destination' },
+          { key: 'roll', label: 'Rolling order', render: r => h('span', { class: 'mono' }, [r.roll]) },
+          { key: 'status', label: 'Status', render: r => MESC.statusBadge(r.status) }
+        ], rows),
+        h('div', { class: 'hint mt-8' }, ['One PDO generated per slab at CCM cut-to-length (14–20 char slab ID), inheriting heat chemistry. Hot-charge slabs dispatch directly to HSM-2 RHF-1 with a linked rolling order; cold slabs stack in the yard. All slab PDOs queued for SAP-PP goods receipt.'])
+      ]
+    });
+  }
+
+  // --- live L2 process parameters (source = BOF-L2) ---
+  function liveParamsCard() {
+    const params = [
+      { p: 'Bath temperature', v: '1662 °C', t: '15:52:04' },
+      { p: 'Carbon (C)', v: '0.061 %', t: '15:52:03' },
+      { p: 'Manganese (Mn)', v: '0.98 %', t: '15:52:03' },
+      { p: 'Sulphur (S)', v: '0.006 %', t: '15:51:58' },
+      { p: 'Oxygen (O₂) flow', v: '720 Nm³/min', t: '15:52:05' },
+      { p: 'Lance height', v: '1.85 m', t: '15:52:05' }
+    ];
+    return MESC.card({
+      title: 'Live Process Parameters — BOF-L2', icon: 'fa-gauge-high',
+      right: [h('span', { class: 'dot dot-green live-dot' }), MESC.badge('BOF-L2 · streaming', 'info', 'fa-satellite-dish')],
+      body: [
+        MESC.table([
+          { key: 'p', label: 'Parameter', render: r => h('span', { class: 'strong' }, [r.p]) },
+          { key: 'v', label: 'Value', render: r => h('span', { class: 'mono' }, [r.v]) },
+          { key: 'src', label: 'Source', render: () => MESC.badge('AUTO · BOF-L2', 'info', 'fa-bolt') },
+          { key: 't', label: 'Updated', render: r => h('span', { class: 'mono hint' }, [r.t]) }
+        ], params),
+        h('div', { class: 'divider' }),
+        h('div', { class: 'op-actions' }, [
+          h('button', { class: 'btn btn-outline', onclick: openManualModal }, [MESC.icon('fa-pen-to-square'), 'Capture manual reading (LHF temperature)'])
+        ]),
+        h('div', { class: 'hint mt-8' }, ['Auto-captured from Level-2 (read-only in MES). Where no L2 signal exists (e.g. LHF temperature), operators add a manual reading here — it appends to the readings log flagged Manual vs Auto.'])
+      ]
+    });
+  }
+
+  // --- genealogy tree (reflects RH delay + current unit) ---
+  function genealogyCard() {
+    const iconMap = { Torpedo: 'fa-train-tram', KR: 'fa-flask-vial', BOF1: 'fa-fire', ARS: 'fa-wind', LHF: 'fa-temperature-arrow-up', RH: 'fa-atom', CCM1: 'fa-layer-group' };
+    const nodes = D.genealogy.map(g => {
+      const rightKids = [];
+      if (g.unit === D.heat.currentUnit) rightKids.push(MESC.badge('Current', 'info', 'fa-location-crosshairs'));
+      const uDelay = capturedDelays.filter(d => d.unit === g.unit).reduce((a, d) => a + (d.mins || 0), 0);
+      if (uDelay) rightKids.push(MESC.badge('Delay ' + uDelay + 'm', 'danger', 'fa-triangle-exclamation'));
+      if (g.ts === '—') rightKids.push(MESC.badge('Queued', 'neutral'));
+      else rightKids.push(h('span', { class: 'mono hint' }, [g.key]));
+      const node = {
+        icon: iconMap[g.unit] || 'fa-circle-nodes',
+        main: g.unit + ' — ' + g.desc,
+        meta: (g.ts === '—' ? 'Not started' : g.ts) + '  ·  ' + g.operator,
+        right: rightKids
+      };
+      if (g.unit === 'CCM1') node.children = D.slabs.map(s => ({
+        icon: 'fa-cube', main: s.id,
+        meta: MESC.fmt(s.wt) + ' MT  ·  ' + s.size,
+        right: [MESC.badge('Slab ID', 'primary'), MESC.badge(s.hotCharge ? 'Hot charge' : 'Cold', s.hotCharge ? 'warning' : 'neutral', s.hotCharge ? 'fa-fire' : 'fa-snowflake')]
+      }));
+      return node;
+    });
+    return MESC.card({
+      title: 'Heat Genealogy — Torpedo → CCM caster', icon: 'fa-sitemap',
+      right: D.smsRoute.join(' → '),
+      body: [
+        MESC.tree(nodes),
+        h('div', { class: 'hint mt-8' }, ['Full lineage with timestamp, unit, operator and key process value at each step. Two slab IDs are generated at CCM1 (caster strand assignment). Integrated with Lab for sample management.'])
+      ]
+    });
+  }
+
+  // --- operator actions ---
+  function actionsCard() {
+    return MESC.card({
+      title: 'Operator Actions', icon: 'fa-bolt',
+      body: [
+        h('div', { class: 'op-actions' }, [
+          h('button', { class: 'btn btn-warning', onclick: openDelayModal }, [MESC.icon('fa-clock-rotate-left'), 'Record Delay']),
+          h('button', { class: 'btn btn-primary', onclick: postSlabs }, [MESC.icon('fa-layer-group'), 'Post slab production (2 slabs)'])
+        ]),
+        h('div', { class: 'hint mt-8' }, ['Delay & slab-posting reveal below and raise integration messages. Manual process readings are captured from the Live Process Parameters panel above.'])
+      ]
+    });
+  }
+
+  // --- readings log (seed AUTO + appended MANUAL) ---
+  function manualLogCard() {
+    const seed = [{ param: 'Bath temperature @ BOF1', value: '1662 °C', source: 'AUTO', by: 'BOF-L2', ts: '15:44:02' }];
+    const rows = seed.concat(manualReadings);
+    return MESC.card({
+      title: 'Readings Log — Manual vs Auto', icon: 'fa-clipboard-list',
+      right: manualReadings.length + ' manual · ' + seed.length + ' auto',
+      body: [MESC.table([
+        { key: 'param', label: 'Reading', render: r => h('span', { class: 'strong' }, [r.param]) },
+        { key: 'value', label: 'Value', render: r => h('span', { class: 'mono' }, [r.value]) },
+        { key: 'source', label: 'Source', render: r => r.source === 'MANUAL' ? MESC.badge('MANUAL', 'warning', 'fa-pen') : MESC.badge('AUTO · BOF-L2', 'info', 'fa-bolt') },
+        { key: 'by', label: 'Logged by (user ID)' },
+        { key: 'ts', label: 'Timestamp', render: r => h('span', { class: 'mono hint' }, [r.ts]) }
+      ], rows, { rowClass: r => r.source === 'MANUAL' ? 'is-selected' : '' })]
+    });
+  }
+
+  // --- RH delay reveal ---
+  function delayCaptureCard() {
+    const totalMin = capturedDelays.reduce((a, d) => a + (d.mins || 0), 0);
+    return MESC.card({
+      class: 'kick-band', title: 'Delay Capture', icon: 'fa-triangle-exclamation',
+      right: [MESC.badge(capturedDelays.length + ' delay' + (capturedDelays.length > 1 ? 's' : ''), 'danger'), MESC.badge(totalMin + ' min total', 'warning'), MESC.badge('Flagged for SAP-PM', 'warning', 'fa-share')],
+      body: [
+        MESC.table([
+          { key: 'code', label: 'Code', render: d => h('span', { class: 'mono strong' }, [d.code]) },
+          { key: 'desc', label: 'Reason' },
+          { key: 'unit', label: 'Unit / op' },
+          { key: 'type', label: 'Type', render: d => MESC.badge(d.type, d.type === 'Unplanned' ? 'danger' : 'info') },
+          { key: 'start', label: 'Start', render: d => h('span', { class: 'mono' }, [d.start]) },
+          { key: 'mins', label: 'Duration', num: true, render: d => d.mins + ' min' },
+          { key: 'heat', label: 'Heat', render: d => h('span', { class: 'mono' }, [d.heat]) },
+          { key: 'avail', label: 'Machine avail.', render: d => h('span', { class: 'hint' }, [d.unit + ' · 100% → ' + (100 - Math.min(30, d.mins || 0)) + '%']) },
+          { key: 'sap', label: 'SAP-PM', render: () => MESC.badge('Queued', 'success', 'fa-clock') }
+        ], capturedDelays),
+        MESC.alert('warning', 'Machine availability updated', 'Recorded delays mark the affected units unavailable for the logged duration; downstream heats re-timed. Delay records are queued for SAP-PM (Plant Maintenance) transfer.')
+      ]
+    });
+  }
+
+  // --- slab production posting reveal ---
+  function slabPostCard() {
+    const totWt = D.slabs.reduce((a, s) => a + s.wt, 0);
+    const proc = [
+      { p: 'Casting speed',       set: '1.10 m/min',   act: '1.08 m/min',   dev: '−0.02',  ok: true },
+      { p: 'Tundish superheat',   set: '30 °C',       act: '28 °C',       dev: '−2 °C',  ok: true },
+      { p: 'Tundish temperature', set: '1545 °C',     act: '1543 °C',     dev: '−2 °C',  ok: true },
+      { p: 'Mould level (avg)',   set: '78 %',         act: '77.6 %',       dev: '−0.4 %', ok: true },
+      { p: 'Secondary cooling',   set: '0.42 L/kg',    act: '0.41 L/kg',    dev: '−0.01',  ok: true },
+      { p: 'Mould M-EMS (stir)',  set: '320 A / 4 Hz', act: '320 A / 4 Hz', dev: '0',           ok: true },
+      { p: 'Casting powder rate', set: '0.35 kg/T',    act: '0.36 kg/T',    dev: '+0.01',       ok: true },
+      { p: 'Mould oscillation',   set: '160 cpm',      act: '158 cpm',      dev: '−2 cpm', ok: true }
+    ];
+    return MESC.card({
+      title: 'Slab Production Posting — Heat H2601', icon: 'fa-layer-group',
+      right: [MESC.badge('PDO → CCM-L2', 'info', 'fa-arrow-right-to-bracket'), MESC.badge('Queued for SAP-PP', 'success', 'fa-clock')],
+      body: [
+        MESC.table([
+          { key: 'id', label: 'Slab ID', render: r => h('span', { class: 'mono strong' }, [r.id]) },
+          { key: 'wt', label: 'Weight (MT)', num: true, render: r => MESC.fmt(r.wt) },
+          { key: 'strand', label: 'Strand' },
+          { key: 'size', label: 'Size (T×W×L)' },
+          { key: 'charge', label: 'Charging', render: r => r.hotCharge ? MESC.badge('Hot Charge', 'warning', 'fa-fire') : MESC.badge('Cold', 'neutral') },
+          { key: 'status', label: 'Status', render: r => MESC.statusBadge(r.status) }
+        ], D.slabs),
+        h('div', { class: 'divider' }),
+        h('div', { class: 'section-title' }, [MESC.icon('fa-gauge-high'), 'Process parameters captured — CCM1 (as-cast)']),
+        MESC.kvGrid([
+          ['Equipment', MESC.badge('CCM1 · continuous', 'info', 'fa-gauge-high')],
+          ['Operator', 'A. Deshpande · EMP-20713'],
+          ['Cast start', h('span', { class: 'mono' }, ['18:12:40'])],
+          ['Cast end', h('span', { class: 'mono' }, ['18:41:05'])],
+          ['Cast duration', '28 min 25 s'],
+          ['Slabs posted', String(D.slabs.length)],
+          ['Posted weight', MESC.fmt(totWt) + ' MT'],
+          ['Metallurgical length', '22.3 m'],
+          ['Breakout alarms', MESC.badge('0', 'success', 'fa-shield-halved')],
+          ['Params source', MESC.badge('CCM-L2 auto · PLC', 'info', 'fa-satellite-dish')]
+        ]),
+        h('div', { class: 'divider' }),
+        h('div', { class: 'section-title' }, [MESC.icon('fa-right-left'), 'Setpoint vs actual — closed-loop verification']),
+        MESC.table([
+          { key: 'p', label: 'Parameter', render: r => h('span', { class: 'strong' }, [r.p]) },
+          { key: 'set', label: 'Setpoint (PDO)', render: r => h('span', { class: 'mono hint' }, [r.set]) },
+          { key: 'act', label: 'Actual (as-cast)', render: r => h('span', { class: 'mono' }, [r.act]) },
+          { key: 'dev', label: 'Deviation', num: true, render: r => h('span', { class: 'mono' }, [r.dev]) },
+          { key: 'st', label: 'Status', render: r => r.ok ? MESC.badge('In spec', 'success', 'fa-check') : MESC.badge('Review', 'warning', 'fa-triangle-exclamation') }
+        ], proc),
+        h('div', { class: 'hint mt-8' }, ['Slab IDs are 14–20 char alphanumeric. Process parameters are captured per production confirmation (CCM-L2 auto / PLC) and reconciled against PDO setpoints — all within tolerance. PDO sent to CCM-L2; production data + captured parameters queued for SAP-PP posting.'])
+      ]
+    });
+  }
+
+  // --- action handlers ---
+  function openManualModal() {
+    const valInput  = h('input', { type: 'number', step: '1', value: '1585' });
+    const typeInput = h('input', { value: 'Temperature @ LHF', readonly: 'true' });
+    const uomInput  = h('input', { value: '°C', readonly: 'true' });
+    const opInput   = h('input', { value: 'S. Kadam · EMP-10482', readonly: 'true' });
+    const modal = MESC.modal({
+      title: 'Capture Manual Reading', icon: 'fa-pen-to-square', size: 'sm',
+      body: [
+        MESC.alert('info', 'Manual entry', 'Captured manually and flagged Manual (vs Auto L2) in the readings log, stamped with user ID + timestamp.'),
+        h('div', { class: 'form-row mt-8' }, [field('Reading type', typeInput)]),
+        h('div', { class: 'form-row' }, [field('Value', valInput), field('UoM', uomInput)]),
+        h('div', { class: 'form-row' }, [field('Operator (user ID)', opInput)])
+      ],
+      footer: [
+        h('button', { class: 'btn btn-ghost', onclick: () => modal.close() }, ['Cancel']),
+        h('button', { class: 'btn btn-primary', onclick: submit }, [MESC.icon('fa-check'), 'Log reading'])
+      ]
+    });
+    function submit() {
+      const v = (valInput.value || '—');
+      manualReadings.push({ param: 'Temperature @ LHF', value: v + ' °C', source: 'MANUAL', by: 'S. Kadam · EMP-10482', ts: smsStamp() });
+      modal.close(); draw1();
+      MESShell.toast('Manual reading logged — flagged Manual vs Auto', 'success');
+    }
+  }
+  function openDelayModal() {
+    const reasons = D.delays;
+    const reasonSel = h('select', {}, reasons.map((d, i) => h('option', { value: String(i) }, [d.desc + ' (' + d.code + ')'])));
+    const unitInput = h('input', { value: reasons[0].unit });
+    const typeSel = h('select', {}, ['Unplanned', 'Planned'].map(o => h('option', { value: o }, [o])));
+    const startInput = h('input', { value: '16:24' });
+    const durInput = h('input', { type: 'number', min: '1', value: String(reasons[0].mins) });
+    const heatInput = h('input', { value: D.heat.no, readonly: 'true' });
+    typeSel.value = reasons[0].type;
+    reasonSel.addEventListener('change', function () {
+      const d = reasons[+this.value]; unitInput.value = d.unit; typeSel.value = d.type; durInput.value = String(d.mins);
+    });
+    const modal = MESC.modal({
+      title: 'Record Delay', icon: 'fa-clock-rotate-left', size: 'md',
+      body: [
+        MESC.alert('warning', 'Log production delay', 'Record a delay against the current heat. On save it is added to Delay Capture, updates machine availability, and is flagged for SAP-PM (Plant Maintenance).'),
+        h('div', { class: 'form-row mt-8' }, [field('Delay reason', reasonSel)]),
+        h('div', { class: 'form-row' }, [field('Unit / operation', unitInput), field('Type', typeSel)]),
+        h('div', { class: 'form-row' }, [field('Start time', startInput), field('Duration (min)', durInput)]),
+        h('div', { class: 'form-row' }, [field('Heat', heatInput)])
+      ],
+      footer: [
+        h('button', { class: 'btn btn-ghost', onclick: () => modal.close() }, ['Cancel']),
+        h('button', { class: 'btn btn-warning', onclick: () => {
+          const d = reasons[+reasonSel.value];
+          recordDelay({ code: d.code, desc: d.desc, unit: unitInput.value, type: typeSel.value, start: startInput.value, mins: parseInt(durInput.value, 10) || 0, heat: heatInput.value });
+          modal.close();
+        } }, [MESC.icon('fa-check'), 'Record delay'])
+      ]
+    });
+  }
+  function recordDelay(dly) {
+    capturedDelays.push(dly);
+    draw1();
+    MESShell.toast('Delay ' + dly.code + ' recorded at ' + dly.unit + ' (' + dly.mins + ' min) — added to Delay Capture, flagged for SAP-PM', 'warning');
+  }
+  function postSlabs() {
+    if (slabsPosted) { MESShell.toast('Slabs already posted', 'info'); return; }
+    slabsPosted = true; draw1();
+    MESShell.toast('PDO sent to CCM-L2 — 2 slabs queued for SAP-PP posting', 'success');
+  }
+}
+
+/* ===================== A2.2 — HSM-2 COIL TRACKING ===================== */
+function renderCoil() {
+  const wrap = h('div', {});
+  const host = h('div', {});
+  wrap.appendChild(host);
+
+  // per-grade rolling practice (finishing / coiling target temps)
+  const PRACTICE = {
+    'IS 2062 E250': { fin: 880, coil: 620 },
+    'IS 2062 E350': { fin: 870, coil: 600 },
+    'SAILMA 350':   { fin: 875, coil: 610 },
+    'API 5L X60':   { fin: 830, coil: 560 }
+  };
+  const inv = D.hsmInv || [];
+  const coilFor = s => {
+    const p = PRACTICE[s.grade] || { fin: 870, coil: 610 };
+    return { id: 'ISWHSM2' + s.coilRef + '001', ref: s.coilRef, fromSlab: s.id, heat: s.heat, grade: s.grade,
+      gauge: s.gauge, width: s.width, wt: Math.round(s.wt * 0.982 * 10) / 10,
+      len: Math.round(s.len * (s.thk / s.gauge) * 0.982 / 100) / 10, finTemp: p.fin, coilTemp: p.coil };
+  };
+
+  // per-slab progress: id -> { pdo, pdi, coiled }
+  const prog = id => slabProg[id] || { pdo: false, pdi: false, coiled: false };
+  const setProg = (id, patch) => { slabProg[id] = Object.assign({ pdo: false, pdi: false, coiled: false }, slabProg[id], patch); };
+  const sel = () => inv[selSlab] || inv[0];
+  const isKicked = id => kickbacks.some(k => k.slabId === id);
+  const slabStatus = s => {
+    const p = prog(s.id);
+    if (isKicked(s.id)) return MESC.badge('Kicked back', 'danger', 'fa-rotate-left');
+    if (p.coiled) return MESC.badge('Coiled', 'success', 'fa-check');
+    if (p.pdi)    return MESC.badge('Rolling', 'info', 'fa-gears');
+    if (p.pdo)    return MESC.badge('PDO sent', 'info', 'fa-share');
+    return MESC.badge('In inventory', 'neutral');
+  };
+
+  draw2();
+  return wrap;
+
+  function draw2() {
+    host.innerHTML = '';
+    host.appendChild(inventoryCard());
+    host.appendChild(exchangeCard());
+    const coiled = inv.filter(s => prog(s.id).coiled && !isKicked(s.id));
+    if (coiled.length) host.appendChild(coilsCard(coiled.map(coilFor)));
+    if (kickbacks.length) host.appendChild(kickbackCard());
+  }
+
+  // --- Card A: slab arrival to inventory (selectable list) ---
+  function inventoryCard() {
+    const totWt = inv.reduce((a, s) => a + s.wt, 0);
+    const hot = inv.filter(s => s.charge === 'Hot').length;
+    const grades = [...new Set(inv.map(s => s.grade))].length;
+    return MESC.card({
+      title: 'Slab Arrival to Inventory — HSM-2', icon: 'fa-arrow-right-to-bracket',
+      right: [MESC.badge(inv.length + ' slabs', 'primary', 'fa-layer-group'), MESC.badge(hot + ' hot charge', 'warning', 'fa-fire')],
+      body: [
+        MESC.kvGrid([
+          ['In inventory', inv.length + ' slabs'],
+          ['Total weight', MESC.fmt(totWt) + ' MT'],
+          ['Hot charge', hot + ' / ' + inv.length + ' (direct from CCM)'],
+          ['Grades', String(grades)],
+          ['Location', 'HSM-2 · RHF1 charging + SYMS yard'],
+          ['Source', 'CCM-L2 slab PDOs + SYMS slab yard']
+        ]),
+        h('div', { class: 'divider' }),
+        h('div', { class: 'section-title' }, [MESC.icon('fa-hand-pointer'), 'Select a slab to process']),
+        MESC.table([
+          { key: 'sel', label: '', render: (r, i) => h('span', { style: 'color:' + (i === selSlab ? '#2563eb' : '#cbd5e1') + ';font-size:15px' }, [MESC.icon(i === selSlab ? 'fa-circle-dot' : 'fa-circle')]) },
+          { key: 'id', label: 'Slab ID', render: r => h('span', { class: 'mono strong' }, [r.id]) },
+          { key: 'heat', label: 'Heat', render: r => h('span', { class: 'mono' }, [r.heat]) },
+          { key: 'grade', label: 'Grade' },
+          { key: 'sec', label: 'Section (T×W×L)', render: r => r.thk + ' × ' + r.width + ' × ' + r.len + ' mm' },
+          { key: 'wt', label: 'Weight (MT)', num: true, render: r => MESC.fmt(r.wt) },
+          { key: 'charge', label: 'Charge', render: r => r.charge === 'Hot' ? MESC.badge('Hot · ' + r.surf + ' °C', 'warning', 'fa-fire') : MESC.badge('Cold · ' + r.surf + ' °C', 'neutral', 'fa-snowflake') },
+          { key: 'gauge', label: 'Target thickness', render: r => r.gauge.toFixed(2) + ' mm' },
+          { key: 'coilRef', label: 'Target coil', render: r => h('span', { class: 'mono' }, [r.coilRef]) },
+          { key: 'status', label: 'Status', render: r => slabStatus(r) }
+        ], inv, { rowClass: (r, i) => 'row-pick' + (i === selSlab ? ' is-selected' : ''), onRow: (r, i) => { selSlab = i; draw2(); } }),
+        h('div', { class: 'hint mt-8' }, ['Click a slab to select it — the rolling order exchange, coil generation and kickback below all act on the selected slab. Hot-charge slabs route directly from CCM1 to RHF1 (surface > 800 °C); cold slabs are drawn from the SYMS yard.'])
+      ]
+    });
+  }
+
+  // --- Card B: PDO / PDI exchange with Mill-L2 (selected slab) ---
+  function exchangeCard() {
+    const s = sel();
+    const p = prog(s.id);
+    const kicked = isKicked(s.id);
+    const pdoOff = (p.pdo || kicked) ? 'true' : null;
+    const pdiOff = (!p.pdo || p.coiled || kicked) ? 'true' : null;
+    const badge = kicked ? MESC.badge('Kicked back', 'danger', 'fa-rotate-left')
+      : p.coiled ? MESC.badge('Coil received', 'success', 'fa-check')
+      : p.pdi ? MESC.badge('PDI received', 'info')
+      : p.pdo ? MESC.badge('PDO sent', 'info') : MESC.badge('Ready', 'neutral');
+    return MESC.card({
+      title: 'Rolling Order Exchange — Mill-L2', icon: 'fa-satellite-dish', right: badge,
+      body: [
+        MESC.kvGrid([
+          ['Selected slab', h('span', { class: 'mono strong' }, [s.id])],
+          ['Grade', s.grade],
+          ['Section', s.thk + ' × ' + s.width + ' × ' + s.len + ' mm'],
+          ['Target thickness', s.gauge.toFixed(2) + ' mm → coil ' + s.coilRef],
+          ['Charge', s.charge === 'Hot' ? 'Hot · ' + s.surf + ' °C' : 'Cold · ' + s.surf + ' °C'],
+          ['Status', slabStatus(s)]
+        ]),
+        flowStepper(D.hsmRoute, p.coiled ? D.hsmRoute.length - 1 : (p.pdo ? 1 : 0), p.pdo),
+        h('div', { class: 'op-actions mt-12' }, [
+          h('button', { class: 'btn btn-primary', disabled: pdoOff, onclick: generatePdo }, [MESC.icon('fa-file-export'), 'Generate PDO']),
+          h('button', { class: 'btn btn-outline', disabled: pdiOff, onclick: getPdi }, [MESC.icon('fa-file-import'), 'Get PDI for coils']),
+          h('button', { class: 'btn btn-warning', onclick: openKickbackModal }, [MESC.icon('fa-rotate-left'), 'Record Kickback'])
+        ]),
+        p.pdo ? pdoBlock(s) : h('div', { class: 'hint mt-8' }, ['Generate the rolling PDO (Production Data Order) to push the selected slab → coil rolling instruction to Mill-L2, then Get PDI to pull the coil input practice back.']),
+        p.pdi ? pdiBlock(s) : null,
+        h('div', { class: 'section-title mt-12' }, [MESC.icon('fa-satellite-dish'), 'Mill-L2 message log']),
+        MESC.messageLog(millLog.length ? millLog : [{ ts: '—', text: 'No messages yet — select a slab and generate its PDO to open the Mill-L2 channel.', cls: '' }])
+      ]
+    });
+  }
+  function pdoBlock(s) {
+    return h('div', {}, [
+      h('div', { class: 'divider' }),
+      h('div', { class: 'section-title' }, [MESC.icon('fa-file-export'), 'PDO — rolling production data order (MES → Mill-L2)']),
+      MESC.table([
+        { key: 'rol', label: 'Rolling order', render: r => h('span', { class: 'mono strong' }, ['ROL-' + r.coilRef]) },
+        { key: 'id', label: 'Slab ID', render: r => h('span', { class: 'mono' }, [r.id]) },
+        { key: 'grade', label: 'Grade' },
+        { key: 'gauge', label: 'Target thickness', render: r => r.gauge.toFixed(2) + ' mm' },
+        { key: 'width', label: 'Width', render: r => r.width + ' mm' },
+        { key: 'coilRef', label: 'Target coil', render: r => h('span', { class: 'mono' }, [r.coilRef]) },
+        { key: 'st', label: 'Status', render: () => MESC.badge('Sent → L2', 'info', 'fa-share') }
+      ], [s]),
+      h('div', { class: 'mt-8' }, [MESC.badge('PDO → Mill-L2 · rolling order for ' + s.coilRef, 'info', 'fa-arrow-right-to-bracket')])
+    ]);
+  }
+  function pdiBlock(s) {
+    const pr = PRACTICE[s.grade] || { fin: 870, coil: 610 };
+    return h('div', {}, [
+      h('div', { class: 'divider' }),
+      h('div', { class: 'section-title' }, [MESC.icon('fa-file-import'), 'PDI — coil input practice (Mill-L2 → MES)']),
+      MESC.table([
+        { key: 'coilRef', label: 'Coil', render: r => h('span', { class: 'mono strong' }, [r.coilRef]) },
+        { key: 'grade', label: 'Grade' },
+        { key: 'gauge', label: 'Aim thickness', render: r => r.gauge.toFixed(2) + ' mm' },
+        { key: 'width', label: 'Aim width', render: r => r.width + ' mm' },
+        { key: 'fin', label: 'Finishing temp', render: () => pr.fin + ' °C' },
+        { key: 'coil', label: 'Coiling temp', render: () => pr.coil + ' °C' },
+        { key: 'src', label: 'Source', render: () => MESC.badge('PDI ← L2', 'primary', 'fa-arrow-right-to-bracket') }
+      ], [s]),
+      MESC.alert('info', 'PDI received', 'Coil practice for ' + s.coilRef + ' received from Mill-L2. Mill rolled slab ' + s.id + ' to practice; coil production record returned to MES (see Generated Coils below).')
+    ]);
+  }
+
+  // --- Card C: generated coils (coiled slabs) ---
+  function coilsCard(coils) {
+    const totWt = coils.reduce((a, c) => a + c.wt, 0);
+    const inWt = coils.reduce((a, c) => { const s = inv.find(x => x.id === c.fromSlab); return a + (s ? s.wt : c.wt); }, 0);
+    return MESC.card({
+      title: 'Generated Coils — HSM-2 Down Coiler', icon: 'fa-scroll',
+      right: [MESC.badge(coils.length + ' coils', 'primary', 'fa-scroll'), MESC.badge('Coil PDO → MES', 'success', 'fa-arrow-right-to-bracket'), MESC.badge('Pending QC', 'warning', 'fa-flask')],
+      body: [
+        MESC.kvGrid([
+          ['Coils formed', coils.length + ' of ' + inv.length + ' slabs'],
+          ['Total weight', MESC.fmt(totWt) + ' MT'],
+          ['Rolling yield', (totWt / inWt * 100).toFixed(1) + ' %'],
+          ['Source', 'Down-coiler load cell + Mill-L2 PDO'],
+          ['Next', 'Quality — surface (Surface SIS) + mechanical test'],
+          ['Status', MESC.badge('Produced, Pending QC', 'warning')]
+        ]),
+        h('div', { class: 'divider' }),
+        h('div', { class: 'section-title' }, [MESC.icon('fa-list-check'), 'Coil production records']),
+        MESC.table([
+          { key: 'id', label: 'Coil ID', render: r => h('span', { class: 'mono strong' }, [r.id]) },
+          { key: 'fromSlab', label: 'From slab', render: r => h('span', { class: 'mono' }, [r.fromSlab]) },
+          { key: 'grade', label: 'Grade' },
+          { key: 'gauge', label: 'Thickness', render: r => r.gauge.toFixed(2) + ' mm' },
+          { key: 'width', label: 'Width', render: r => r.width + ' mm' },
+          { key: 'len', label: 'Length', render: r => r.len.toFixed(1) + ' m' },
+          { key: 'wt', label: 'Weight (MT)', num: true, render: r => MESC.fmt(r.wt) },
+          { key: 'finTemp', label: 'Finishing', render: r => r.finTemp + ' °C' },
+          { key: 'coilTemp', label: 'Coiling', render: r => r.coilTemp + ' °C' },
+          { key: 'status', label: 'Status', render: () => MESC.badge('Pending QC', 'warning', 'fa-flask') }
+        ], coils),
+        h('div', { class: 'hint mt-8' }, ['Coil IDs are L2-generated (14–20 char) and received in MES with load-cell weight and rolling parameters. Status → Produced, Pending QC; routed to Quality for surface (Surface SIS) and mechanical testing.'])
+      ]
+    });
+  }
+
+  // --- Card D: kickback capture (list) ---
+  function kickbackCard() {
+    return MESC.card({
+      class: 'kick-band', title: 'Kickback Capture', icon: 'fa-rotate-left',
+      right: [MESC.badge(kickbacks.length + ' kickback' + (kickbacks.length > 1 ? 's' : ''), 'danger'), MESC.badge('Roll plan revised', 'warning', 'fa-arrows-rotate')],
+      body: [
+        MESC.table([
+          { key: 'code', label: 'Code', render: k => h('span', { class: 'mono strong' }, [k.code]) },
+          { key: 'item', label: 'Item', render: k => h('span', { class: 'mono' }, [k.kind + ' ' + k.item]) },
+          { key: 'stage', label: 'Stage' },
+          { key: 'reason', label: 'Reason' },
+          { key: 'disp', label: 'Disposition', render: k => MESC.badge(k.disp, k.disp === 'Scrap' ? 'danger' : (k.disp === 'Re-roll' ? 'warning' : 'info')) },
+          { key: 'heat', label: 'Heat', render: k => h('span', { class: 'mono' }, [k.heat]) },
+          { key: 'ts', label: 'Time', render: k => h('span', { class: 'mono hint' }, [k.ts]) }
+        ], kickbacks),
+        MESC.alert('warning', 'Kickback recorded', 'Item returned per disposition; MES updated material status, SYMS / inventory adjusted and the HSM-2 roll plan revised. Re-roll items are re-slotted into the rolling program.')
+      ]
+    });
+  }
+
+  // --- handlers (operate on the selected slab) ---
+  function generatePdo() {
+    const s = sel();
+    if (prog(s.id).pdo) { MESShell.toast('PDO already generated for ' + s.id, 'info'); return; }
+    setProg(s.id, { pdo: true });
+    millLog.push({ ts: millStamp(), tag: 'MILL-L2', text: 'PDO received — rolling order ROL-' + s.coilRef + ' for slab ' + s.id + ' (→ coil ' + s.coilRef + ').', cls: 'in' });
+    draw2();
+    MESShell.toast('PDO generated — rolling order for ' + s.id + ' sent to Mill-L2', 'success');
+  }
+  function getPdi() {
+    const s = sel();
+    if (!prog(s.id).pdo || prog(s.id).coiled) return;
+    setProg(s.id, { pdi: true, coiled: true });
+    const c = coilFor(s);
+    millLog.push({ ts: millStamp(), tag: 'MILL-L2', text: 'PDI issued for coil ' + s.coilRef + '; mill rolled slab ' + s.id + ' — coil ' + c.id + ' returned to MES.', cls: 'ok' });
+    draw2();
+    MESShell.toast('PDI received & coil rolled — ' + c.id + ' in MES', 'success');
+  }
+  function openKickbackModal() {
+    const s = sel();
+    const reasons = D.kickbackReasons;
+    const items = [{ id: s.id, heat: s.heat, kind: 'Slab' }];
+    if (prog(s.id).coiled) items.push({ id: coilFor(s).id, heat: s.heat, kind: 'Coil' });
+    const itemSel = h('select', {}, items.map((it, i) => h('option', { value: String(i) }, [it.kind + ' · ' + it.id])));
+    const reasonSel = h('select', {}, reasons.map((r, i) => h('option', { value: String(i) }, [r.desc + ' (' + r.code + ')'])));
+    const stageInput = h('input', { value: reasons[0].stage });
+    const dispSel = h('select', {}, ['Return to yard', 'Re-roll', 'Scrap', 'Hold'].map(o => h('option', { value: o }, [o])));
+    const remarks = h('input', { value: '' });
+    dispSel.value = reasons[0].disp;
+    reasonSel.addEventListener('change', function () {
+      const r = reasons[+this.value]; stageInput.value = r.stage; dispSel.value = r.disp;
+    });
+    const modal = MESC.modal({
+      title: 'Record Kickback', icon: 'fa-rotate-left', size: 'md',
+      body: [
+        MESC.alert('warning', 'Record a kickback', 'Return the selected slab (or its coil) rejected at the mill. On save it is added to Kickback Capture, updates material status + SYMS inventory, and revises the HSM-2 roll plan.'),
+        h('div', { class: 'form-row mt-8' }, [field('Item (slab / coil)', itemSel)]),
+        h('div', { class: 'form-row' }, [field('Kickback reason', reasonSel)]),
+        h('div', { class: 'form-row' }, [field('Stage', stageInput), field('Disposition', dispSel)]),
+        h('div', { class: 'form-row' }, [field('Remarks', remarks)])
+      ],
+      footer: [
+        h('button', { class: 'btn btn-ghost', onclick: () => modal.close() }, ['Cancel']),
+        h('button', { class: 'btn btn-warning', onclick: () => {
+          const it = items[+itemSel.value]; const r = reasons[+reasonSel.value];
+          recordKickback({ code: r.code, item: it.id, kind: it.kind, slabId: s.id, stage: stageInput.value, reason: r.desc, disp: dispSel.value, heat: it.heat, remarks: remarks.value, ts: millStamp() });
+          modal.close();
+        } }, [MESC.icon('fa-check'), 'Record kickback'])
+      ]
+    });
+  }
+  function recordKickback(kb) {
+    kickbacks.push(kb);
+    millLog.push({ ts: kb.ts, tag: 'MILL-L2', text: 'Kickback ' + kb.code + ' — ' + kb.kind + ' ' + kb.item + ' → ' + kb.disp + '. Roll plan revised.', cls: 'warn' });
+    draw2();
+    MESShell.toast('Kickback ' + kb.code + ' recorded — ' + kb.disp + '; roll plan revised', 'warning');
+  }
+}
+
+/* ---------- small local helpers ---------- */
+function field(label, ctrl) { return h('div', { class: 'field' }, [h('label', {}, [label]), ctrl]); }
+function flowStepper(route, step, started) {
+  const kids = [];
+  route.forEach((name, i) => {
+    let cls = '';
+    if (!started) cls = i === 0 ? 'current' : '';
+    else cls = i < step ? 'done' : (i === step ? 'current' : '');
+    kids.push(h('span', { class: 'step ' + cls }, [h('span', { class: 's-dot' }), name]));
+    if (i < route.length - 1) kids.push(h('span', { class: 'arrow' }, [MESC.icon('fa-chevron-right')]));
+  });
+  return h('div', { class: 'flow' }, kids);
+}
+function smsStamp() { _smsSec = (_smsSec + 137) % 86400; return hms(_smsSec); }
+function millStamp() { _hsmSec = (_hsmSec + 150) % 86400; return hms(_hsmSec); }
+function hms(s) { const p = n => String(n).padStart(2, '0'); return p(Math.floor(s / 3600)) + ':' + p(Math.floor(s / 60) % 60) + ':' + p(s % 60); }
+</script>
+</body>
+</html>

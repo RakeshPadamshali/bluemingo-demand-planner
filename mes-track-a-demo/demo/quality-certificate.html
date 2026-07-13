@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Certificates — Bluemingo MES</title>
+<link href="assets/vendor/roboto/roboto.css" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/mes-styles.css">
+<style>
+  /* Certificates / MTC — screen-specific styles (re-homed from the QA Quality module under the demo shell) */
+  .b-draft{background:rgba(158,158,158,.14);color:#757575;}
+  .b-info{background:rgba(33,150,243,.12);color:#2196f3;}
+  .b-pend{background:rgba(255,152,0,.12);color:#ef6c00;}
+  .b-done{background:rgba(76,175,80,.12);color:#388e3c;}
+  .b-hold{background:rgba(244,67,54,.12);color:#c62828;}
+  .b-clr{background:rgba(103,58,183,.12);color:#673ab7;}
+
+  /* icon button (list row actions) — not provided by the shell */
+  .btn-icon{width:28px;height:28px;padding:0;display:inline-grid;place-items:center;border:1px solid transparent;border-radius:var(--radius-sm);background:rgba(var(--color-primary-rgb),.1);color:var(--color-primary);font-size:12px;cursor:pointer;}
+  .btn-icon:hover{background:var(--color-primary);color:#fff;}
+
+  .cert-wrap{display:flex;flex-direction:column;height:calc(100vh - 152px);min-height:440px;}
+
+  .filterbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px;}
+  .filterbar .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--color-text-muted);font-weight:600;}
+  .fsearch{position:relative;}
+  .fsearch i{position:absolute;left:10px;top:9px;color:var(--color-text-hint);font-size:11px;}
+  .fsearch input{width:250px;padding:7px 10px 7px 28px;border:1px solid #ddd;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;}
+  .filterbar select{padding:7px 10px;border:1px solid #ddd;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;}
+  .filterbar input:focus,.filterbar select:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 2px rgba(var(--color-primary-rgb),.15);}
+  .filterbar .meta{margin-left:auto;font-size:12px;color:var(--color-text-muted);}
+
+  .card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);display:flex;flex-direction:column;min-height:0;overflow:hidden;flex:1;}
+  .tbl-wrap{overflow:auto;flex:1;min-height:0;}
+  table.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+  .tbl thead th{position:sticky;top:0;background:#f0f4f7;z-index:2;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;color:var(--color-text-muted);padding:9px 10px;white-space:nowrap;border-bottom:1px solid var(--color-border);cursor:pointer;user-select:none;}
+  .tbl thead th.num{text-align:right;}
+  .tbl thead th .car{font-size:9px;color:#bbb;margin-left:3px;}
+  .tbl thead th .car.on{color:var(--color-primary);}
+  .tbl tbody td{padding:5px 10px;border-bottom:1px solid #f3f3f3;white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis;}
+  .tbl tbody tr:nth-child(even) td{background:#fafbfc;}
+  .tbl tbody tr:hover td{background:#eef7fc;}
+  .tbl td.mono,.tbl th.mono{font-variant-numeric:tabular-nums;}
+  .tbl td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .tbl td.actions{text-align:right;}
+  .tbl td.actions .btn-icon{margin-left:4px;}
+  .tbl th.col-actions,.tbl td.actions{position:sticky;right:0;background:#fff;z-index:3;box-shadow:-7px 0 8px -8px rgba(0,0,0,.18);}
+  .tbl tbody tr:nth-child(even) td.actions{background:#fafbfc;}
+  .tbl tbody tr:hover td.actions{background:#eef7fc;}
+  .tbl tbody tr.feat td{background:rgba(var(--color-primary-rgb),.07);}
+  .tbl tbody tr.feat:hover td{background:#e6f4fb;}
+  .tbl tbody tr.feat td.actions{background:#eef7fc;}
+  .empty td{text-align:center;font-style:italic;color:var(--color-text-hint);padding:24px;background:#fff!important;}
+  .pager{display:flex;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid var(--color-border-light);font-size:12px;color:var(--color-text-muted);}
+
+  /* ===== MTC document ===== */
+  .mtc{border:1px solid #888;padding:18px 20px;font-size:12px;color:#222;background:#fff;}
+  .mtc-top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #333;padding-bottom:10px;margin-bottom:10px;}
+  .mtc-top .co{font-size:16px;font-weight:700;}
+  .mtc-top .co small{display:block;font-size:10px;font-weight:400;color:#666;}
+  .mtc-top .ti{text-align:right;}
+  .mtc-top .ti .t1{font-size:14px;font-weight:700;letter-spacing:.5px;}
+  .mtc-top .ti .t2{font-size:10px;color:#666;}
+  .mtc-meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px 0;border:1px solid #ccc;margin-bottom:12px;}
+  .mtc-meta div{padding:4px 8px;border-bottom:1px solid #eee;font-size:11px;}
+  .mtc-meta div b{color:#000;}
+  .mtc-meta div span{color:#666;display:block;font-size:9px;text-transform:uppercase;letter-spacing:.3px;}
+  .mtc-sec{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;background:#f0f4f7;border:1px solid #ccc;border-bottom:none;padding:4px 8px;}
+  .mtc-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px;}
+  .mtc-table th,.mtc-table td{border:1px solid #ccc;padding:3px 6px;text-align:center;font-variant-numeric:tabular-nums;}
+  .mtc-table th{background:#fafafa;font-weight:600;}
+  .mtc-table td.lbl{text-align:left;background:#fafafa;font-weight:500;white-space:nowrap;}
+  .mtc-table td.bad{color:#c62828;font-weight:700;}
+  .mtc-remarks{font-size:11px;border:1px solid #ccc;padding:6px 8px;margin-bottom:12px;}
+  .mtc-remarks b{display:block;font-size:10px;text-transform:uppercase;color:#666;margin-bottom:3px;}
+  .mtc-decl{font-size:10.5px;color:#444;font-style:italic;border-top:1px dashed #bbb;padding-top:8px;margin-bottom:16px;}
+  .mtc-sign{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;}
+  .mtc-sign div{font-size:11px;text-align:center;padding-top:26px;border-top:1px solid #333;color:#444;}
+  .mtc-sign div b{display:block;color:#000;}
+
+  @media (max-width:820px){ .cert-wrap{height:auto;} }
+  @media print {
+    .bm-header,.bm-sidebar,.page-bar,.filterbar,.cert-wrap,.toast-wrap,.modal-header,.modal-footer{display:none!important;}
+    .modal-backdrop{position:static;background:none;padding:0;display:block;}
+    .modal,.modal.xl{width:auto;max-width:100%;box-shadow:none;max-height:none;}
+    .modal-body{padding:0;overflow:visible;}
+    .mtc{border:none;}
+    html,body{background:#fff;}
+  }
+</style>
+</head>
+<body>
+<script src="assets/mes-data.js"></script>
+<script src="assets/mes-shell.js"></script>
+<script src="assets/mes-components.js"></script>
+<script>
+const D = MES_DATA;
+const { body, actions } = MESShell.mount({ active: 'q-cert', title: 'Certificates', crumb: ['Quality', 'Certificates'] });
+
+/* Generate MTC lives in the page-bar action slot */
+actions.appendChild(h('button', { class: 'btn btn-primary btn-sm', onclick: openGen }, [MESC.icon('fa-plus'), ' Generate MTC']));
+
+body.innerHTML = `
+  <div class="cert-wrap">
+    <div class="filterbar">
+      <span class="lbl">Filters</span>
+      <div class="fsearch"><i class="fa-solid fa-magnifying-glass"></i><input id="search" placeholder="MTC / coil / heat / customer / grade…" oninput="render()"></div>
+      <select id="fStatus" onchange="render()"><option value="">All statuses</option></select>
+      <select id="fCustomer" onchange="render()"><option value="">All customers</option></select>
+      <select id="fGrade" onchange="render()"><option value="">All grades</option></select>
+      <span class="meta" id="meta"></span>
+    </div>
+    <div class="card">
+      <div class="tbl-wrap"><table class="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+      <div class="pager"><span id="rowCount"></span></div>
+    </div>
+  </div>`;
+
+/* ===== reference data ===== */
+const STATUSES = ['DRAFT', 'ISSUED', 'SIGNED', 'SENT', 'CANCELLED'];
+const STB = { DRAFT: 'b-draft', ISSUED: 'b-info', SIGNED: 'b-clr', SENT: 'b-done', CANCELLED: 'b-hold' };
+const CUSTOMERS = ['Apex Heavy Engineering', 'National Power Equipment', 'Pioneer Line Pipe', 'Continental Motors — East'];
+const GRADES = ['IS 2062 E250', 'SAILMA 350', 'API 5L X60', 'IS 2062 E350'];
+const STD_FOR = { 'IS 2062 E250': 'IS 2062', 'SAILMA 350': 'IS 8500', 'API 5L X60': 'API 5L', 'IS 2062 E350': 'IS 2062' };
+
+/* MTC lines: chem = ladle analysis vs the applied standard/TDC limits; mech = mechanical test results.
+   Mock data bundles the specified limit + the found/actual value per grade. */
+const CHEM_DICT = { C: 'Carbon', Mn: 'Manganese', Si: 'Silicon', S: 'Sulphur', P: 'Phosphorus', CE: 'Carbon Equivalent', 'Nb+V+Ti': 'Micro-alloy (Nb+V+Ti)' };
+const GRADE_DATA = {
+  'IS 2062 E250': {
+    chem: [['C', 0, 0.220, 0.061], ['Mn', 0, 1.500, 1.20], ['Si', 0, 0.400, 0.18], ['S', 0, 0.045, 0.005], ['P', 0, 0.045, 0.018], ['CE', 0, 0.420, 0.26]],
+    mech: [['Yield Strength (ReH)', 'MPa', '≥ 250', 285], ['Tensile Strength (Rm)', 'MPa', '410–540', 420], ['Elongation (A%, 5.65√So)', '%', '≥ 23', 27], ['Bend Test (180°, 3t)', '—', 'No cracks', 'Satisfactory']]
+  },
+  'SAILMA 350': {
+    chem: [['C', 0, 0.200, 0.170], ['Mn', 0, 1.500, 1.42], ['Si', 0, 0.450, 0.32], ['S', 0, 0.045, 0.012], ['P', 0, 0.045, 0.028], ['CE', 0, 0.470, 0.42]],
+    mech: [['Yield Strength (ReH)', 'MPa', '≥ 350', 372], ['Tensile Strength (Rm)', 'MPa', '≥ 490', 540], ['Elongation (A%)', '%', '≥ 22', 24], ['Bend Test (180°, 2t)', '—', 'No cracks', 'Satisfactory']]
+  },
+  'API 5L X60': {
+    chem: [['C', 0, 0.160, 0.085], ['Mn', 0, 1.650, 1.48], ['Si', 0, 0.450, 0.28], ['S', 0, 0.015, 0.004], ['P', 0, 0.025, 0.016], ['Nb+V+Ti', 0, 0.150, 0.088]],
+    mech: [['Yield Strength (Rt0.5)', 'MPa', '415–565', 480], ['Tensile Strength (Rm)', 'MPa', '≥ 520', 565], ['Elongation (A%)', '%', '≥ 22', 29], ['Y/T Ratio', '—', '≤ 0.93', '0.85']]
+  },
+  'IS 2062 E350': {
+    chem: [['C', 0, 0.220, 0.165], ['Mn', 0, 1.500, 1.44], ['Si', 0, 0.450, 0.30], ['S', 0, 0.045, 0.020], ['P', 0, 0.045, 0.030], ['CE', 0, 0.470, 0.43]],
+    mech: [['Yield Strength (ReH)', 'MPa', '≥ 350', 368], ['Tensile Strength (Rm)', 'MPa', '≥ 490', 512], ['Elongation (A%)', '%', '≥ 22', 23], ['Bend Test (180°, 2t)', '—', 'No cracks', 'Satisfactory']]
+  }
+};
+const REMARKS = 'Steel made by the Basic Oxygen (BOF) route at SMS-2, continuously cast and hot rolled at HSM-2. Fully killed, fine grained. Free from injurious surface and internal defects. Not exposed to mercury. Coil identity marked on ID tag and paint stencil; colour code as per despatch instruction.';
+
+/* Integrated Works HSM-2 coils — featured: coil C2601 (ISWHSM2C2601001) from heat H2601 for Apex Heavy Engineering */
+const CERTS = [
+  { tc: 'ISW-MTC-2026-0471', date: '07 Jul 2026', type: 'EN 10204 3.1', coil: 'C2601', coilId: 'ISWHSM2C2601001', heat: 'H2601', grade: 'IS 2062 E250', customer: 'Apex Heavy Engineering', so: 'SO-2026-04471', wo: 'HSM2-2026-0471', std: 'IS 2062', size: '2.50 × 1250', form: 'HR Coil', qty: 25.9, htc: 'As Rolled', status: 'ISSUED', by: 'S. Kulkarni', feat: true },
+  { tc: 'ISW-MTC-2026-0470', date: '07 Jul 2026', type: 'EN 10204 3.1', coil: 'C2602', coilId: 'ISWHSM2C2602001', heat: 'H2601', grade: 'IS 2062 E250', customer: 'Apex Heavy Engineering', so: 'SO-2026-04471', wo: 'HSM2-2026-0470', std: 'IS 2062', size: '3.00 × 1250', form: 'HR Coil', qty: 24.8, htc: 'As Rolled', status: 'SIGNED', by: 'S. Kulkarni' },
+  { tc: 'ISW-MTC-2026-0468', date: '06 Jul 2026', type: 'EN 10204 3.1', coil: 'C2603', coilId: 'ISWHSM2C2603001', heat: 'H2603', grade: 'SAILMA 350', customer: 'National Power Equipment', so: 'SO-2026-04455', wo: 'HSM2-2026-0468', std: 'IS 8500', size: '5.00 × 1500', form: 'HR Coil', qty: 27.3, htc: 'As Rolled', status: 'SENT', by: 'A. Deshmukh' },
+  { tc: 'ISW-MTC-2026-0472', date: '07 Jul 2026', type: 'EN 10204 3.1', coil: 'C2604', coilId: 'ISWHSM2C2604001', heat: 'H2604', grade: 'IS 2062 E250', customer: 'Continental Motors — East', so: 'SO-2026-04480', wo: 'HSM2-2026-0472', std: 'IS 2062', size: '2.50 × 1250', form: 'HR Coil', qty: 26.1, htc: 'As Rolled', status: 'DRAFT', by: 'S. Kulkarni' },
+  { tc: 'ISW-MTC-2026-0473', date: '07 Jul 2026', type: 'EN 10204 3.2', coil: 'C2605', coilId: 'ISWHSM2C2605001', heat: 'H2605', grade: 'API 5L X60', customer: 'Pioneer Line Pipe', so: 'SO-2026-04482', wo: 'HSM2-2026-0473', std: 'API 5L', size: '6.00 × 1250', form: 'HR Coil', qty: 28.4, htc: 'Controlled Rolled', status: 'DRAFT', by: 'A. Deshmukh' },
+  { tc: 'ISW-MTC-2026-0466', date: '06 Jul 2026', type: 'EN 10204 3.1', coil: 'C2606', coilId: 'ISWHSM2C2606001', heat: 'H2602', grade: 'IS 2062 E250', customer: 'Apex Heavy Engineering', so: 'SO-2026-04471', wo: 'HSM2-2026-0466', std: 'IS 2062', size: '4.00 × 1500', form: 'HR Coil', qty: 25.2, htc: 'As Rolled', status: 'SENT', by: 'S. Kulkarni' },
+  { tc: 'ISW-MTC-2026-0474', date: '07 Jul 2026', type: 'EN 10204 3.1', coil: 'C2607', coilId: 'ISWHSM2C2607001', heat: 'H2607', grade: 'IS 2062 E350', customer: 'National Power Equipment', so: 'SO-2026-04488', wo: 'HSM2-2026-0474', std: 'IS 2062', size: '8.00 × 1500', form: 'HR Coil', qty: 29.1, htc: 'As Rolled', status: 'DRAFT', by: 'P. More' }
+];
+
+const COLS = [
+  { k: 'tc', label: 'MTC No', cls: 'mono' }, { k: 'date', label: 'Date' }, { k: 'type', label: 'Cert Type' },
+  { k: 'coil', label: 'Coil', cls: 'mono' }, { k: 'heat', label: 'Heat', cls: 'mono' }, { k: 'grade', label: 'Grade' },
+  { k: 'customer', label: 'Customer' }, { k: 'std', label: 'Standard' }, { k: 'size', label: 'Size (mm)' },
+  { k: 'qty', label: 'Qty(MT)', cls: 'num' }, { k: 'status', label: 'Status', badge: true }, { k: 'by', label: 'Prepared by' },
+  { k: 'actions', label: '', actions: true }
+];
+let sortKey = null, sortDir = 1;
+
+function fill(id, arr) { document.getElementById(id).insertAdjacentHTML('beforeend', arr.map(o => `<option>${o}</option>`).join('')); }
+function cell(c, r, i) {
+  if (c.actions) return `<button class="btn-icon" title="Preview MTC" onclick="openMtc(${i})"><i class="fa-solid fa-file-lines"></i></button>` +
+    `<button class="btn-icon" title="Print MTC" onclick="openMtc(${i})"><i class="fa-solid fa-print"></i></button>` +
+    `<button class="btn-icon" title="Record details" onclick="openView(${i})"><i class="fa-solid fa-eye"></i></button>`;
+  if (c.badge) return `<span class="badge ${STB[r.status]}">${r.status}</span>`;
+  let v = r[c.k]; if (c.k === 'qty') v = (+v).toFixed(1);
+  if (c.k === 'coil' && r.feat) return `${v} <i class="fa-solid fa-star" title="Featured demo certificate" style="color:var(--color-primary);font-size:9px"></i>`;
+  if (v === '' || v == null) v = '-'; return v;
+}
+function cmp(a, b) { return ('' + (a ?? '')).localeCompare('' + (b ?? ''), undefined, { numeric: true, sensitivity: 'base' }); }
+function passes(r) {
+  const q = (document.getElementById('search').value || '').toLowerCase();
+  const fs = document.getElementById('fStatus').value, fc = document.getElementById('fCustomer').value, fg = document.getElementById('fGrade').value;
+  if (q && !(r.tc + ' ' + r.coil + ' ' + r.heat + ' ' + r.customer + ' ' + r.grade + ' ' + r.wo).toLowerCase().includes(q)) return false;
+  if (fs && r.status !== fs) return false; if (fc && r.customer !== fc) return false; if (fg && r.grade !== fg) return false;
+  return true;
+}
+function buildHead() {
+  document.getElementById('thead').innerHTML = '<tr>' + COLS.map(c => {
+    if (c.actions) return '<th class="col-actions"></th>';
+    const car = sortKey === c.k ? `<span class="car on">${sortDir > 0 ? '▲' : '▼'}</span>` : '<span class="car">⇅</span>';
+    return `<th class="${c.cls === 'num' ? 'num' : ''}" onclick="sortBy('${c.k}')">${c.label} ${car}</th>`;
+  }).join('') + '</tr>';
+}
+function sortBy(k) { if (sortKey === k) { if (sortDir > 0) sortDir = -1; else { sortKey = null; sortDir = 1; } } else { sortKey = k; sortDir = 1; } buildHead(); render(); }
+function render() {
+  let rows = CERTS.map((r, i) => ({ r, i })).filter(x => passes(x.r));
+  if (sortKey) rows.sort((a, b) => cmp(a.r[sortKey], b.r[sortKey]) * sortDir);
+  const tb = document.getElementById('tbody');
+  if (!rows.length) { tb.innerHTML = `<tr class="empty"><td colspan="${COLS.length}">No certificates match the filters.</td></tr>`; }
+  else tb.innerHTML = rows.map(({ r, i }) => `<tr class="${r.feat ? 'feat' : ''}">${COLS.map(c => `<td class="${c.cls || ''}${c.actions ? ' actions' : ''}">${cell(c, r, i)}</td>`).join('')}</tr>`).join('');
+  document.getElementById('rowCount').textContent = `${rows.length} of ${CERTS.length} certificates`;
+  const draft = CERTS.filter(r => r.status === 'DRAFT').length;
+  document.getElementById('meta').textContent = `${draft} draft · ${CERTS.length - draft} issued/sent`;
+}
+
+/* ===== MTC preview ===== */
+function chk(min, max, act) { const a = +act; const okMin = (min === 0 || min == null) ? true : a >= min; const okMax = (max == null || max === '') ? true : a <= max; return okMin && okMax; }
+function openMtc(i) {
+  const r = CERTS[i], gd = GRADE_DATA[r.grade] || GRADE_DATA['IS 2062 E250'];
+  const chemHead = gd.chem.map(c => `<th title="${CHEM_DICT[c[0]] || c[0]}">${c[0]}</th>`).join('');
+  const chemSpec = gd.chem.map(c => `<td>${c[1] > 0 ? c[1].toFixed(3) + '–' : '≤ '}${c[2].toFixed(3)}</td>`).join('');
+  const chemAct = gd.chem.map(c => `<td class="${chk(c[1], c[2], c[3]) ? '' : 'bad'}">${(+c[3]).toFixed(3)}</td>`).join('');
+  const mechRows = gd.mech.map(m => `<tr><td class="lbl">${m[0]}</td><td>${m[1]}</td><td>${m[2]}</td><td>${m[3]}</td></tr>`).join('');
+  const docHtml = `
+    <div class="mtc-top">
+      <div class="co">INTEGRATED STEEL WORKS<small>Flat Products · Hot Strip Mill HSM-2 · GSTIN 27AAAAA0000A1Z5</small></div>
+      <div class="ti"><div class="t1">MILL TEST CERTIFICATE</div><div class="t2">${r.type} &nbsp;·&nbsp; ${r.tc} &nbsp;·&nbsp; ${r.date}</div></div>
+    </div>
+    <div class="mtc-meta">
+      <div><span>Customer</span><b>${r.customer}</b></div><div><span>Sales Order</span><b>${r.so}</b></div><div><span>Rolling Order</span><b>${r.wo}</b></div>
+      <div><span>Grade</span><b>${r.grade}</b></div><div><span>Specification</span><b>${r.std}</b></div><div><span>Heat No</span><b>${r.heat}</b></div>
+      <div><span>Coil ID</span><b>${r.coil}${r.coilId ? ' · ' + r.coilId : ''}</b></div><div><span>Size / Form</span><b>${r.size} mm · ${r.form}</b></div><div><span>Nett Weight</span><b>${r.qty} MT</b></div>
+      <div><span>Condition / Delivery</span><b>${r.htc}</b></div><div><span>Marking</span><b>Heat + Coil ID</b></div><div><span>Result</span><b style="color:#388e3c">ACCEPTED</b></div>
+    </div>
+    <div class="mtc-sec">Ladle Analysis — Chemical Composition (% by mass)</div>
+    <table class="mtc-table"><thead><tr><th class="lbl">Element</th>${chemHead}</tr></thead>
+      <tbody><tr><td class="lbl">Specified (max)</td>${chemSpec}</tr><tr><td class="lbl">Found</td>${chemAct}</tr></tbody></table>
+    <div class="mtc-sec">Mechanical Properties</div>
+    <table class="mtc-table"><thead><tr><th class="lbl">Property</th><th>Unit</th><th>Specified</th><th>Actual</th></tr></thead><tbody>${mechRows}</tbody></table>
+    <div class="mtc-remarks"><b>Remarks</b>${REMARKS}</div>
+    <div class="mtc-decl">We hereby certify that the material described above has been manufactured, sampled, tested and inspected in accordance with ${r.std} and the applicable technical delivery conditions, and that the results conform to the specified requirements. ${r.type === 'EN 10204 3.2' ? 'Independently verified and countersigned by the authorised inspection representative.' : ''}</div>
+    <div class="mtc-sign"><div>Prepared by<b>${r.by}</b></div><div>Approved by<b>Head — Quality Assurance</b></div><div>Authorised Signatory<b>Works Head — HSM-2</b></div></div>`;
+  const doc = h('div', { class: 'mtc', html: docHtml });
+  const modal = MESC.modal({
+    title: 'Mill Test Certificate — ' + r.tc, icon: 'fa-certificate', size: 'xl',
+    body: [doc],
+    footer: [
+      h('button', { class: 'btn btn-ghost', onclick: () => modal.close() }, ['Close']),
+      h('button', { class: 'btn btn-ghost', onclick: () => { MESShell.toast('Sending MTC ' + r.tc + ' to printer…', 'info'); window.print(); } }, [MESC.icon('fa-print'), ' Print']),
+      h('button', { class: 'btn btn-primary', onclick: () => { modal.close(); MESShell.toast('MTC ' + r.tc + ' issued & signed for ' + r.customer, 'success'); } }, [MESC.icon('fa-paper-plane'), ' Issue & sign'])
+    ]
+  });
+}
+
+/* ===== Record details ===== */
+function openView(i) {
+  const r = CERTS[i];
+  const pairs = [['MTC No', r.tc], ['Date', r.date], ['Certificate type', r.type], ['Coil', r.coil + (r.coilId ? ' · ' + r.coilId : '')],
+    ['Heat', r.heat], ['Grade', r.grade], ['Standard', r.std], ['Customer', r.customer], ['Sales order', r.so],
+    ['Rolling order', r.wo], ['Size', r.size + ' mm'], ['Form', r.form], ['Nett weight', r.qty + ' MT'], ['Condition', r.htc], ['Prepared by', r.by]];
+  const mv = MESC.modal({
+    title: 'Certificate — ' + r.tc, icon: 'fa-file-lines', size: 'lg',
+    body: [h('div', { class: 'mb-8' }, [h('span', { class: 'badge ' + STB[r.status] }, [r.status])]), MESC.kvGrid(pairs)],
+    footer: [
+      h('button', { class: 'btn btn-ghost', onclick: () => mv.close() }, ['Close']),
+      h('button', { class: 'btn btn-primary', onclick: () => { mv.close(); openMtc(i); } }, [MESC.icon('fa-certificate'), ' Open MTC'])
+    ]
+  });
+}
+
+/* ===== Generate ===== */
+function selectEl(id, opts) { return h('select', { id }, opts.map(o => h('option', {}, [o]))); }
+function field(lbl, ctrl) { return h('div', { class: 'field' }, [h('label', {}, [lbl]), ctrl]); }
+function openGen() {
+  const coilOpts = [...new Set(CERTS.map(c => c.coil + ' · ' + c.grade))];
+  const modal = MESC.modal({
+    title: 'Generate Mill Test Certificate', icon: 'fa-file-circle-check',
+    body: [
+      h('div', { class: 'form-row' }, [
+        field('Coil / heat', selectEl('gCoil', coilOpts)),
+        field('Certificate type', selectEl('gType', ['EN 10204 3.1', 'EN 10204 3.2', 'EN 10204 2.2']))
+      ]),
+      h('div', { class: 'form-row' }, [field('Customer', selectEl('gCustomer', CUSTOMERS))]),
+      h('div', { class: 'hint mt-8' }, ['The MTC pulls the applicable IS 2062 / TDC limits, joins the coil’s ladle chemistry and mechanical test results, and renders spec-vs-actual in the customer’s format.'])
+    ],
+    footer: [
+      h('button', { class: 'btn btn-ghost', onclick: () => modal.close() }, ['Cancel']),
+      h('button', { class: 'btn btn-primary', onclick: () => genMtc(modal) }, [MESC.icon('fa-file-circle-check'), ' Build & preview'])
+    ]
+  });
+}
+function genMtc(modal) {
+  const sel = document.getElementById('gCoil').value;
+  const coil = sel.split(' · ')[0], grade = sel.split(' · ')[1];
+  const src = CERTS.find(c => c.coil === coil) || {};
+  const n = 472 + CERTS.length;
+  CERTS.unshift({
+    tc: 'ISW-MTC-2026-0' + n, date: '07 Jul 2026', type: document.getElementById('gType').value,
+    coil, coilId: src.coilId || '', heat: src.heat || 'H2601', grade,
+    customer: document.getElementById('gCustomer').value, so: src.so || 'SO-2026-04471', wo: 'HSM2-2026-0' + n,
+    std: STD_FOR[grade] || 'IS 2062', size: src.size || '2.50 × 1250', form: 'HR Coil',
+    qty: src.qty || 25.0, htc: src.htc || 'As Rolled', status: 'DRAFT', by: 'S. Kulkarni'
+  });
+  modal.close(); render(); openMtc(0);
+  MESShell.toast('Draft MTC ISW-MTC-2026-0' + n + ' built for coil ' + coil, 'success');
+}
+
+fill('fStatus', STATUSES); fill('fCustomer', CUSTOMERS); fill('fGrade', GRADES);
+buildHead(); render();
+</script>
+</body>
+</html>

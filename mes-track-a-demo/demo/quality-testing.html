@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Testing — Bluemingo MES</title>
+<link href="assets/vendor/roboto/roboto.css" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/mes-styles.css">
+<style>
+  /* Testing / test entry — screen-specific styles (re-homed from the QA Quality module under the demo shell) */
+  .b-pass{background:rgba(76,175,80,.12);color:#388e3c;}
+  .b-fail{background:rgba(244,67,54,.12);color:#d32f2f;}
+  .b-pend{background:rgba(255,152,0,.12);color:#ef6c00;}
+  .b-hold{background:rgba(244,67,54,.12);color:#c62828;}
+  .b-clr{background:rgba(103,58,183,.12);color:#673ab7;}
+  .b-prog{background:rgba(33,150,243,.12);color:#2196f3;}
+  .b-rep{background:rgba(158,158,158,.16);color:#757575;}
+  .badge.big{font-size:13px;}
+
+  .tdc-wrap{display:grid;grid-template-columns:300px 1fr;gap:12px;height:calc(100vh - 152px);min-height:440px;}
+  .card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+  .lhead{padding:12px;border-bottom:1px solid var(--color-border-light);}
+  .lhead .lh-title{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--color-text-muted);font-weight:600;margin-bottom:6px;}
+  .lsearch{position:relative;}
+  .lsearch i{position:absolute;left:10px;top:9px;color:var(--color-text-hint);font-size:11px;}
+  .lsearch input{width:100%;padding:7px 10px 7px 28px;border:1px solid #ddd;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;}
+  .lsearch input:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px rgba(var(--color-primary-rgb),.15);}
+  .litems{overflow-y:auto;flex:1;}
+  .litem{padding:9px 12px;border-bottom:1px solid #f3f3f3;cursor:pointer;border-left:3px solid transparent;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .litem:hover{background:#eef7fc;}
+  .litem.sel{background:var(--color-primary-light);border-left-color:var(--color-primary);}
+  .litem .lh{font-weight:600;font-size:12px;font-variant-numeric:tabular-nums;}
+  .litem .lg{font-size:11px;color:var(--color-text-muted);}
+  .detail{min-width:0;}
+  .dhead{padding:12px 16px;border-bottom:1px solid var(--color-border-light);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
+  .dh-title{font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .chips .chip{font-size:12px;color:var(--color-text-secondary);background:var(--color-bg-alt);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:3px 8px;}
+  .chips .chip b{color:var(--color-text-primary);font-weight:600;margin-left:3px;}
+  .chips .chip.src{background:var(--color-primary-light);border-color:#b3e5fc;color:var(--color-primary-dark);}
+  .dactions{display:flex;gap:8px;flex-wrap:wrap;}
+  .grid-wrap{flex:1;min-height:0;overflow:auto;padding:0 16px;}
+  table.tgrid{width:100%;border-collapse:collapse;font-size:12px;}
+  .tgrid thead th{position:sticky;top:0;background:#f0f4f7;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.3px;color:var(--color-text-muted);font-weight:600;padding:9px 10px;border-bottom:1px solid var(--color-border);white-space:nowrap;}
+  .tgrid thead th.spc{text-align:center;}
+  .tgrid td{padding:4px 10px;border-bottom:1px solid #f3f3f3;white-space:nowrap;}
+  .tgrid tbody tr:hover td{background:#fafbfc;}
+  .tgrid .el{font-weight:600;}
+  .tgrid .spec{color:var(--color-text-muted);font-variant-numeric:tabular-nums;}
+  .srctag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:9px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;vertical-align:middle;}
+  .srctag.t-tdc{background:rgba(37,169,224,.14);color:#1E8FBF;}
+  .srctag.t-rep{background:rgba(158,158,158,.16);color:#757575;}
+  .tgrid td.spc{text-align:center;}
+  .tgrid input{width:76px;padding:5px 6px;border:1px solid #ddd;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;font-variant-numeric:tabular-nums;text-align:right;}
+  .tgrid input:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px rgba(var(--color-primary-rgb),.15);}
+  .tgrid td.na{color:#ccc;text-align:center;}
+  .tgrid .agg{font-variant-numeric:tabular-nums;font-weight:600;}
+  .tgrid .aggr{font-size:9px;color:var(--color-text-hint);text-transform:uppercase;letter-spacing:.3px;margin-left:3px;font-weight:400;}
+  .dfoot{padding:12px 16px;border-top:1px solid var(--color-border-light);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+  .ov{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--color-text-muted);flex-wrap:wrap;}
+  .note{font-size:12px;}
+  .note.ok{color:var(--color-success);}
+  .note.warn{color:var(--color-danger);}
+  .foot-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  @media (max-width:820px){ .tdc-wrap{grid-template-columns:1fr;height:auto;} }
+</style>
+</head>
+<body>
+<script src="assets/mes-data.js"></script>
+<script src="assets/mes-shell.js"></script>
+<script src="assets/mes-components.js"></script>
+<script>
+const D = MES_DATA;
+const { body, actions } = MESShell.mount({ active: 'q-testing', title: 'Testing', crumb: ['Quality', 'Testing'] });
+actions.appendChild(h('span', { class: 'pill' }, [MESC.icon('fa-vials'), ' MS Central Lab · Container Lab']));
+
+body.innerHTML = `
+  <div class="tdc-wrap">
+    <div class="card">
+      <div class="lhead">
+        <div class="lh-title">Samples — testing · Shift ${D.plant.shift} · ${D.plant.date}</div>
+        <div class="lsearch"><i class="fa-solid fa-magnifying-glass"></i><input id="search" placeholder="Sample / heat / grade…"></div>
+      </div>
+      <div class="litems" id="list"></div>
+    </div>
+    <div class="card detail" id="detail"></div>
+  </div>`;
+
+/* ===== Test cards =====
+   Chemistry sample -> element family measured by two labs (MS Central Lab + Container Lab),
+     each element aggregated across the reporting labs to a single value, checked vs the heat TDC.
+   Mechanical sample -> tensile attributes measured on two specimens, aggregated, checked vs grade spec.
+   spec row = [code, unit, min, max, aggRule, source]   source = 'TDC' (limit governs) | 'REPORT' (report-only). */
+const CHEM_FAMILY = [
+  ['C','%'],['Mn','%'],['Si','%'],['S','%'],['P','%'],
+  ['Cr','%'],['Ni','%'],['Cu','%'],['N','%'],['Nb','%'],['V','%'],['Mo','%']
+];
+const TDC_LIMITS = {
+  'TDC-E250'  : { C:[null,0.090], Mn:[null,1.400], Si:[null,0.250], S:[null,0.020], P:[null,0.030] },
+  'TDC-SLM350': { C:[null,0.200], Mn:[null,1.500], Si:[null,0.450], S:[null,0.045], P:[null,0.040] },
+  'TDC-X60'   : { C:[null,0.160], Mn:[null,1.600], Si:[null,0.450], S:[null,0.015], P:[null,0.025], Nb:[0.010,0.050], V:[null,0.100] }
+};
+/* Grade mechanical spec (IS 2062 E250): YS 250 min, UTS 410–510, elongation 23% min */
+const MECH_SPEC = [
+  ['YS 0.2%','MPa', 250, null, 'MIN', 'TDC'],
+  ['UTS','MPa',     410, 510,  'AVG', 'TDC'],
+  ['Elongation','%',23,  null, 'AVG', 'TDC']
+];
+const MECH_SOURCES = ['Specimen 1', 'Specimen 2'];
+
+function specFor(sm){
+  if (sm.type === 'Mechanical') return MECH_SPEC;
+  const lim = TDC_LIMITS[sm.tdc] || {};
+  return CHEM_FAMILY.map(([code, unit]) => {
+    const l = lim[code];
+    return [code, unit, l ? l[0] : null, l ? l[1] : null, 'AVG', l ? 'TDC' : 'REPORT'];
+  });
+}
+function sourcesFor(sm){ return sm.type === 'Mechanical' ? MECH_SOURCES : D.labs; }
+
+/* Integrated Works SMS-2 samples — current shift B. H2601 is the tracked heat; its readings mirror the demo scenario. */
+const SAMPLES = [
+  { no:'TST-2601-C1', sample:'CHM-H2601-BOF-01', heat:'H2601', grade:'IS 2062 E250', tdc:'TDC-E250', type:'Chemistry', point:'BOF turndown', station:'BOF1', state:'IN PROGRESS',
+    labVals:{ 'MS Central Lab':{ C:0.061, Mn:1.21, Si:0.185, S:0.005, P:0.019, Cr:0.03, Ni:0.02, Cu:0.04, N:0.006, Nb:0.002, V:0.003, Mo:0.01 },
+              'Container Lab' :{ C:0.059, Mn:1.19, Si:0.181, S:0.005, P:0.017, Cr:0.03, Ni:0.02, Cu:0.04, N:0.006, Nb:0.002, V:0.003, Mo:0.01 } } },
+  { no:'TST-2601-M1', sample:'MEC-H2601-PRD-01', heat:'H2601', grade:'IS 2062 E250', tdc:'TDC-E250', type:'Mechanical', point:'Product — HR plate', station:'HSM-2', state:'IN PROGRESS',
+    labVals:{ 'Specimen 1':{ 'YS 0.2%':288, 'UTS':420, 'Elongation':27 },
+              'Specimen 2':{ 'YS 0.2%':285, 'UTS':424, 'Elongation':28 } } },
+  { no:'TST-2601-C2', sample:'CHM-H2601-LHF-01', heat:'H2601', grade:'IS 2062 E250', tdc:'TDC-E250', type:'Chemistry', point:'LHF trim', station:'LHF', state:'PENDING' },
+  { no:'TST-2602-C1', sample:'CHM-H2602-BOF-01', heat:'H2602', grade:'IS 2062 E250', tdc:'TDC-E250', type:'Chemistry', point:'BOF turndown', station:'BOF2', state:'PASS' },
+  { no:'TST-2603-C1', sample:'CHM-H2603-BOF-01', heat:'H2603', grade:'SAILMA 350',  tdc:'TDC-SLM350', type:'Chemistry', point:'BOF turndown', station:'BOF3', state:'PASS' },
+  { no:'TST-2605-C1', sample:'CHM-H2605-BOF-01', heat:'H2605', grade:'API 5L X60',  tdc:'TDC-X60',   type:'Chemistry', point:'BOF turndown', station:'BOF2', state:'HOLD' },
+  { no:'TST-2606-C1', sample:'CHM-H2606-BOF-01', heat:'H2606', grade:'IS 2062 E250', tdc:'TDC-E250', type:'Chemistry', point:'BOF turndown', station:'BOF3', state:'PENDING' }
+];
+const BADGE = { 'PASS':'b-pass', 'FAIL':'b-fail', 'PENDING':'b-pend', 'HOLD':'b-hold', 'CLEARED':'b-clr', 'IN PROGRESS':'b-prog' };
+
+/* ===== deterministic mock readings (for samples without an explicit sheet) ===== */
+function rnd(v){ const a=Math.abs(v); return a<1 ? +v.toFixed(3) : a<100 ? +v.toFixed(2) : Math.round(v); }
+function hashIdx(str,n){ let acc=0; for(const ch of str) acc=(acc*33+ch.charCodeAt(0))>>>0; return n?acc%n:0; }
+function deriveVal(no,ai,si,a,isFail){
+  const min=a[2], max=a[3]; let acc=0; const s=no+'#'+ai+'#'+si; for(const ch of s) acc=(acc*31+ch.charCodeAt(0))>>>0; const f=(acc%1000)/1000;
+  if(isFail){ if(max!=null) return rnd(max*(1.06+f*0.05)); if(min!=null) return rnd(min*(0.90-f*0.05)); return rnd(99); }
+  if(min!=null&&max!=null) return rnd(min+(0.25+0.5*f)*(max-min));
+  if(min!=null) return rnd(min*(1.04+f*0.10));
+  if(max!=null) return rnd(max*(0.45+0.35*f));
+  return rnd(f*0.05);   /* report-only trace */
+}
+function failAttrIndex(sm, sp){
+  const gi = sp.map((a,i)=>i).filter(i => sp[i][2]!=null || sp[i][3]!=null);
+  return gi.length ? gi[hashIdx(sm.no, gi.length)] : -1;
+}
+function fillSample(sm){
+  const sp=specFor(sm), srcs=sourcesFor(sm);
+  const failIdx = (sm.state==='FAIL'||sm.state==='HOLD') ? failAttrIndex(sm, sp) : -1;
+  sp.forEach((a, ai) => {
+    store[sm.no][a[0]] = srcs.map((srcName, si) => {
+      if (sm.labVals && sm.labVals[srcName] && sm.labVals[srcName][a[0]] != null) return sm.labVals[srcName][a[0]];
+      return deriveVal(sm.no, ai, si, a, ai===failIdx);
+    });
+  });
+}
+/* store[no] = { _src:'MS Central Lab'|'Manual'|'UTM'|'—', [code]:[perSource...] } */
+const store = {};
+SAMPLES.forEach(sm => {
+  const sp=specFor(sm), srcs=sourcesFor(sm);
+  store[sm.no] = { _src: (sm.state==='PENDING') ? '—' : (sm.type==='Chemistry' ? 'Lab' : 'UTM') };
+  sp.forEach(a => store[sm.no][a[0]] = srcs.map(()=>''));
+  if (sm.state !== 'PENDING') fillSample(sm);
+});
+
+let curIdx = 0;
+const cur = () => SAMPLES[curIdx];
+
+/* ===== eval / aggregation ===== */
+function aggregate(vals, rule){
+  const ns = vals.filter(v=>v!==''&&v!=null&&!isNaN(parseFloat(v))).map(parseFloat);
+  if(!ns.length) return null;
+  let r = rule==='AVG' ? ns.reduce((a,b)=>a+b,0)/ns.length : rule==='MIN' ? Math.min(...ns) : rule==='MAX' ? Math.max(...ns) : ns[0];
+  return rnd(r);
+}
+function resultOf(a, agg){
+  if(a[2]==null && a[3]==null) return 'NA';            /* report-only element */
+  if(agg==null) return '';
+  if(a[2]!=null && agg<a[2]) return 'FAIL';
+  if(a[3]!=null && agg>a[3]) return 'FAIL';
+  return 'PASS';
+}
+function overall(){
+  const sm=cur(), sp=specFor(sm);
+  let fail=false, empty=false;
+  sp.forEach(a => { const r=resultOf(a, aggregate(store[sm.no][a[0]], a[4])); if(r==='NA')return; if(r==='')empty=true; else if(r==='FAIL')fail=true; });
+  return fail ? 'FAIL' : (empty ? 'PENDING' : 'PASS');
+}
+function fmtSpec(a){
+  const mn=a[2], mx=a[3], f=(x)=> x<1 ? x.toFixed(3) : (x<100 ? x.toFixed(2) : String(Math.round(x)));
+  if(mn!=null&&mx!=null) return f(mn)+' – '+f(mx);
+  if(mx!=null) return '≤ '+f(mx);
+  if(mn!=null) return '≥ '+f(mn);
+  return '—';
+}
+function srcTag(s){ return ` <span class="srctag ${s==='TDC'?'t-tdc':'t-rep'}" title="${s==='TDC'?'Limit governs — from the heat TDC / grade spec':'Measured but no limit — report-only'}">${s}</span>`; }
+function badge(r){
+  return r==='NA' ? '<span class="badge b-rep">report-only</span>'
+    : r==='' ? '<span class="badge b-pend">—</span>'
+    : `<span class="badge ${r==='PASS'?'b-pass':'b-fail'}">${r}</span>`;
+}
+function ovCls(ov){ return ov==='PASS'?'b-pass':ov==='FAIL'?'b-fail':'b-pend'; }
+function decisionText(sm, ov){
+  if(sm.type==='Chemistry') return ov==='PASS'?'Chemistry OK':ov==='FAIL'?'Chemistry out of TDC':'Awaiting lab results';
+  return ov==='PASS'?'Mechanical OK':ov==='FAIL'?'Out of spec':'Awaiting results';
+}
+function clrLabel(sm, ov){ return ov==='FAIL' ? 'Put heat on hold' : (sm.type==='Chemistry' ? 'Record chemistry clearance' : 'Record test clearance'); }
+
+/* ===== render list ===== */
+function renderList(){
+  const q=(document.getElementById('search').value||'').toLowerCase();
+  document.getElementById('list').innerHTML = SAMPLES.map((s,i) => {
+    if(q && !(s.no+' '+s.sample+' '+s.heat+' '+s.grade+' '+s.type).toLowerCase().includes(q)) return '';
+    return `<div class="litem ${i===curIdx?'sel':''}" onclick="sel(${i})">
+      <div><div class="lh">${s.sample}</div><div class="lg">${s.heat} · ${s.grade} · ${s.type}</div></div>
+      <span class="badge ${BADGE[s.state]}">${s.state}</span></div>`;
+  }).join('');
+}
+function sel(i){ curIdx=i; renderList(); renderDetail(); }
+
+/* ===== render detail ===== */
+function renderDetail(){
+  const sm=cur(), sp=specFor(sm), srcs=sourcesFor(sm), src=store[sm.no]._src;
+  const firstCol = sm.type==='Chemistry' ? 'Element' : 'Attribute';
+  const chips=[['Heat',sm.heat],['Grade',sm.grade],['TDC',sm.tdc],['Type',sm.type],['Sampled at',sm.point],['Station',sm.station],['Test record',sm.no]]
+    .map(p=>`<span class="chip">${p[0]}<b>${p[1]}</b></span>`).join('')
+    + `<span class="chip src">Source<b>${src}</b></span>`;
+  const actionsHtml = (sm.type==='Chemistry'
+      ? srcs.map((lab,li)=>`<button class="btn btn-ghost btn-sm" onclick="receiveLab(${li})"><i class="fa-solid fa-flask-vial"></i> Receive · ${lab}</button>`).join('')
+      : `<button class="btn btn-ghost btn-sm" onclick="importUTM()"><i class="fa-solid fa-gauge"></i> Import from UTM</button>`)
+    + `<button class="btn btn-ghost btn-sm" onclick="saveDraft()"><i class="fa-solid fa-floppy-disk"></i> Save</button>`;
+  const heads = `<th>${firstCol}</th><th>Unit</th><th>Spec</th>`
+    + srcs.map(s=>`<th class="spc">${s}</th>`).join('')
+    + `<th>Aggregate</th><th>Result</th>`;
+  const rows=sp.map((a,ai)=>{
+    const vals=store[sm.no][a[0]];
+    const cells=srcs.map((srcName,si)=>`<td class="spc"><input data-ai="${ai}" data-si="${si}" type="number" step="any" value="${vals[si]}" placeholder="—" oninput="onEdit(this)"></td>`).join('');
+    const agg=aggregate(vals,a[4]), r=resultOf(a,agg);
+    return `<tr>
+      <td class="el">${a[0]}${srcTag(a[5])}</td>
+      <td class="spec">${a[1]}</td>
+      <td class="spec">${fmtSpec(a)}</td>
+      ${cells}
+      <td class="agg" id="agg-${ai}">${agg==null?'—':`${agg}<span class="aggr">${a[4]}</span>`}</td>
+      <td id="res-${ai}">${badge(r)}</td></tr>`;
+  }).join('');
+  const ov=overall();
+  document.getElementById('detail').innerHTML = `
+    <div class="dhead">
+      <div>
+        <div class="dh-title">${sm.sample} <span class="badge ${BADGE[sm.state]}">${sm.state}</span></div>
+        <div class="chips">${chips}</div>
+      </div>
+      <div class="dactions">${actionsHtml}</div>
+    </div>
+    <div class="grid-wrap">
+      <table class="tgrid">
+        <thead><tr>${heads}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="dfoot">
+      <div class="ov">Aggregated result: <span class="badge big ${ovCls(ov)}" id="ovBadge">${decisionText(sm,ov)}</span> <span class="note" id="note"></span></div>
+      <div class="foot-actions">
+        <button class="btn btn-ghost" onclick="retest()"><i class="fa-solid fa-rotate"></i> Request re-sample</button>
+        <button class="btn ${ov==='FAIL'?'btn-danger':'btn-primary'}" id="clrBtn" onclick="clearance()" ${ov==='PENDING'?'disabled':''}>
+          <i class="fa-solid ${ov==='FAIL'?'fa-ban':'fa-circle-check'}"></i> ${clrLabel(sm,ov)}</button>
+      </div>
+    </div>`;
+}
+
+function onEdit(inp){
+  const ai=+inp.dataset.ai, si=+inp.dataset.si, sm=cur(), a=specFor(sm)[ai];
+  store[sm.no][a[0]][si]=inp.value; store[sm.no]._src='Manual';
+  const agg=aggregate(store[sm.no][a[0]],a[4]), r=resultOf(a,agg);
+  document.getElementById('agg-'+ai).innerHTML = agg==null?'—':`${agg}<span class="aggr">${a[4]}</span>`;
+  document.getElementById('res-'+ai).innerHTML = badge(r);
+  const sc=document.querySelector('.chips .chip.src b'); if(sc) sc.textContent='Manual';
+  refreshOverall();
+}
+function refreshOverall(){
+  const sm=cur(), ov=overall(), b=document.getElementById('ovBadge'); if(!b)return;
+  b.textContent=decisionText(sm,ov); b.className='badge big '+ovCls(ov);
+  const btn=document.getElementById('clrBtn');
+  btn.disabled=ov==='PENDING';
+  btn.className='btn '+(ov==='FAIL'?'btn-danger':'btn-primary');
+  btn.innerHTML=`<i class="fa-solid ${ov==='FAIL'?'fa-ban':'fa-circle-check'}"></i> ${clrLabel(sm,ov)}`;
+}
+
+/* Multi-lab capture: pull one lab's element results into its column, then re-aggregate */
+function receiveLab(li){
+  const sm=cur(), sp=specFor(sm), srcs=sourcesFor(sm), lab=srcs[li];
+  const failIdx=(sm.state==='FAIL'||sm.state==='HOLD')?failAttrIndex(sm,sp):-1;
+  sp.forEach((a,ai)=>{
+    const v=(sm.labVals&&sm.labVals[lab]&&sm.labVals[lab][a[0]]!=null)?sm.labVals[lab][a[0]]:deriveVal(sm.no,ai,li,a,ai===failIdx);
+    store[sm.no][a[0]][li]=v;
+  });
+  store[sm.no]._src=lab; renderDetail();
+  const n=document.getElementById('note'); n.textContent='✓ Results received from '+lab+' — aggregated to final heat chemistry'; n.className='note ok';
+  MESShell.toast('Chemistry received from '+lab+' — '+sm.heat, 'success');
+}
+/* Mechanical: pull specimen readings from the tensile / hardness testers */
+function importUTM(){
+  const sm=cur(), sp=specFor(sm), srcs=sourcesFor(sm);
+  const failIdx=(sm.state==='FAIL'||sm.state==='HOLD')?failAttrIndex(sm,sp):-1;
+  sp.forEach((a,ai)=>{ store[sm.no][a[0]]=srcs.map((srcName,si)=> (sm.labVals&&sm.labVals[srcName]&&sm.labVals[srcName][a[0]]!=null)?sm.labVals[srcName][a[0]]:deriveVal(sm.no,ai,si,a,ai===failIdx) ); });
+  store[sm.no]._src='UTM'; renderDetail();
+  const n=document.getElementById('note'); n.textContent='✓ Readings pulled from UTM / hardness tester'; n.className='note ok';
+  MESShell.toast('Mechanical readings imported — '+sm.heat, 'success');
+}
+function saveDraft(){ MESShell.toast('Draft saved for '+cur().sample, 'info'); }
+
+function clearance(){
+  const sm=cur(), ov=overall();
+  if(ov==='PASS'){
+    sm.state='CLEARED'; renderList(); renderDetail();
+    const n=document.getElementById('note');
+    n.textContent = sm.type==='Chemistry' ? '✓ Heat chemistry cleared — released to production' : '✓ Mechanical test cleared vs grade spec';
+    n.className='note ok';
+    MESShell.toast((sm.type==='Chemistry'?'Chemistry cleared':'Test cleared')+' — heat '+sm.heat, 'success');
+  } else if(ov==='FAIL'){
+    openHoldModal(sm);
+  }
+}
+/* NEW dialog (MESC.modal + window.h): a hold requires a reason before the heat can be held */
+function openHoldModal(sm){
+  const reasons = ['Chemistry out of TDC — re-sample','Out of spec — route to re-heat-treat','Out of spec — disposition / concession','Instrument re-check required'];
+  const sel = h('select', { class:'inp' }, reasons.map(r=>h('option', { value:r }, [r])));
+  const modal = MESC.modal({
+    title:'Put heat on hold — '+sm.heat, icon:'fa-triangle-exclamation', size:'sm',
+    body:[
+      h('div', { class:'hint mb-8' }, ['Aggregated result is out of specification. A hold reason is required before the heat can be held.']),
+      h('div', { class:'field' }, [ h('label', {}, ['Hold reason']), sel ])
+    ],
+    footer:[
+      h('button', { class:'btn btn-ghost', onclick:()=>modal.close() }, ['Cancel']),
+      h('button', { class:'btn btn-danger', onclick:()=>{
+        modal.close(); sm.state='HOLD'; renderList(); renderDetail();
+        const n=document.getElementById('note'); if(n){ n.textContent='⚠ Heat held — '+sel.value; n.className='note warn'; }
+        MESShell.toast('Heat '+sm.heat+' put ON HOLD — '+sel.value, 'danger');
+      } }, [MESC.icon('fa-ban'), 'Confirm hold'])
+    ]
+  });
+}
+function retest(){
+  const sm=cur(); sm.state='IN PROGRESS';
+  const sp=specFor(sm), srcs=sourcesFor(sm);
+  sp.forEach(a => store[sm.no][a[0]] = srcs.map(()=>'')); store[sm.no]._src='—';
+  renderList(); renderDetail();
+  const n=document.getElementById('note'); n.textContent='↻ Fresh sample requested — awaiting new results'; n.className='note';
+}
+
+document.getElementById('search').oninput = renderList;
+renderList(); renderDetail();
+</script>
+</body>
+</html>

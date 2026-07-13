@@ -1,0 +1,8 @@
+# Large / regenerable artifacts from the eval-deck pipeline — not tracked here.
+# Regenerate with eval-deck/build_ppt.py (deck) and eval-deck/make_video.py (video).
+eval-deck/*.pptx
+eval-deck/video/
+eval-deck/screenshots/
+eval-deck/img/
+**/*.mp4
+**/*.webm

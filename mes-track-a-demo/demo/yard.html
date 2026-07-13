@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Yard Management — Bluemingo MES</title>
+<link href="assets/vendor/roboto/roboto.css" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/mes-styles.css">
+<style>
+  /* page-local: Yard Management */
+  .yard-wrap { display:grid; gap:14px; grid-template-columns:1.55fr 1fr; align-items:start; }
+  @media (max-width:1080px){ .yard-wrap { grid-template-columns:1fr; } }
+  .yard-legend { display:flex; gap:16px; flex-wrap:wrap; font-size:11px; color:var(--color-text-muted); margin-top:10px; }
+  .yard-legend .lg { display:flex; align-items:center; gap:6px; }
+  .yard-legend .sw { width:14px; height:11px; border-radius:3px; border:1px solid var(--color-border); }
+  .sw.occ { background:rgba(37,169,224,.16); border-color:var(--color-primary); }
+  .sw.alloc { background:rgba(56,142,60,.16); border-color:var(--color-success); }
+  .sw.hold { background:rgba(211,47,47,.12); border-color:var(--color-danger); }
+  .sw.free { background:var(--color-bg-alt); }
+  .yard-slot .sc { font-size:8px; opacity:.7; line-height:1; }
+  .yard-slot .sm { font-weight:600; margin-top:1px; line-height:1.05; }
+  .search-row { display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; margin-bottom:10px; }
+  .search-row .field { margin-bottom:0; min-width:220px; }
+  .loc-readout { border-left:3px solid var(--color-primary); }
+  .stage-lane { display:flex; gap:8px; flex-wrap:wrap; padding:6px 0; }
+  .stage-chip { border:1px solid var(--color-border); border-radius:var(--radius-sm); padding:6px 10px; font-size:11px; display:flex; align-items:center; gap:7px; background:var(--color-surface); }
+  .memo-sheet { border:1px solid var(--color-border); border-radius:var(--radius-sm); padding:16px 18px; font-size:12px; background:#fff; }
+  .memo-sheet h3 { font-size:14px; margin-bottom:2px; }
+  .memo-sheet .memo-hd { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid var(--color-border); padding-bottom:8px; margin-bottom:10px; }
+</style>
+</head>
+<body>
+<script src="assets/mes-data.js"></script>
+<script src="assets/mes-shell.js"></script>
+<script src="assets/mes-components.js"></script>
+<script>
+const D = MES_DATA;
+const { body } = MESShell.mount({ active:'yard', title:'Yard Management · SYMS / CYMS', crumb:['Logistics','Slab · Coil yards'] });
+
+/* ---------- module state ---------- */
+const R = { A:0, B:1, C:2, D:3, E:4, F:5 };
+// SYMS named slab inventory (rc = [rowIdx, colIdx0]); rest of grid is generic-occupied by pattern.
+let symsSlabs = [
+  { id:'ISWCC1H2601S001', heat:'H2601', grade:'IS 2062 E250', wt:26.4, age:'0.4 h', rc:[R.C,6],  prio:1, hot:true,  status:'Available' },
+  { id:'ISWCC1H2601S002', heat:'H2601', grade:'IS 2062 E250', wt:24.8, age:'0.4 h', rc:[R.C,7],  prio:2, hot:false, status:'Available' },
+  { id:'ISWCC1H2588S014', heat:'H2588', grade:'IS 2062 E250', wt:25.6, age:'9 h',   rc:[R.A,2],  prio:3, hot:false, status:'Available' },
+  { id:'ISWCC1H2591S006', heat:'H2591', grade:'IS 2062 E250', wt:26.0, age:'12 h',  rc:[R.E,11], prio:4, hot:false, status:'Available' },
+  { id:'ISWCC2H2590S007', heat:'H2590', grade:'SAILMA 350',   wt:27.1, age:'16 h',  rc:[R.D,10], prio:5, hot:false, status:'Available' },
+  { id:'ISWCC1H2585S021', heat:'H2585', grade:'API 5L X60',   wt:23.9, age:'22 h',  rc:[R.D,3],  prio:6, hot:false, status:'On Hold', hold:true }
+];
+let symsHighlight = null, symsSelected = null;
+
+// CYMS coils
+let cymsCoils = [
+  { id:'ISWHSM2C2588001', ref:'C2588', grade:'IS 2062 E250', wt:25.6, rc:[1,3],  status:'Stored' },
+  { id:'ISWHSM2C2588002', ref:'C2588', grade:'IS 2062 E250', wt:24.9, rc:[1,4],  status:'Stored' },
+  { id:'ISWHSM2C2590004', ref:'C2590', grade:'SAILMA 350',   wt:26.2, rc:[3,8],  status:'Dispatch staged' }
+];
+let coilArrived = false, cymsHighlight = null;
+
+// Rake yard
+let rakeWagons = [
+  { wagon:'BOXNHL-24518', coils:2, wt:51.2, dest:'L&T — Kanchipuram', status:'Loaded' },
+  { wagon:'BOXNHL-24519', coils:2, wt:50.4, dest:'L&T — Kanchipuram', status:'Loaded' },
+  { wagon:'BOXNHL-24520', coils:2, wt:49.8, dest:'Summit Projects — Nagpur', status:'Placed' }
+];
+
+const tabs = MESC.tabs([
+  { id:'syms', label:'SYMS · Slab Yard', icon:'fa-cubes-stacked', render: renderSyms },
+  { id:'cyms', label:'CYMS · Coil Yard', icon:'fa-scroll',        render: renderCyms }
+  // Rake Yard tab hidden (renderRake + rake data retained below for easy re-enable)
+]);
+body.appendChild(tabs);
+
+/* ===================== A4 — SYMS SLAB YARD ===================== */
+function renderSyms() {
+  const wrap = h('div', {});
+  const y = D.yard.syms;
+  const cols = y.cols, rows = y.rows;
+
+  // KPIs
+  const occPct = Math.round(y.occupiedMT / y.capacityMT * 100);
+  wrap.appendChild(h('div', { class:'card-grid cols-4 mb-12' }, [
+    MESC.kpi({ label:'SYMS capacity', value:MESC.fmt(y.capacityMT), unit:'MT', icon:'fa-warehouse', accent:'primary' }),
+    MESC.kpi({ label:'Occupied', value:MESC.fmt(y.occupiedMT), unit:'MT', icon:'fa-cubes-stacked', accent:'blue', sub:occPct + '% utilised' }),
+    MESC.kpi({ label:'Free slots', value:(rows*cols) - occupiedCount(), icon:'fa-square', accent:'green', sub:'of ' + (rows*cols) + ' bays' }),
+    MESC.kpi({ label:'Grid', value:rows + ' × ' + cols, icon:'fa-border-all', accent:'primary', sub:'row A–F · bay 1–' + cols })
+  ]));
+
+  const gridHost = h('div', {});
+  const invHost  = h('div', {});
+
+  // left: search + grid
+  const searchInp = h('input', { placeholder:'e.g. ISWCC1H2601S001 or H2601', spellcheck:'false' });
+  const doSearch = () => {
+    const q = (searchInp.value || '').trim().toUpperCase();
+    if (!q) { symsHighlight = null; drawGrid(); return; }
+    const hit = symsSlabs.find(s => s.id.toUpperCase().includes(q) || s.heat.toUpperCase() === q);
+    if (hit) { symsHighlight = hit.id; drawGrid();
+      MESShell.toast('Located ' + hit.id + ' at bay ' + coord(hit.rc), 'success');
+    } else { symsHighlight = null; drawGrid(); MESShell.toast('No slab matches “' + searchInp.value + '” in SYMS', 'warning'); }
+  };
+  const left = MESC.card({
+    title:'SYMS Slab Yard — live occupancy map', icon:'fa-map-location-dot',
+    right: MESC.badge('Real-time', 'success', 'fa-satellite-dish'),
+    body: [
+      h('div', { class:'search-row' }, [
+        field('Search slab by ID / heat', searchInp),
+        h('button', { class:'btn btn-primary', onclick:doSearch }, [MESC.icon('fa-magnifying-glass'), 'Locate']),
+        h('button', { class:'btn btn-ghost', onclick:()=>{ searchInp.value=''; symsHighlight=null; drawGrid(); } }, [MESC.icon('fa-eraser'), 'Clear'])
+      ]),
+      gridHost,
+      h('div', { class:'yard-legend' }, [
+        lg('occ','Occupied'), lg('alloc','Allocated → HSM-2'), lg('hold','QC hold'), lg('free','Free')
+      ])
+    ]
+  });
+
+  drawGrid(); drawInv();
+  wrap.appendChild(h('div', { class:'yard-wrap' }, [left, invHost]));
+  return wrap;
+
+  function drawGrid() {
+    gridHost.innerHTML = '';
+    const grid = h('div', { class:'yard-grid', style:'grid-template-columns:repeat(' + cols + ',1fr)' });
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const named = symsSlabs.find(s => s.rc[0] === r && s.rc[1] === c);
+      let cls = 'yard-slot', label, sub = null;
+      if (named) {
+        cls += named.status === 'Allocated' ? ' allocated' : named.hold ? ' hold' : ' occupied';
+        if (symsHighlight === named.id) cls += ' hl';
+        label = coord([r,c]);
+        sub = named.status === 'Allocated' ? '→HSM' : named.hold ? 'HOLD' : named.heat.replace('H','');
+      } else if (generic(r,c)) {
+        cls += ' occupied'; label = coord([r,c]);
+      } else { cls += ' free'; label = coord([r,c]); }
+      const slot = h('div', { class:cls, title: named ? (named.id + ' · ' + named.grade + ' · ' + named.wt + ' MT · ' + named.status) : (generic(r,c) ? 'Occupied' : 'Free bay ' + coord([r,c])),
+        onclick: named ? () => selectSlab(named) : null }, [
+        h('span', { class:'sc' }, [label]), sub ? h('span', { class:'sm' }, [sub]) : null
+      ]);
+      grid.appendChild(slot);
+    }
+    gridHost.appendChild(grid);
+  }
+
+  function drawInv() {
+    invHost.innerHTML = '';
+    const ranked = symsSlabs.slice().sort((a,b) => a.prio - b.prio);
+    invHost.appendChild(MESC.card({
+      title:'HSM-2 Rolling-Plan Allocation', icon:'fa-arrow-right-arrow-left',
+      right: MESC.badge('priority-ranked', 'info', 'fa-arrow-down-1-9'),
+      body: [
+        MESC.alert('info', 'Priority selection', 'Slabs ranked for the active HSM-2 rolling plan by grade match (IS 2062 E250) and yard age. Hold slabs are excluded.'),
+        h('div', { class:'table-wrap mt-8' }, [MESC.table([
+          { key:'prio', label:'#', render:r => h('span', { class:'strong' }, [String(r.prio)]) },
+          { key:'id', label:'Slab', render:r => h('div', {}, [ h('div', { class:'mono strong' }, [tail(r.id)]),
+              h('div', { class:'hint' }, [r.heat + ' · ' + r.grade]) ]) },
+          { key:'wt', label:'MT', num:true, render:r => MESC.fmt(r.wt) },
+          { key:'bay', label:'Bay', render:r => h('span', { class:'mono' }, [coord(r.rc)]) },
+          { key:'status', label:'Status', render:r => r.status === 'Allocated' ? MESC.badge('Allocated to HSM Plan', 'success', 'fa-check')
+              : r.hold ? MESC.badge('On Hold', 'danger', 'fa-lock') : MESC.badge('Available', 'neutral') },
+          { key:'act', label:'', render:r => (r.status === 'Available' && !r.hold)
+              ? h('button', { class:'btn btn-outline btn-sm', onclick:() => allocate(r) }, [MESC.icon('fa-forward'), 'Allocate']) : '' }
+        ], ranked, { rowClass:r => r.id === symsSelected ? 'is-selected' : (r.status === 'Allocated' ? '' : '') })])
+      ]
+    }));
+    if (symsSelected) {
+      const s = symsSlabs.find(x => x.id === symsSelected);
+      invHost.appendChild(MESC.card({ class:'loc-readout mt-12', title:'Live location — ' + tail(s.id), icon:'fa-location-crosshairs',
+        body:[ MESC.kvGrid([ ['Slab ID', h('span',{class:'mono'},[s.id])], ['Heat', s.heat], ['Grade', s.grade],
+          ['Weight', s.wt + ' MT'], ['Yard bay', 'SYMS · ' + coord(s.rc)], ['Yard age', s.age],
+          ['Charging', s.hot ? 'Hot-charge candidate' : 'Cold'], ['Status', s.status] ]) ]}));
+    }
+  }
+
+  function selectSlab(s) { symsSelected = s.id; symsHighlight = s.id; drawGrid(); drawInv(); }
+  function allocate(s) {
+    s.status = 'Allocated'; symsSelected = s.id; drawGrid(); drawInv();
+    MESShell.toast('Slab ' + tail(s.id) + ' allocated to HSM-2 rolling plan — SYMS confirmed', 'success');
+  }
+  function occupiedCount() { let n = symsSlabs.length; for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) if (!symsSlabs.find(s=>s.rc[0]===r&&s.rc[1]===c) && generic(r,c)) n++; return n; }
+  function generic(r,c) { return ((r*cols + c) * 7 + 3) % 9 < 6; } // deterministic ~66% fill pattern
+}
+
+/* ===================== A4 — CYMS COIL YARD ===================== */
+function renderCyms() {
+  const wrap = h('div', {});
+  const y = D.yard.cyms, cols = y.cols, rows = y.rows;
+  const gridHost = h('div', {}), opsHost = h('div', {});
+
+  wrap.appendChild(h('div', { class:'card-grid cols-4 mb-12' }, [
+    MESC.kpi({ label:'CYMS capacity', value:MESC.fmt(y.capacityMT), unit:'MT', icon:'fa-warehouse', accent:'primary' }),
+    MESC.kpi({ label:'Occupied', value:MESC.fmt(y.occupiedMT), unit:'MT', icon:'fa-scroll', accent:'blue', sub:Math.round(y.occupiedMT/y.capacityMT*100) + '% utilised' }),
+    MESC.kpi({ label:'Coils stored', value:cymsCoils.filter(c=>c.status==='Stored').length, icon:'fa-layer-group', accent:'green' }),
+    MESC.kpi({ label:'Staged for dispatch', value:cymsCoils.filter(c=>c.status==='Dispatch staged').length, icon:'fa-truck-fast', accent:'amber' })
+  ]));
+
+  const searchInp = h('input', { placeholder:'e.g. ISWHSM2C2601001 or C2601', spellcheck:'false' });
+  const doSearch = () => {
+    const q = (searchInp.value || '').trim().toUpperCase();
+    const hit = cymsCoils.find(c => c.id.toUpperCase().includes(q) || c.ref.toUpperCase() === q);
+    if (q && hit) { cymsHighlight = hit.id; drawGrid(); MESShell.toast('Located ' + hit.id + ' at bay ' + coord(hit.rc) + ' · ' + hit.status, 'success'); }
+    else { cymsHighlight = null; drawGrid(); if (q) MESShell.toast('No coil matches “' + searchInp.value + '” in CYMS', 'warning'); }
+  };
+
+  const left = MESC.card({
+    title:'CYMS Coil Yard — occupancy map', icon:'fa-map-location-dot', right: MESC.badge('Real-time', 'success', 'fa-satellite-dish'),
+    body: [
+      h('div', { class:'search-row' }, [
+        field('Search coil by ID / reference', searchInp),
+        h('button', { class:'btn btn-primary', onclick:doSearch }, [MESC.icon('fa-magnifying-glass'), 'Locate']),
+        h('button', { class:'btn btn-ghost', onclick:()=>{ searchInp.value=''; cymsHighlight=null; drawGrid(); } }, [MESC.icon('fa-eraser'), 'Clear'])
+      ]),
+      gridHost,
+      h('div', { class:'yard-legend' }, [ lg('occ','Stored'), lg('alloc','Dispatch staged'), lg('free','Free') ])
+    ]
+  });
+
+  drawGrid(); drawOps();
+  wrap.appendChild(h('div', { class:'yard-wrap' }, [left, opsHost]));
+  return wrap;
+
+  function drawGrid() {
+    gridHost.innerHTML = '';
+    const grid = h('div', { class:'yard-grid', style:'grid-template-columns:repeat(' + cols + ',1fr)' });
+    for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) {
+      const named = cymsCoils.find(x => x.rc[0]===r && x.rc[1]===c);
+      let cls = 'yard-slot', sub = null;
+      if (named) {
+        cls += named.status === 'Dispatch staged' ? ' allocated' : ' occupied';
+        if (cymsHighlight === named.id) cls += ' hl';
+        sub = named.status === 'Dispatch staged' ? 'STAGE' : named.ref;
+      } else if (generic(r,c)) { cls += ' occupied'; }
+      else cls += ' free';
+      grid.appendChild(h('div', { class:cls, title: named ? (named.id + ' · ' + named.wt + ' MT · ' + named.status) : (generic(r,c)?'Occupied':'Free'),
+        onclick: named ? () => { cymsHighlight = named.id; drawGrid(); MESShell.toast(named.id + ' · bay ' + coord(named.rc) + ' · ' + named.status, 'info'); } : null },
+        [ h('span', { class:'sc' }, [coord([r,c])]), sub ? h('span', { class:'sm' }, [sub]) : null ]));
+    }
+    gridHost.appendChild(grid);
+  }
+
+  function drawOps() {
+    opsHost.innerHTML = '';
+    // coil arrival
+    opsHost.appendChild(MESC.card({
+      title:'Coil arrival → CYMS', icon:'fa-truck-ramp-box', right: coilArrived ? MESC.badge('Stored', 'success', 'fa-check') : MESC.badge('Pending', 'neutral'),
+      body: [
+        MESC.kvGrid([ ['Coil', h('span',{class:'mono strong'},[D.coil.ref])], ['Full ID', h('span',{class:'mono'},[D.coil.id])],
+          ['Grade', D.coil.grade], ['Weight', D.coil.wt + ' MT'] ]),
+        coilArrived
+          ? MESC.alert('success', 'Coil received at CYMS', 'Coil ' + D.coil.id + ' logged in and assigned to bay ' + coord(coilBay()) + '. Location updated on the yard map.')
+          : h('button', { class:'btn btn-primary mt-8', onclick: arriveCoil }, [MESC.icon('fa-arrow-right-to-bracket'), 'Record coil arrival (' + D.coil.ref + ')'])
+      ]
+    }));
+    // dispatch staging
+    const staged = cymsCoils.filter(c => c.status === 'Dispatch staged');
+    opsHost.appendChild(MESC.card({
+      title:'Dispatch staging', icon:'fa-truck-fast', right: staged.length + ' staged',
+      body: [
+        h('div', { class:'hint mb-8' }, ['Move a stored coil to the dispatch staging lane; it is then picked up in the rake-loading plan.']),
+        h('div', { class:'stage-lane' }, staged.length ? staged.map(c => h('div', { class:'stage-chip' }, [MESC.icon('fa-scroll','text-success'), tail(c.id), MESC.badge('staged','success')])) : [h('span',{class:'hint'},['— none staged —'])]),
+        h('div', { class:'table-wrap mt-8' }, [MESC.table([
+          { key:'id', label:'Coil', render:r => h('span',{class:'mono'},[tail(r.id)]) },
+          { key:'grade', label:'Grade' },
+          { key:'wt', label:'MT', num:true, render:r=>MESC.fmt(r.wt) },
+          { key:'bay', label:'Bay', render:r=>h('span',{class:'mono'},[coord(r.rc)]) },
+          { key:'status', label:'Status', render:r => r.status==='Dispatch staged' ? MESC.badge('Dispatch staged','success','fa-truck-fast') : MESC.badge('Stored','info') },
+          { key:'act', label:'', render:r => r.status==='Stored' ? h('button',{class:'btn btn-outline btn-sm', onclick:()=>stage(r)},[MESC.icon('fa-truck-fast'),'Stage']) : '' }
+        ], cymsCoils)])
+      ]
+    }));
+  }
+
+  function arriveCoil() {
+    coilArrived = true;
+    cymsCoils.unshift({ id:D.coil.id, ref:D.coil.ref, grade:D.coil.grade, wt:D.coil.wt, rc:coilBay(), status:'Stored' });
+    cymsHighlight = D.coil.id; drawGrid(); drawOps();
+    MESShell.toast('Coil ' + D.coil.ref + ' arrived — stored at bay ' + coord(coilBay()), 'success');
+  }
+  function stage(c) { c.status = 'Dispatch staged'; drawGrid(); drawOps(); MESShell.toast(tail(c.id) + ' moved to dispatch staging', 'success'); }
+  function coilBay() { return [2,6]; }
+  function generic(r,c) { return ((r*cols + c) * 5 + 2) % 8 < 4; }
+}
+
+/* ===================== A4 — RAKE YARD ===================== */
+function renderRake() {
+  const wrap = h('div', {});
+  const host = h('div', {});
+  wrap.appendChild(host);
+  draw();
+  return wrap;
+
+  function draw() {
+    host.innerHTML = '';
+    const totWt = rakeWagons.reduce((a,w) => a + w.wt, 0);
+    host.appendChild(h('div', { class:'card-grid cols-4 mb-12' }, [
+      MESC.kpi({ label:'Rake', value:D.yard.rake.rakeNo, icon:'fa-train', accent:'primary' }),
+      MESC.kpi({ label:'Wagons placed', value:rakeWagons.length, icon:'fa-train-subway', accent:'blue', sub:'of ' + D.yard.rake.wagonsPlaced + ' plan' }),
+      MESC.kpi({ label:'Coils loaded', value:rakeWagons.reduce((a,w)=>a+w.coils,0), icon:'fa-scroll', accent:'green' }),
+      MESC.kpi({ label:'Load', value:MESC.pct(totWt,1), unit:'MT', icon:'fa-weight-hanging', accent:'amber' })
+    ]));
+
+    // dispatch plan
+    host.appendChild(MESC.card({
+      title:'Rake-wise Dispatch Plan — ' + D.yard.rake.rakeNo, icon:'fa-clipboard-list',
+      right: MESC.badge('CYMS → Rake', 'info', 'fa-arrow-right'),
+      body: [ MESC.table([
+        { key:'wagon', label:'Wagon', render:r => h('span',{class:'mono strong'},[r.wagon]) },
+        { key:'dest', label:'Destination' },
+        { key:'coils', label:'Coils', num:true },
+        { key:'wt', label:'Net wt (MT)', num:true, render:r=>MESC.fmt(r.wt) },
+        { key:'status', label:'Status', render:r => MESC.statusBadge(r.status === 'Loaded' ? 'completed' : 'planned', r.status) }
+      ], rakeWagons) ]
+    }));
+
+    // wagon entry
+    const wgnInp = h('input', { placeholder:'BOXNHL-24521', spellcheck:'false' });
+    const dstInp = h('input', { placeholder:'Customer — destination', value:'L&T — Kanchipuram' });
+    const colInp = h('input', { type:'number', value:'2', min:'1', max:'4', style:'max-width:90px' });
+    host.appendChild(MESC.card({
+      title:'Wagon entry', icon:'fa-plus', body: [
+        h('div', { class:'form-row' }, [ field('Wagon number', wgnInp), field('Destination', dstInp), field('Coils', colInp) ]),
+        h('button', { class:'btn btn-primary', onclick: addWagon }, [MESC.icon('fa-plus'), 'Add wagon to rake'])
+      ]
+    }));
+
+    // railway memo
+    host.appendChild(MESC.card({
+      title:'Railway memo', icon:'fa-file-invoice',
+      right: MESC.badge('RR generation', 'purple', 'fa-file-pdf'),
+      body: [
+        h('div', { class:'hint mb-8' }, ['Generate the railway receipt / dispatch memo for the loaded rake — coil manifest, wagon-wise weights and consignee details, ready as a printable PDF.']),
+        h('button', { class:'btn btn-success', onclick: genMemo }, [MESC.icon('fa-file-pdf'), 'Generate railway memo (PDF)'])
+      ]
+    }));
+
+    function addWagon() {
+      const wn = (wgnInp.value || '').trim();
+      if (!wn) { MESShell.toast('Enter a wagon number', 'warning'); return; }
+      rakeWagons.push({ wagon:wn, dest:(dstInp.value||'—'), coils:Number(colInp.value)||2, wt:MESC.pct((Number(colInp.value)||2)*25.4,1), status:'Placed' });
+      draw();
+      MESShell.toast('Wagon ' + wn + ' added to rake ' + D.yard.rake.rakeNo, 'success');
+    }
+  }
+
+  function genMemo() {
+    const totWt = rakeWagons.reduce((a,w) => a + w.wt, 0);
+    const totCoils = rakeWagons.reduce((a,w) => a + w.coils, 0);
+    MESC.modal({
+      title:'Railway Memo — ' + D.yard.rake.rakeNo, icon:'fa-file-invoice', size:'lg',
+      body: [ h('div', { class:'memo-sheet' }, [
+        h('div', { class:'memo-hd' }, [
+          h('div', {}, [ h('h3', {}, ['Integrated Steel Works']), h('div',{class:'hint'},['Railway Dispatch Memo · Coil Yard (CYMS)']) ]),
+          h('div', { class:'right-align' }, [ h('div',{class:'mono strong'},['RR No. RR-ISW-260709']), h('div',{class:'hint'},['Date: ' + D.plant.date]) ])
+        ]),
+        MESC.kvGrid([ ['Rake', D.yard.rake.rakeNo], ['Siding', 'Central Works — CYMS siding 3'],
+          ['Wagons', String(rakeWagons.length)], ['Coils', String(totCoils)], ['Net weight', MESC.pct(totWt,1) + ' MT'], ['Freight', 'To-pay'] ]),
+        h('div', { class:'divider' }),
+        MESC.table([
+          { key:'wagon', label:'Wagon', render:r=>h('span',{class:'mono'},[r.wagon]) },
+          { key:'dest', label:'Consignee / destination' },
+          { key:'coils', label:'Coils', num:true },
+          { key:'wt', label:'Net wt (MT)', num:true, render:r=>MESC.fmt(r.wt) }
+        ], rakeWagons),
+        h('div', { class:'hint mt-8' }, ['System-generated · figures match CYMS weighbridge & MES coil records.'])
+      ]) ],
+      footer: [
+        h('button', { class:'btn btn-ghost', onclick:(e)=>e.target.closest('.modal-backdrop').remove() }, ['Close']),
+        h('button', { class:'btn btn-success', onclick:() => MESShell.toast('Railway memo RR-ISW-260709 generated (PDF) — ' + rakeWagons.length + ' wagons', 'success') }, [MESC.icon('fa-download'), 'Download PDF'])
+      ]
+    });
+  }
+}
+
+/* ---------- small helpers ---------- */
+function field(label, ctrl) { return h('div', { class:'field' }, [h('label', {}, [label]), ctrl]); }
+function lg(sw, t) { return h('span', { class:'lg' }, [h('span', { class:'sw ' + sw }), t]); }
+function coord(rc) { return 'ABCDEF'[rc[0]] + '-' + String(rc[1] + 1).padStart(2, '0'); }
+function tail(id) { return id.length > 8 ? '…' + id.slice(-8) : id; }
+</script>
+</body>
+</html>
