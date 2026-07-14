@@ -75,7 +75,7 @@
 | `mes_qc_chemistry_type` | — (LADLE / PRODUCT / CHECK) | Ladle / product / check analysis |
 | `mes_qc_defect_type` | — | Defect categories |
 | `mes_qc_defect_reason` | — | Defect root reasons |
-| `mes_qc_sample_status` | — (DRAWN/ISSUED/TESTED/CONSUMED/RETAINED) | Sample lifecycle |
+| `mes_qc_sample_status` | — (PLANNED/DRAWN/ISSUED/TESTED/CONSUMED/RETAINED) | Sample lifecycle (**PLANNED** = rule-generated, not yet drawn — drives the sample-plan strip) |
 | `mes_qc_material_status` | — (OK/HOLD/REJECTED/REWORK/QUARANTINE) | Quality status of material |
 | `mes_qc_ud_type` | — | Usage-decision categories |
 | `mes_qc_ud_reason` | — | Usage-decision reasons |
@@ -145,6 +145,35 @@
 | `sequence_no` | integer | | Y | |
 | | | | | **+ audit tail** |
 *Presence of active rows for an operation = that operation requires QA (D9). Absence = none.*
+
+### 5.6 `mes_qc_corrective_action` — recommended corrective actions (drives the OOS corrective-action modal)
+| Field | Type | Key | Null | Description |
+|-------|------|-----|------|-------------|
+| `corrective_action_id` | bigint | PK | N | |
+| `code` / `name` | varchar(50)/(255) | | N | |
+| `scope` | varchar(20) | | N | ATTRIBUTE / CLEARANCE_TYPE / DEFECT — what the recommendation keys off |
+| `attribute_id` | bigint | FK→`mes_global_attributes` | Y | When scope=ATTRIBUTE (e.g. C, S, YS out of range) |
+| `clearance_type` | varchar(30) | | Y | When scope=CLEARANCE_TYPE (CHEMISTRY/MECHANICAL/…) |
+| `defect_id` | bigint | FK→`mes_qc_defect` | Y | When scope=DEFECT |
+| `deviation_dir` | varchar(10) | | Y | BELOW_MIN / ABOVE_MAX / ANY — which side of the limit triggers it |
+| `step_no` | integer | | N | Order within the recommended sequence |
+| `action_text` | varchar(500) | | N | e.g. "Argon-stir + trim addition at LF", "Re-heat-treat per HT-16" |
+| `target_operation_id` | bigint | FK→`mes_operations` | Y | Station/op that performs the action |
+| `notify_roles` | varchar(255) | | Y | Comma list of roles alerted (Shift Manager, QC Inspector, …) |
+| `sequence_no` | integer | | Y | |
+| | | | | **+ audit tail** |
+*Product- and process-agnostic: recommendations are keyed to the failing **characteristic / clearance type / defect**, not to a fixed steel route. Feeds the Chemistry (and any capture screen's) out-of-spec → auto-hold → corrective-action flow.*
+
+### 5.7 `mes_qc_grade_downgrade` — grade-downgrade hierarchy (drives the downgrade dropdown)
+| Field | Type | Key | Null | Description |
+|-------|------|-----|------|-------------|
+| `grade_downgrade_id` | bigint | PK | N | |
+| `from_grade` | varchar(50) | | N | Grade being downgraded |
+| `to_grade` | varchar(50) | | N | Permitted downgrade target |
+| `priority` | integer | | N | Preference order among alternates |
+| `remarks` | varchar(255) | | Y | Condition / limitation |
+| | | | | **+ audit tail** |
+*Turns Salvage/UD "downgrade" from free text into a controlled hierarchy; the alternate open-order rematch then searches the order book for open demand in `to_grade`. Grade is generic (D0) — works for any product.*
 
 ---
 
@@ -325,6 +354,9 @@ Add: `sample_type_id` FK→`mes_qc_sample_type` · `sampling_rule_id` FK→`mes_
 | `schedule_material_child_id` | bigint | FK→`mes_schedule_material_childs` | Y | |
 | `operation_id` | bigint | FK→`mes_operations` | Y | Where detected |
 | `material_number` / `heat_number` | varchar(100) | | Y | Denormalized |
+| `detection_source` | varchar(30) | | Y | MANUAL / ONLINE_GAUGE / CAMERA / NDT / LAB — how the defect was detected |
+| `detected_by` | bigint | | Y | Inspector / operator |
+| `detected_at` | timestamptz | | Y | Detection time |
 | `severity` | varchar(20) | | N | Overrides catalogue default |
 | `is_major` | boolean | | N | Major/critical flag |
 | `quantity` | numeric(18,4) | | Y | Count/qty affected |
@@ -335,7 +367,7 @@ Add: `sample_type_id` FK→`mes_qc_sample_type` · `sampling_rule_id` FK→`mes_
 | `position_ref` | varchar(50) | | Y | Face/end/zone (TOP/BOTTOM/HEAD/TAIL/ZONE-A) |
 | `location_text` | varchar(255) | | Y | Free description |
 | `location_uom_unit_id` | bigint | FK→`mes_units` | Y | |
-| `disposition` | varchar(30) | | Y | REWORK/REJECT/SALVAGE/CONCESSION/SCRAP |
+| `disposition` | varchar(30) | | Y | REWORK/REJECT/SALVAGE/CONCESSION/DOWNGRADE/SCRAP |
 | `salvage_operation_id` | bigint | FK→`mes_operations` | Y | Rework/reroute target |
 | `ut_remarks` | varchar(255) | | Y | NDT note (UT/MPI) |
 | `tpi_punch` | varchar(50) | | Y | Third-party-inspection stamp |
@@ -359,11 +391,14 @@ Add: `sample_type_id` FK→`mes_qc_sample_type` · `sampling_rule_id` FK→`mes_
 | `test_record_id` | bigint | FK→`mes_qc_test_record` | Y | Source (if test) |
 | `tdc_id` | bigint | FK→`mes_tdc_input` | Y | |
 | `heat_number` / `material_number` | varchar(100) | | Y | Denormalized |
-| `result` | varchar(20) | | N | CLEARED/HOLD/REJECTED/CONDITIONAL |
+| `result` | varchar(20) | | N | CLEARED/HOLD/REJECTED/CONDITIONAL (CONDITIONAL = acceptance under deviation) |
+| `hold_reason` | varchar(255) | | Y | Reason captured when result=HOLD (required at hold time) |
+| `deviation_ref` | varchar(100) | | Y | Concession / AUD reference when result=CONDITIONAL |
 | `cleared_by` | bigint | | Y | |
 | `cleared_date` | timestamptz | | Y | |
 | `remarks` | varchar(500) | | Y | |
 | | | | | **+ audit tail** |
+*`CONDITIONAL` = **acceptance under deviation (AUD)**: material is released conditionally and stays flagged until a multi-level sign-off (recorded in `mes_qc_approval` §10.3) completes; `deviation_ref` links the concession.*
 
 ---
 
@@ -383,8 +418,9 @@ Add: `sample_type_id` FK→`mes_qc_sample_type` · `sampling_rule_id` FK→`mes_
 | `ud_reason_id` | bigint | FK→`mes_qc_ud_reason` | Y | |
 | `ud_action_id` | bigint | FK→`mes_qc_ud_action` | Y | Drives resulting status |
 | `material_status_id` | bigint | FK→`mes_qc_material_status` | Y | Resulting quality status |
-| `decision` | varchar(20) | | N | ACCEPT/REJECT/CONDITIONAL/REWORK |
+| `decision` | varchar(20) | | N | ACCEPT/REJECT/CONDITIONAL/REWORK/DOWNGRADE |
 | `ud_remarks` | varchar(1000) | | Y | **UD Remarks** |
+| `deviation_ref` | varchar(100) | | Y | Concession / AUD reference (when decision=CONDITIONAL) |
 | `is_auto` | boolean | | N | Auto-UD via business rule |
 | `decided_by` | bigint | | Y | |
 | `decided_date` | timestamptz | | Y | |
@@ -393,6 +429,8 @@ Add: `sample_type_id` FK→`mes_qc_sample_type` · `sampling_rule_id` FK→`mes_
 | `approved_date` | timestamptz | | Y | |
 | `hold_id` | bigint | FK→`mes_inventory_holds` | Y | Link to hold/release |
 | | | | | **+ audit tail** |
+
+*Lot identity is **kind-aware**: `batch_id` = Heat/lot, `schedule_material_child_id` = the piece (Slab / Coil / Bar / Bundle); the UD screen labels the lot by the batch/child's `material_form` (D0), not heat-only. The concession sign-off chain lives in `mes_qc_approval` (§10.3).*
 
 ### 10.2 `mes_qc_usage_decision_line` — aggregated detail (drill-down)
 | Field | Type | Key | Null | Description |
@@ -405,6 +443,21 @@ Add: `sample_type_id` FK→`mes_qc_sample_type` · `sampling_rule_id` FK→`mes_
 | `result` | varchar(20) | | N | |
 | `remarks` | varchar(255) | | Y | |
 | | | | | **+ audit tail** |
+
+### 10.3 `mes_qc_approval` — generic multi-level approval / concession sign-off (reused by UD, Clearance, Salvage)
+| Field | Type | Key | Null | Description |
+|-------|------|-----|------|-------------|
+| `approval_id` | bigint | PK | N | |
+| `entity_type` | varchar(20) | | N | USAGE_DECISION / CLEARANCE / SALVAGE — what is being signed off |
+| `entity_id` | bigint | | N | Row in that entity |
+| `approval_level` | integer | | N | 1..n in the chain |
+| `approver_role` | varchar(50) | | N | SHIFT_MANAGER / QUALITY / QC_HEAD / PLANNER / PLANT_HEAD (configurable) |
+| `approver_id` | bigint | | Y | User who acted |
+| `status` | varchar(20) | | N | PENDING / APPROVED / REJECTED |
+| `action_date` | timestamptz | | Y | |
+| `remarks` | varchar(500) | | Y | |
+| | | | | **+ audit tail** |
+*Mirrors `mes_tdc_approval` (§11.11) but polymorphic, so the **Acceptance-Under-Deviation** chain works identically on a Clearance gate, a Usage Decision and a Salvage disposition — approver roles are configuration, not hard-coded, satisfying the spec's Planner → Quality → Plant-Head model.*
 
 ---
 
@@ -556,7 +609,9 @@ When a clearance/UD does **not** pass (`HOLD`/`REJECTED`/`CONDITIONAL`, or UD de
 | `salvage_type_id` | bigint | FK→`mes_qc_salvage_type` | N | Disposition |
 | `target_operation_id` | bigint | FK→`mes_operations` | Y | Rework/reroute/re-HT destination |
 | `target_sku_id` | bigint | FK→`mes_skus` | Y | Reroute target product |
-| `downgrade_grade` | varchar(50) | | Y | Downgrade target grade (data) |
+| `downgrade_grade` | varchar(50) | | Y | Downgrade target grade (from `mes_qc_grade_downgrade` §5.7) |
+| `realloc_sales_order_line_id` | bigint | FK→ sales-order line | Y | Alternate open SO the downgraded material is re-allocated to |
+| `realloc_status` | varchar(20) | | Y | MATCHED / ALLOCATED / STOCK / NONE — outcome of the open-order rematch |
 | `reason` | varchar(255) | | Y | |
 | `qty_in` / `qty_out` / `qty_loss` | numeric(18,4) | | Y | Material-loss tracking |
 | `qty_unit_id` | bigint | FK→`mes_units` | Y | |
@@ -602,6 +657,40 @@ When a clearance/UD does **not** pass (`HOLD`/`REJECTED`/`CONDITIONAL`, or UD de
 
 ### 12.7 Flow
 clearance/UD not-pass → **raise NCR** (severity · category · source) → **disposition via Salvage** (pick `salvage_type`; if `requires_target_operation`, set destination op / downgrade grade; capture `qty_in`/`qty_out` → loss & loss%) → material routed per `routes_to` (resample→Sampling §7.5, reinspect→Inspection §6, rework/re-HT/reroute→Production op, return→RM §13, scrap→terminal) → re-clearance on the routed material → **CAPA** actions tracked & verified → **NCR closed**. Salvage loss feeds the loss/yield report (§17).
+
+### 12.8 `mes_qc_fg_recall` — finished-goods recall (post-dispatch re-inspection)
+When a quality problem surfaces **after dispatch** (chemistry deviation, retest failure, surface complaint, mixed-heat / traceability suspicion, MTC discrepancy), a recall pulls the shipped material back for re-inspection and quarantine.
+
+| Field | Type | Key | Null | Description |
+|-------|------|-----|------|-------------|
+| `fg_recall_id` | bigint | PK | N | |
+| `recall_number` | varchar(100) | UQ | N | |
+| `recall_date` | timestamptz | | N | |
+| `reason_code` | varchar(40) | | N | CHEM_DEVIATION / RETEST_FAIL / SURFACE_COMPLAINT / TRACEABILITY / MTC_DISCREPANCY — data, not enum |
+| `ncr_id` | bigint | FK→`mes_qc_ncr` | Y | NCR the recall raises / links to |
+| `batch_id` | bigint | FK→`mes_batches` | Y | Heat/lot recalled |
+| `heat_number` | varchar(100) | | Y | Denormalized |
+| `raised_by` | bigint | | Y | |
+| `status` | varchar(20) | | N | RAISED / IN_PROGRESS / CLOSED / CANCELLED |
+| `notify_customer` | boolean | | N | Customer / SAP notification sent |
+| `remarks` | varchar(500) | | Y | |
+| | | | | **+ audit tail** |
+
+### 12.9 `mes_qc_fg_recall_unit` — recalled units (lines)
+| Field | Type | Key | Null | Description |
+|-------|------|-----|------|-------------|
+| `fg_recall_unit_id` | bigint | PK | N | |
+| `fg_recall_id` | bigint | FK→`mes_qc_fg_recall` | N | |
+| `schedule_material_child_id` | bigint | FK→`mes_schedule_material_childs` | Y | Recalled piece (coil / bar / bundle) |
+| `material_number` | varchar(100) | | Y | Denormalized |
+| `dispatch_ref` | varchar(100) | | Y | Original dispatch / invoice ref |
+| `location` | varchar(100) | | Y | Customer / warehouse / in-transit |
+| `dispatch_status` | varchar(20) | | Y | DISPATCHED / IN_TRANSIT / AT_CUSTOMER |
+| `is_returned` | boolean | | N | Physically returned |
+| `is_quarantined` | boolean | | N | Quarantined on return (sets material_status QUARANTINE) |
+| `disposition` | varchar(30) | | Y | Re-inspect / rework / downgrade / scrap outcome |
+| | | | | **+ audit tail** |
+*Recall reuses the existing NCR / Salvage / attachment machinery; returned units re-enter QA (re-inspection §6, re-clearance §9) and quarantine uses `material_status` QUARANTINE (§5.1).*
 
 ---
 
@@ -883,14 +972,14 @@ erDiagram
 | Group | Tables |
 |-------|--------|
 | **Masters (10 lookups)** | `inspection_type`, `test_type`, `chemistry_type`, `defect_type`, `defect_reason`, `sample_status`, `material_status`, `ud_type`, `ud_reason`, `ud_action` |
-| **Masters (config)** | `test`, `test_attribute`, `defect`, `stage_qc_map` |
+| **Masters (config)** | `test`, `test_attribute`, `defect`, `stage_qc_map`, `corrective_action`, `grade_downgrade` |
 | **Inspection** | `inspection`, `inspection_result` |
 | **Testing** | `sample`, `test_record`, `test_result`, `heat_chemistry` (wide) |
 | **Sampling** | `sample_type`, `sampling_rule`, `sampling_rule_test`, `sample_prep_checklist` + `_step` + `_record`, `agency` (+ `sample` extended) |
 | **Defects** | `defect_record` (unified + location model) |
 | **Clearance** | `clearance` |
-| **Usage Decision** | `usage_decision`, `usage_decision_line` |
-| **Salvage / NCR / CAPA** | `salvage_type`, `salvage`, `ncr_category`, `ncr`, `capa`, `attachment` (generic) |
+| **Usage Decision** | `usage_decision`, `usage_decision_line`, `approval` (generic multi-level) |
+| **Salvage / NCR / CAPA** | `salvage_type`, `salvage`, `ncr_category`, `ncr`, `capa`, `attachment` (generic), `fg_recall` + `fg_recall_unit` |
 | **RM Quality** | `supplier`, `rm_receipt`, `rm_inspection`, `rm_inspection_result`, `supplier_feedback` |
 | **Instruments** | `instrument_type`, `instrument`, `calibration`, `calibration_point`, `instrument_verification` |
 | **Roll Shop** | `roll_type`, `roll`, `roll_inspection`, `roll_grinding` |
@@ -898,11 +987,11 @@ erDiagram
 | **TDC** | `mes_tdc_input` (extend), **`tdc_limit`** (3-tier core), `standard`, `standard_limit`, `tdc_standard`, `tdc_test_standard`, `tdc_customer_grade`, `tdc_remark` + `tdc_remark_target`, `tdc_ht`, `tdc_approval` |
 | **Reporting** | `v_qc_test_result`, `v_qc_inspection`, `v_qc_defect` (views) |
 
-≈ **63 new tables + 1 extended (`mes_tdc_input`) + 3 views.**
+≈ **68 new tables + 1 extended (`mes_tdc_input`) + 3 views.** *(+5 for the Track A back-ports: `corrective_action`, `grade_downgrade`, `approval`, `fg_recall`, `fg_recall_unit`.)*
 
 ---
 
 ## 20. Open items
 - **Heat formation** (combining UIDs into heats) — **Production module, out-of-scope for QA.** QA touchpoints only: heat-chemistry validation (§7.4 / Heat Chemistry), a thin Quality approval gate, and Usage Decision.
-- Number-generation rules (`inspection_number`, `test_record_number`, `sample_number`, `ud_number`, `ncr_number`, `salvage_number`).
+- Number-generation rules (`inspection_number`, `test_record_number`, `sample_number`, `ud_number`, `ncr_number`, `salvage_number`, `recall_number`).
 - Confirm the wide `mes_qc_heat_chemistry` column set mirrors the deployment's configured chemistry attribute family (D0 / G6) — not a fixed/company-specific list.

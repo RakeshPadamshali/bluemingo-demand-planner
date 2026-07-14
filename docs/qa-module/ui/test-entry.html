@@ -129,6 +129,18 @@ table.tgrid{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .sidebar .navgrp>.s-group .gchev{margin-left:auto;font-size:9px;width:auto;transition:transform .15s;}
 .sidebar .navgrp.collapsed>.s-group .gchev{transform:rotate(-90deg);}
 .sidebar .navgrp.collapsed .grp-items{display:none;}
+
+/* hold-reason modal */
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:4000;}
+.modal{background:#fff;border-radius:var(--r-lg);box-shadow:0 12px 40px rgba(0,0,0,.28);width:420px;max-width:calc(100vw - 32px);overflow:hidden;}
+.modal .m-head{display:flex;align-items:center;gap:var(--sp2);padding:var(--sp3) var(--sp4);border-bottom:1px solid var(--color-border-light);font-weight:600;font-size:var(--fs-md);}
+.modal .m-head i{color:var(--color-warning);}
+.modal .m-body{padding:var(--sp4);display:flex;flex-direction:column;gap:var(--sp3);}
+.modal .m-body .hint{font-size:var(--fs-sm);color:var(--color-text-muted);line-height:1.5;}
+.modal .m-body label{display:block;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.4px;color:var(--color-text-muted);font-weight:600;margin-bottom:6px;}
+.modal .m-body select{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:var(--r-sm);font-size:var(--fs-base);font-family:inherit;background:#fff;}
+.modal .m-body select:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px rgba(var(--color-primary-rgb),.15);}
+.modal .m-foot{display:flex;justify-content:flex-end;gap:var(--sp2);padding:var(--sp3) var(--sp4);border-top:1px solid var(--color-border-light);background:var(--color-bg-alt);}
 </style>
 </head>
 <body>
@@ -250,7 +262,10 @@ const SAMPLES=[
  {no:'TST-2526-0037',sample:'S-2526-0460',heat:'2526-16819',material:'E122789',grade:'316L',tdc:'TDC-006132',ht:'Sol. Ann.',orient:'Longitudinal',state:'PENDING'},
  {no:'TST-2526-0038',sample:'S-2526-0462',heat:'2526-16783',material:'A002668',grade:'316L',tdc:'TDC-006132',ht:'Sol. Ann.',orient:'Longitudinal',state:'PASS'},
  {no:'TST-2526-0039',sample:'S-2526-0466',heat:'2526-16798',material:'E122319',grade:'304L',tdc:'TDC-004810',ht:'Annealed',orient:'Transverse',state:'HOLD'},
- {no:'TST-2526-0040',sample:'S-2526-0470',heat:'2526-16426',material:'E120808',grade:'416',tdc:'TDC-003922',ht:'Q&T',orient:'Longitudinal',state:'PENDING'}
+ {no:'TST-2526-0040',sample:'S-2526-0470',heat:'2526-16426',material:'E120808',grade:'416',tdc:'TDC-003922',ht:'Q&T',orient:'Longitudinal',state:'PENDING'},
+ {no:'TST-2526-0041',sample:'S-2526-0475',heat:'2526-16500',material:'B030310',grade:'17-4PH',tdc:'TDC-004275',ht:'H1150',orient:'Longitudinal',state:'IN PROGRESS',srcKind:'lab',sources:['MS Central Lab','TPI · NABL Agency'],
+   labVals:{'MS Central Lab':{'YS 0.2%':805,'UTS':965,'Elongation':18,'R.A.':55,'Hardness':33,'Impact CVN':60},
+            'TPI · NABL Agency':{'YS 0.2%':798,'UTS':958,'Elongation':17,'R.A.':53,'Hardness':32,'Impact CVN':57}}}
 ];
 const BADGE={'PASS':'b-pass','FAIL':'b-fail','PENDING':'b-pend','HOLD':'b-hold','CLEARED':'b-clr','IN PROGRESS':'b-prog'};
 
@@ -264,13 +279,35 @@ function deriveSpec(no,ai,si,a,isFail){
   if(max!=null)return rnd(max*(0.50+f*0.4));
   return rnd(f*100);
 }
+/* ---- Unified column model ----
+   Columns are NAMED sources whose COUNT can vary per attribute.
+   spec mode : sources are specimens (Specimen 1..N); active count per attribute = the test-master no_of_specimens (a[4]); unused cells greyed.
+   lab  mode : sources are named labs/agencies; a characteristic is reported by every lab and aggregated cross-lab to the final value vs TDC. */
+function specimenNames(n){var a=[];for(var i=1;i<=n;i++)a.push('Specimen '+i);return a;}
+function maxSpecCount(grade){return specFor(grade).reduce(function(m,a){return Math.max(m,a[4]);},1);}
+function colsFor(sm){
+  if(sm.srcKind==='lab'&&sm.sources&&sm.sources.length){
+    var names=sm.sources.slice();
+    return {kind:'lab',names:names,nCols:names.length,activeOf:function(){return names.length;}};
+  }
+  var n=maxSpecCount(sm.grade);
+  return {kind:'spec',names:specimenNames(n),nCols:n,activeOf:function(a){return a[4];}};
+}
+function cellValue(sm,col,a,ai,si,isFail){
+  if(col.kind==='lab'&&sm.labVals){
+    var lab=col.names[si];
+    if(sm.labVals[lab]&&sm.labVals[lab][a[0]]!=null)return sm.labVals[lab][a[0]];
+  }
+  return deriveSpec(sm.no,ai,si,a,isFail);
+}
 const store={};
 SAMPLES.forEach(sm=>{
-  const spc=specFor(sm.grade); store[sm.no]={_src:(sm.state==='PENDING')?'—':'Instrument'};
-  spc.forEach(a=>store[sm.no][a[0]]=['','','']);
+  const spc=specFor(sm.grade), col=colsFor(sm);
+  store[sm.no]={_src:(sm.state==='PENDING')?'—':(col.kind==='lab'?'Labs':'Instrument')};
+  spc.forEach(a=>store[sm.no][a[0]]=col.names.map(()=>''));
   if(sm.state!=='PENDING'){
     const failAttr=(sm.state==='FAIL'||sm.state==='HOLD')?hashIdx(sm.no,spc.length):-1;
-    spc.forEach((a,ai)=>{for(let si=0;si<a[4];si++)store[sm.no][a[0]][si]=deriveSpec(sm.no,ai,si,a,ai===failAttr);});
+    spc.forEach((a,ai)=>{const active=col.activeOf(a);for(let si=0;si<active;si++)store[sm.no][a[0]][si]=cellValue(sm,col,a,ai,si,ai===failAttr);});
   }
 });
 let curIdx=0; const cur=()=>SAMPLES[curIdx]; const spec=()=>specFor(cur().grade);
@@ -286,6 +323,7 @@ function fmtSpec(a){const mn=a[2],mx=a[3];if(mn!=null&&mx!=null)return mn+'–'+
 function srcTag(s){return ` <span class="srctag ${s==='TDC'?'t-tdc':'t-def'}" title="${s==='TDC'?'From customer TDC — overrides the test default':'Test-master default — no TDC limit for this attribute'}">${s}</span>`;}
 function overall(){let fail=false,empty=false;spec().forEach(a=>{const r=resultOf(a,aggregate(store[cur().no][a[0]],a[5]));if(r==='')empty=true;else if(r==='FAIL')fail=true;});return fail?'FAIL':(empty?'PENDING':'PASS');}
 function badge(r){return r===''?'<span class="badge b-pend">—</span>':`<span class="badge ${r==='PASS'?'b-pass':'b-fail'}">${r}</span>`;}
+function mesToast(m,k){var h=document.getElementById('mesToastHost');if(!h){h=document.createElement('div');h.id='mesToastHost';h.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px';document.body.appendChild(h);}var t=document.createElement('div');t.textContent=m;t.style.cssText='padding:10px 14px;border-radius:8px;font:13px Roboto,sans-serif;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;background:'+({ok:'#2e7d32',warn:'#ed6c02',err:'#c62828'}[k]||'#333');h.appendChild(t);requestAnimationFrame(function(){t.style.opacity='1';});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},250);},2600);}
 
 function renderList(){
   const q=(document.getElementById('search').value||'').toLowerCase();
@@ -299,12 +337,12 @@ function renderList(){
 function sel(i){curIdx=i;renderList();renderDetail();}
 
 function renderDetail(){
-  const s=cur(), src=store[s.no]._src;
+  const s=cur(), src=store[s.no]._src, col=colsFor(s);
   const chips=[['Heat',s.heat],['Material',s.material],['Grade',s.grade],['TDC',s.tdc],['HT',s.ht],['Orientation',s.orient],['Test record',s.no]]
     .map(p=>`<span class="chip">${p[0]}<b>${p[1]}</b></span>`).join('')+`<span class="chip src">Source<b>${src}</b></span>`;
   const rows=spec().map((a,ai)=>{
     const vals=store[s.no][a[0]];
-    const cells=[0,1,2].map(si=>si<a[4]
+    const cells=col.names.map((nm,si)=>si<col.activeOf(a)
       ?`<td class="spc"><input data-ai="${ai}" data-si="${si}" type="number" step="any" value="${vals[si]}" oninput="onEdit(this)"/></td>`
       :`<td class="na">·</td>`).join('');
     const agg=aggregate(vals,a[5]), r=resultOf(a,agg);
@@ -313,18 +351,20 @@ function renderDetail(){
       <td id="res-${ai}">${badge(r)}</td></tr>`;
   }).join('');
   const ov=overall();
+  const heads='<th>Attribute</th><th>Unit</th><th>Valid range</th>'+col.names.map(function(nm){return '<th class="spc">'+nm+'</th>';}).join('')+'<th>Aggregate</th><th>Result</th>';
+  const actionsHtml=(col.kind==='lab'
+    ? col.names.map(function(lab,li){return '<button class="btn btn-ghost btn-sm" onclick="receiveLab('+li+')"><i class="fa-solid fa-flask-vial"></i> Receive · '+lab+'</button>';}).join('')
+    : '<button class="btn btn-ghost btn-sm" onclick="importInst()"><i class="fa-solid fa-gauge"></i> Import from instrument</button>')
+    + '<button class="btn btn-ghost btn-sm" onclick="saveDraft()"><i class="fa-solid fa-floppy-disk"></i> Save</button>';
   document.getElementById('detail').innerHTML=`
     <div class="dhead">
       <div><div class="dh-title">${s.sample} <span class="badge ${BADGE[s.state]}">${s.state}</span></div>
         <div class="chips">${chips}</div></div>
-      <div class="dactions">
-        <button class="btn btn-ghost btn-sm" onclick="importInst()"><i class="fa-solid fa-gauge"></i> Import from instrument</button>
-        <button class="btn btn-ghost btn-sm"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-      </div>
+      <div class="dactions">${actionsHtml}</div>
     </div>
     <div class="grid-wrap">
       <table class="tgrid">
-        <thead><tr><th>Attribute</th><th>Unit</th><th>Valid range</th><th class="spc">#1</th><th class="spc">#2</th><th class="spc">#3</th><th>Aggregate</th><th>Result</th></tr></thead>
+        <thead><tr>${heads}</tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -353,17 +393,53 @@ function refreshOverall(){
   btn.innerHTML=`<i class="fa-solid ${ov==='FAIL'?'fa-ban':'fa-circle-check'}"></i> ${ov==='FAIL'?'Put on hold':'Record test clearance'}`;
 }
 function importInst(){
-  const s=cur(),sp=spec(); const failAttr=(s.state==='FAIL'||s.state==='HOLD')?hashIdx(s.no,sp.length):-1;
-  sp.forEach((a,ai)=>{store[s.no][a[0]]=['','',''];for(let si=0;si<a[4];si++)store[s.no][a[0]][si]=deriveSpec(s.no,ai,si,a,ai===failAttr);});
+  const s=cur(),sp=spec(),col=colsFor(s); const failAttr=(s.state==='FAIL'||s.state==='HOLD')?hashIdx(s.no,sp.length):-1;
+  sp.forEach((a,ai)=>{store[s.no][a[0]]=col.names.map(()=>'');const active=col.activeOf(a);for(let si=0;si<active;si++)store[s.no][a[0]][si]=cellValue(s,col,a,ai,si,ai===failAttr);});
   store[s.no]._src='Instrument'; renderDetail();
   const n=document.getElementById('note'); n.textContent='✓ Pulled readings from UTM / hardness tester'; n.className='note ok';
+  mesToast('Readings imported from instrument — '+s.heat,'ok');
 }
+/* Multi-lab capture: pull one lab's readings into its column, then re-aggregate cross-lab vs TDC */
+function receiveLab(li){
+  const s=cur(),sp=spec(),col=colsFor(s); if(col.kind!=='lab')return;
+  const lab=col.names[li];
+  const failAttr=(s.state==='FAIL'||s.state==='HOLD')?hashIdx(s.no,sp.length):-1;
+  sp.forEach((a,ai)=>{store[s.no][a[0]][li]=cellValue(s,col,a,ai,li,ai===failAttr);});
+  store[s.no]._src=lab; renderDetail();
+  const n=document.getElementById('note'); n.textContent='✓ Results received from '+lab+' — aggregated cross-lab to the final value vs TDC'; n.className='note ok';
+  mesToast('Results received from '+lab+' — '+s.heat,'ok');
+}
+function saveDraft(){ mesToast('Draft saved — '+cur().sample,'ok'); }
 function clearance(){
   const s=cur(), ov=overall(), n=()=>document.getElementById('note');
-  if(ov==='PASS'){s.state='CLEARED';renderList();renderDetail();n().textContent='✓ Mechanical test cleared vs TDC';n().className='note ok';}
-  else if(ov==='FAIL'){s.state='HOLD';renderList();renderDetail();n().textContent='⚠ Out of spec — held; re-sample / re-heat-treat per salvage';n().className='note warn';}
+  if(ov==='PASS'){s.state='CLEARED';renderList();renderDetail();n().textContent=(colsFor(s).kind==='lab'?'✓ Cleared — cross-lab result within TDC':'✓ Mechanical test cleared vs TDC');n().className='note ok';mesToast('Test cleared vs TDC — heat '+s.heat,'ok');}
+  else if(ov==='FAIL'){openHoldModal(s);}
 }
-function retest(){const s=cur();s.state='IN PROGRESS';spec().forEach(a=>store[s.no][a[0]]=['','','']);store[s.no]._src='—';renderList();renderDetail();const n=document.getElementById('note');n.textContent='↻ New sample requested — enter fresh readings';n.className='note';}
+/* Hold requires a reason before the sample/heat can be held (was: flipped straight to HOLD) */
+function openHoldModal(sm){
+  const reasons=['Out of TDC — re-sample','Route to re-heat-treat','Disposition / concession','Instrument re-check'];
+  const ov=document.createElement('div'); ov.className='modal-ov';
+  ov.innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-label="Put on hold">'
+    +'<div class="m-head"><i class="fa-solid fa-triangle-exclamation"></i> Put on hold — '+sm.sample+'</div>'
+    +'<div class="m-body"><div class="hint">Aggregated result is out of specification vs TDC. A hold reason is required before the sample/heat can be held.</div>'
+    +'<div><label>Hold reason</label><select id="holdReason">'+reasons.map(function(r){return '<option value="'+r+'">'+r+'</option>';}).join('')+'</select></div></div>'
+    +'<div class="m-foot"><button class="btn btn-ghost" id="holdCancel">Cancel</button>'
+    +'<button class="btn btn-danger" id="holdConfirm"><i class="fa-solid fa-ban"></i> Confirm hold</button></div></div>';
+  document.body.appendChild(ov);
+  function close(){document.removeEventListener('keydown',onKey);ov.remove();}
+  function onKey(e){if(e.key==='Escape')close();}
+  document.addEventListener('keydown',onKey);
+  ov.addEventListener('click',function(e){if(e.target===ov)close();});
+  ov.querySelector('#holdCancel').onclick=close;
+  ov.querySelector('#holdConfirm').onclick=function(){
+    const reason=ov.querySelector('#holdReason').value; close();
+    sm.state='HOLD'; renderList(); renderDetail();
+    const n=document.getElementById('note'); if(n){n.textContent='⚠ Held — '+reason;n.className='note warn';}
+    mesToast('Sample '+sm.sample+' put ON HOLD — '+reason,'err');
+  };
+  const sel=ov.querySelector('#holdReason'); if(sel)sel.focus();
+}
+function retest(){const s=cur(),col=colsFor(s);s.state='IN PROGRESS';spec().forEach(a=>store[s.no][a[0]]=col.names.map(()=>''));store[s.no]._src='—';renderList();renderDetail();const n=document.getElementById('note');n.textContent='↻ New sample requested — enter fresh readings';n.className='note';mesToast('Fresh sample requested — '+s.sample,'warn');}
 
 document.getElementById('search').oninput=renderList;
 renderList(); renderDetail();

@@ -169,6 +169,11 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .vrow .vk{color:var(--color-text-muted);font-weight:500;white-space:nowrap;}
 .vrow .vv{text-align:right;color:var(--color-text-primary);}
 .vrow .vv .btn-icon{display:none;}
+/* downgrade alternate-SO card */
+.alt-so{background:var(--color-primary-light);border:1px solid #b3e5fc;border-radius:var(--r-md);padding:10px 12px;font-size:var(--fs-sm);}
+.alt-so .aso-h{font-weight:600;color:var(--color-primary-dark);display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap;}
+.alt-so .aso-row{color:var(--color-text-secondary);margin-top:2px;}
+.alt-so .aso-row b{color:var(--color-text-primary);}
 </style>
 </head>
 <body>
@@ -238,7 +243,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
     <div class="tabbar" id="tabbar"></div>
     <div class="page-head">
       <div><h1>Salvage &amp; NCR</h1><div class="sub">Disposition non-conforming material — resample / rework / reroute / re-HT / downgrade / scrap — with NCR, loss tracking &amp; CAPA</div></div>
-      <button class="btn btn-primary btn-sm" onclick="openRaise()"><i class="fa-solid fa-plus"></i> Raise NCR</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="openRecall()"><i class="fa-solid fa-truck-arrow-right"></i> FG Recall</button>
+        <button class="btn btn-primary btn-sm" onclick="openRaise()"><i class="fa-solid fa-plus"></i> Raise NCR</button>
+      </div>
     </div>
     <div class="filterbar">
       <span class="lbl">Filters</span>
@@ -261,8 +269,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
   <div class="modal">
     <div class="modal-head">Raise Non-Conformance Report <span class="x" onclick="closeRaise()"><i class="fa-solid fa-xmark"></i></span></div>
     <div class="modal-body">
+      <div id="rHandoffBanner" style="display:none;margin-bottom:14px;font-size:12.5px;padding:9px 12px;background:#e8f5e9;border:1px solid #c8e6c9;border-radius:7px;color:#2e7d32;"></div>
       <div class="mgrid">
-        <div class="fld full"><label>Source (heat · stage · document)</label><select id="rSrc" onchange="srcChange()"></select></div>
+        <div class="fld full"><label>Source (heat · stage · document)</label><select id="rSrc" onchange="srcChange()"></select>
+          <div id="rSrcMap" style="display:none;margin-top:7px;font-size:12px;padding:8px 11px;background:#eef6fb;border:1px solid #cfe6f3;border-radius:7px;color:#2a5568;"></div></div>
         <div class="fld"><label>NC against</label><select id="rAgainst"></select></div>
         <div class="fld"><label>Category</label><select id="rCat"></select></div>
         <div class="fld"><label>Severity</label><select id="rSev"></select></div>
@@ -290,7 +300,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
           <div class="dispo-sug" id="dSuggest"></div>
           <select id="dType" onchange="dispoChange()"></select></div>
         <div class="fld hide" id="dTargetFld"><label>Target operation</label><select id="dTarget"></select></div>
-        <div class="fld hide" id="dDownFld"><label>Downgrade to grade</label><input id="dDown" placeholder="e.g. 416 (commercial)"/></div>
+        <div class="fld hide" id="dDownFld"><label>Downgrade to grade</label><select id="dDown" onchange="renderAltSO()"></select></div>
+        <div class="fld full hide" id="dAltSoFld"><div class="alt-so" id="dAltSo"></div></div>
         <div class="fld" id="dInFld"><label>Qty in (MT)</label><input id="dIn" type="number" step="any" oninput="calcLoss()"/></div>
         <div class="fld" id="dOutFld"><label>Qty recovered (MT)</label><input id="dOut" type="number" step="any" oninput="calcLoss()"/></div>
         <div class="calc-band"><span>Material loss</span> <b id="dLossMt">0.000</b> <span>MT</span> <span>·</span> <span>Loss</span> <b id="dLossPct">0.0</b> <span>%</span> <span>·</span> <span>Outcome</span> <b id="dOutcome">—</b></div>
@@ -320,7 +331,27 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
   </div>
 </div>
 
+<!-- FG Recall modal -->
+<div class="overlay" id="recallOverlay">
+  <div class="modal">
+    <div class="modal-head">FG Recall — dispatched finished goods <span class="x" onclick="closeRecall()"><i class="fa-solid fa-xmark"></i></span></div>
+    <div class="modal-body">
+      <div class="note-band" style="margin-top:0"><i class="fa-solid fa-circle-info"></i> Recall dispatched finished goods from FG store / dispatch for re-inspection. Selected units are <b>flagged</b> and <b>quarantined</b> on return.</div>
+      <div class="mgrid" style="margin-top:12px">
+        <div class="fld full"><label>Recall reason</label><select id="recReason"></select></div>
+      </div>
+      <div class="prog" style="margin-top:14px"><i class="fa-solid fa-list-check"></i> Affected units</div>
+      <ul class="steps" id="recList"></ul>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeRecall()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitRecall()"><i class="fa-solid fa-truck-arrow-right"></i> Initiate recall</button>
+    </div>
+  </div>
+</div>
+
 <script>
+function mesToast(m,k){var h=document.getElementById('mesToastHost');if(!h){h=document.createElement('div');h.id='mesToastHost';h.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px';document.body.appendChild(h);}var t=document.createElement('div');t.textContent=m;t.style.cssText='padding:10px 14px;border-radius:8px;font:13px Roboto,sans-serif;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;background:'+({ok:'#2e7d32',warn:'#ed6c02',err:'#c62828'}[k]||'#333');h.appendChild(t);requestAnimationFrame(function(){t.style.opacity='1';});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},250);},2600);}
 /* ---- master-driven disposition vocabulary (mes_qc_salvage_type) ---- */
 const DISPOS={
  'Resample':          {flag:'b-info', routes:'Sampling',   target:false, down:false, terminal:false},
@@ -386,6 +417,58 @@ function renderSuggest(){
   const el=document.getElementById('dSuggest'); if(el)el.innerHTML=sug.map(d=>`<span class="sug-chip ${d===cur?'on':''}" onclick="pickDispo('${d}')">${d}</span>`).join('');
 }
 function pickDispo(name){document.getElementById('dType').value=name;dispoChange();}
+
+/* ---- downgrade grade hierarchy + alternate open-order rematch (product-agnostic) ---- */
+const DG_MAP={
+ '17-4PH':  ['17-4PH (commercial)','410'],
+ '316L':    ['316','316 (commercial)'],
+ '304L':    ['304','304 (commercial)'],
+ '416':     ['416 (commercial)','410'],
+ 'X46Cr13': ['X46Cr13 (commercial)','420']
+};
+/* small in-file order book — long products (bars); size key is dia/hex for bars, thk×width for flats */
+const ORDERBOOK=[
+ {no:'SO-2526-0412',line:'20',customer:'Meridian Fasteners — Nashik', grade:'416 (commercial)', qty:8000, uom:'kg', shape:'RO',  dia:23, delivery:'28-Jul'},
+ {no:'SO-2526-0390',line:'10',customer:'Vulcan Forge — Pune',         grade:'316',             qty:12000,uom:'kg', shape:'RO',  dia:68, delivery:'02-Aug'},
+ {no:'SO-2526-0455',line:'10',customer:'Apex Valves — Coimbatore',    grade:'304',             qty:5000, uom:'kg', shape:'Hex', dia:23, delivery:'30-Jul'},
+ {no:'SO-2526-0468',line:'30',customer:'Regional Trade — Rajkot',     grade:'410',             qty:3000, uom:'kg', shape:'Flat',thk:100,width:6,delivery:'05-Aug'},
+ {no:'SO-2526-0473',line:'10',customer:'Coastal Alloys — Mumbai',     grade:'304 (commercial)',qty:6000, uom:'kg', shape:'RO',  dia:23, delivery:'08-Aug'}
+];
+/* per-unit dimensions (product-agnostic size key) */
+const DIMS={
+ 'B030268':{shape:'RO', dia:68},
+ 'B030840':{shape:'RO', dia:23},
+ 'E122319':{shape:'RO', dia:23},
+ 'A002668':{shape:'Hex',dia:23}
+};
+const fmtN=n=>(''+n).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+const numOf=v=>parseFloat(String(v))||0;
+function downTargets(grade){return DG_MAP[grade]||['Commercial'];}
+function dimsOf(uid){return DIMS[uid]||null;}
+function dimStr(d){if(!d)return '—';if(d.shape==='Flat')return numOf(d.thk)+' × '+numOf(d.width)+' mm';return numOf(d.dia)+(d.shape==='Hex'?' Hex':' Dia');}
+function sizeMatch(o,d){
+  if(!d||o.shape!==d.shape)return {exact:false,score:9};
+  if(d.shape==='Flat'){const dt=Math.abs(numOf(o.thk)-numOf(d.thk)),wm=numOf(o.width)===numOf(d.width);return {exact:dt<0.01&&wm,score:dt+(wm?0:5)};}
+  const dd=Math.abs(numOf(o.dia)-numOf(d.dia));return {exact:dd<0.01,score:dd};
+}
+function suggestAltSO(toGrade,d){
+  return ORDERBOOK.filter(o=>o.grade===toGrade).map(o=>{const m=sizeMatch(o,d);return Object.assign({},o,{_exact:m.exact,_score:m.score});}).sort((a,b)=>a._score-b._score);
+}
+function renderAltSO(){
+  const box=document.getElementById('dAltSo'); if(!box)return;
+  const r=NCRS[curDispo]; if(!r)return;
+  const toGrade=document.getElementById('dDown').value, d=dimsOf(r.uid);
+  const best=suggestAltSO(toGrade,d)[0];
+  if(best){
+    box.innerHTML=`<div class="aso-h"><i class="fa-solid fa-lightbulb"></i> MES-suggested alternate sales order <span class="badge ${best._exact?'b-done':'b-info'}">${best._exact?'Exact match':'Closest match'}</span></div>
+      <div class="aso-row"><b>${best.no}</b> · Line ${best.line} · grade <b>${best.grade}</b></div>
+      <div class="aso-row">${best.customer} · ${fmtN(best.qty)} ${best.uom} open · ${dimStr(best)} · del ${best.delivery}</div>
+      <div class="aso-row" style="margin-top:6px;color:var(--color-text-muted)">Unit <b>${r.uid}</b> (${dimStr(d)}) re-classified <b>${r.grade}</b> → <b>${toGrade}</b> and re-booked against this order — a <b>re-allocation</b> is recorded.</div>`;
+  } else {
+    box.innerHTML=`<div class="aso-h"><i class="fa-solid fa-circle-info"></i> No open order requires ${toGrade}</div>
+      <div class="aso-row">No open sales order for <b>${toGrade}</b>${d?' at '+dimStr(d):''}. Unit routes to <b>secondary / spot stock</b> for manual allocation.</div>`;
+  }
+}
 
 /* source lots for Raise-NCR prefill */
 const LOTS=[
@@ -485,18 +568,25 @@ function openRaise(){
   document.getElementById('rAgainst').innerHTML=AGAINST.map(a=>`<option>${a}</option>`).join('');
   document.getElementById('rCat').innerHTML=CATEGORIES.map(a=>`<option>${a}</option>`).join('');
   document.getElementById('rSev').innerHTML=SEVERITIES.map(a=>`<option ${a==='Major'?'selected':''}>${a}</option>`).join('');
+  var hb=document.getElementById('rHandoffBanner'); if(hb)hb.style.display='none';
   document.getElementById('rTitle').value=''; document.getElementById('rDesc').value=''; srcChange();
   document.getElementById('raiseOverlay').classList.add('open');
 }
-function srcChange(){const l=LOTS[+document.getElementById('rSrc').value]; /* placeholder for richer prefill */}
+function srcChange(){
+  const l=LOTS[+document.getElementById('rSrc').value];
+  const el=document.getElementById('rSrcMap'); if(!el)return;
+  if(l&&l.uid){ el.style.display='block'; el.innerHTML='<i class="fa-solid fa-link"></i> Mapped to <b>'+l.uid+'</b> · Heat '+(l.heat||'—')+' · '+(l.grade||'—')+(l.stage?(' · '+l.stage):''); }
+  else{ el.style.display='none'; }
+}
 function closeRaise(){document.getElementById('raiseOverlay').classList.remove('open');}
 function saveRaise(){
   const l=LOTS[+document.getElementById('rSrc').value];
-  const n=915+NCRS.length;
-  NCRS.unshift({no:'NCR-2526-0'+n,date:'24-Jun 13:40',src:l.src,ref:l.ref,heat:l.heat,grade:l.grade,uid:l.uid,stage:l.stage,
+  const n=915+NCRS.length, no='NCR-2526-0'+n;
+  NCRS.unshift({no:no,date:'24-Jun 13:40',src:l.src,ref:l.ref,heat:l.heat,grade:l.grade,uid:l.uid,stage:l.stage,
     against:document.getElementById('rAgainst').value,cat:document.getElementById('rCat').value,sev:document.getElementById('rSev').value,
     issue:document.getElementById('rTitle').value||'(non-conformance)',dispo:'',target:'',qtyIn:0,qtyOut:0,status:'OPEN'});
   closeRaise(); render();
+  mesToast('NCR '+no+' raised for heat '+l.heat,'ok');
 }
 
 /* ===== Disposition / Salvage ===== */
@@ -518,7 +608,13 @@ function dispoChange(){
   const d=DISPOS[document.getElementById('dType').value];
   document.getElementById('dTargetFld').classList.toggle('hide',!d.target);
   document.getElementById('dDownFld').classList.toggle('hide',!d.down);
-  const noLoss=d.terminal&&d.routes==='Supplier'; // return-to-supplier: full qty leaves
+  document.getElementById('dAltSoFld').classList.toggle('hide',!d.down);
+  if(d.down){
+    const r=NCRS[curDispo], targets=downTargets(r.grade);
+    const want=(r.dispo==='Downgrade'&&r.target&&targets.indexOf(r.target)>=0)?r.target:targets[0];
+    document.getElementById('dDown').innerHTML=targets.map(g=>`<option ${g===want?'selected':''}>${g}</option>`).join('');
+    renderAltSO();
+  }
   document.getElementById('dRoute').innerHTML='<i class="fa-solid fa-route"></i> '+ROUTEMSG[d.routes];
   renderSuggest();
   calcLoss();
@@ -545,6 +641,12 @@ function saveDispo(){
   r.qtyIn=+document.getElementById('dIn').value||0; r.qtyOut=+document.getElementById('dOut').value||0;
   if(r.status==='OPEN'||r.status==='UNDER REVIEW')r.status='DISPOSITIONED';
   closeDispo(); render();
+  if(dt==='Downgrade'){
+    const best=suggestAltSO(r.target,dimsOf(r.uid))[0];
+    mesToast('Downgrade to '+r.target+' recorded'+(best?' — re-allocated '+r.uid+' to '+best.no+' ('+best.customer+')':' — unit routed to secondary / spot stock'),'ok');
+  } else {
+    mesToast('Disposition applied to '+r.no+' — '+dt,'ok');
+  }
 }
 
 /* ===== CAPA ===== */
@@ -571,11 +673,72 @@ function addCapa(){const r=NCRS[curCapa]; if(curCapa==null)return; (CAPAS[r.no]=
   if(r.status==='DISPOSITIONED')r.status='ACTIONED'; renderCapa(); render();}
 function closeNcr(){const r=NCRS[curCapa]; const cc=capaCount(r.no);
   if(cc.t===0||cc.v<cc.t){document.getElementById('capaWarn').style.display='block';return;}
-  r.status='CLOSED'; closeCapa(); render();}
+  r.status='CLOSED'; closeCapa(); render(); mesToast('NCR '+r.no+' closed — all CAPA actions verified','ok');}
 function closeCapa(){document.getElementById('capaOverlay').classList.remove('open');}
+
+/* ===== FG Recall (pull dispatched finished goods back for re-inspection) ===== */
+const RECALL_UNITS=[
+ {id:'B030268', ref:'PE00072', heat:'2526-16496', grade:'17-4PH', wt:'2.80 MT', loc:'FG Store · Rack A-12', st:'Dispatched · Invoice INV-2609'},
+ {id:'B030840', ref:'PE00081', heat:'2526-16482', grade:'416',    wt:'1.90 MT', loc:'FG Store · Rack A-12', st:'Dispatched · Invoice INV-2609'},
+ {id:'E122319', ref:'PE00090', heat:'2526-16798', grade:'304L',   wt:'3.10 MT', loc:'Dispatch · gate-out',  st:'Loaded'},
+ {id:'A002668', ref:'PE00095', heat:'2526-16783', grade:'316L',   wt:'2.40 MT', loc:'FG Store · Rack B-04', st:'Allocated'},
+ {id:'B030291', ref:'PE00099', heat:'2526-16496', grade:'17-4PH', wt:'2.20 MT', loc:'Dispatch · gate-out',  st:'Loaded'}
+];
+const RECALL_REASONS=['Chemistry deviation found post-dispatch','Mechanical retest failure','Surface defect — customer complaint','Traceability / mixed-heat suspicion','Mill Test Certificate discrepancy'];
+function openRecall(){
+  document.getElementById('recReason').innerHTML=RECALL_REASONS.map(x=>`<option>${x}</option>`).join('');
+  document.getElementById('recList').innerHTML=RECALL_UNITS.map(c=>`
+    <li>
+      <input type="checkbox" checked data-id="${c.id}"/>
+      <span class="txt"><b>${c.id}</b> · ${c.ref} · ${c.grade}
+        <span class="meta-row">Heat ${c.heat} · ${c.wt} · ${c.loc} · ${c.st}</span></span>
+    </li>`).join('');
+  document.getElementById('recallOverlay').classList.add('open');
+}
+function closeRecall(){document.getElementById('recallOverlay').classList.remove('open');}
+function submitRecall(){
+  const n=document.querySelectorAll('#recList input[type=checkbox]:checked').length;
+  if(!n){mesToast('Select at least one unit to recall','warn');return;}
+  const reason=document.getElementById('recReason').value;
+  closeRecall();
+  mesToast('Recall message sent for '+n+' unit(s) — '+reason+'; FG store / dispatch notified · units flagged & quarantined on return','warn');
+}
+
+/* ===== deep-link receiver: Inspection & Usage-Decision screens hand off into Raise-NCR ===== */
+function heatFromUid(u){ const m=[].concat(LOTS,NCRS).find(x=>x.uid===u&&x.heat); return m?m.heat:''; }
+function ensureLot(ctx){                                   // map the exact unit into the source list (inject if new)
+  if(!ctx||!ctx.uid)return -1;
+  let i=LOTS.findIndex(l=>l.uid===ctx.uid);
+  if(i>=0)return i;
+  LOTS.unshift({ref:ctx.ref||('QC-'+String(ctx.uid).slice(-6)),src:ctx.src||'Inspection',
+    heat:ctx.heat||heatFromUid(ctx.uid),grade:ctx.grade||'',uid:ctx.uid,stage:ctx.stage||''});
+  return 0;
+}
+function openRaiseFor(ctx){
+  let i=ensureLot(ctx);
+  if(i<0&&ctx&&ctx.src)i=LOTS.findIndex(l=>l.src===ctx.src);
+  openRaise();                                             // re-renders #rSrc from LOTS (now includes the mapped unit)
+  const sel=document.getElementById('rSrc'); if(sel&&i>=0)sel.value=String(i);
+  srcChange();
+  const b=document.getElementById('rHandoffBanner');
+  if(b&&ctx&&ctx.uid){ b.style.display='block';
+    b.innerHTML='<i class="fa-solid fa-arrow-right-to-bracket"></i> Raised from <b>'+(ctx.src||'—')+'</b> — mapped to <b>'+ctx.uid+'</b> · Heat '+(ctx.heat||'—')+' · '+(ctx.grade||'—')+' · '+(ctx.stage||'—'); }
+  mesToast('Raise NCR opened from '+(ctx.src||'link')+' — mapped to '+(ctx.uid||'—'),'ok');
+}
+function checkRaiseHandoff(){
+  try{
+    const raw=sessionStorage.getItem('mes_raise_ncr'); if(!raw)return;
+    const ctx=JSON.parse(raw)||{};
+    sessionStorage.removeItem('mes_raise_ncr');
+    if(ctx.t&&(Date.now()-ctx.t)>15000)return;             // ignore a stale handoff
+    openRaiseFor(ctx);
+  }catch(e){}
+}
 
 fill('fStatus',STATUSES); fill('fSev',SEVERITIES); fill('fDispo',Object.keys(DISPOS)); fill('fAgainst',AGAINST);
 buildHead(); render();
+checkRaiseHandoff();                                        // fresh load (tab opened by the deep link)
+window.addEventListener('pageshow',checkRaiseHandoff);      // bfcache restore
 </script>
 <script>
 function msToggle(e){e.preventDefault();e.stopPropagation();var g=document.getElementById('msGroup');if(g)g.classList.toggle('open');}

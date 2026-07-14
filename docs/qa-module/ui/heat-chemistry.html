@@ -151,6 +151,32 @@ table.hc-grid{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .sidebar .navgrp>.s-group .gchev{margin-left:auto;font-size:9px;width:auto;transition:transform .15s;}
 .sidebar .navgrp.collapsed>.s-group .gchev{transform:rotate(-90deg);}
 .sidebar .navgrp.collapsed .grp-items{display:none;}
+
+/* out-of-spec corrective-action modal + notifications (self-contained; matches sibling QA screens) */
+.mes-modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:5000;padding:20px;}
+.mes-modal{background:#fff;border-radius:var(--r-lg);width:min(640px,100%);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3);}
+.mm-head{display:flex;align-items:center;justify-content:space-between;gap:var(--sp3);padding:14px 18px;border-bottom:1px solid var(--color-border-light);}
+.mm-title{font-size:var(--fs-md);font-weight:600;display:flex;align-items:center;gap:var(--sp2);}
+.mm-title i{color:var(--color-primary);}
+.mm-x{border:none;background:none;color:var(--color-text-hint);font-size:16px;padding:4px 8px;border-radius:var(--r-sm);}
+.mm-x:hover{background:var(--color-bg);color:var(--color-danger);}
+.mm-body{padding:var(--sp4) 18px;overflow:auto;display:flex;flex-direction:column;gap:10px;}
+.mm-foot{padding:var(--sp3) 18px;border-top:1px solid var(--color-border-light);display:flex;justify-content:flex-end;gap:var(--sp2);}
+.mm-alert{display:flex;gap:var(--sp3);padding:10px 12px;border-radius:var(--r-md);background:#fff5f5;border:1px solid rgba(244,67,54,.25);}
+.mm-alert>i{color:var(--color-danger);font-size:18px;margin-top:1px;}
+.mm-alert-t{font-weight:600;color:#c62828;margin-bottom:2px;}
+.mm-alert-d{font-size:var(--fs-sm);color:var(--color-text-secondary);line-height:1.45;}
+.mm-sec{display:flex;align-items:center;gap:var(--sp2);font-size:var(--fs-xs);font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+.mm-sec i{color:var(--color-primary);}
+.ca-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
+.ca-tbl th{text-align:left;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.3px;color:var(--color-text-muted);font-weight:600;padding:7px 10px;border-bottom:1px solid var(--color-border);}
+.ca-tbl td{padding:7px 10px;border-bottom:1px solid var(--color-border-light);vertical-align:top;}
+.ca-tbl .ca-st{font-weight:600;white-space:nowrap;}
+.ca-tbl .ca-dt{color:var(--color-text-muted);}
+.notif-row{display:flex;flex-wrap:wrap;gap:6px;}
+.notif-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:14px;font-size:var(--fs-xs);font-weight:600;background:var(--color-primary-light);color:var(--color-primary-dark);border:1px solid #b3e5fc;}
+.notif-badge>i:first-child{font-size:10px;}
+.notif-badge .ok{color:var(--color-success);font-size:9px;}
 </style>
 </head>
 <body>
@@ -270,14 +296,14 @@ function specFor(h){
 function srcTag(s){return ` <span class="srctag ${s==='TDC'?'t-tdc':'t-rep'}" title="${s==='TDC'?'Limit from the heat TDC':'Measured but no TDC limit — report-only'}">${s}</span>`;}
 const TYPES=['Ladle','Product','Check'];
 const HEATS=[
- {heat:'2526-16496',grade:'17-4PH',tdc:'TDC-004275',sample:'CHM-2526-0188',cast:'24-Jun 05:40',furnace:'Furnace-20T',state:'PASS'},
- {heat:'2526-16783',grade:'316L',tdc:'TDC-006132',sample:'CHM-2526-0189',cast:'24-Jun 06:02',furnace:'Furnace-6T',state:'PASS'},
- {heat:'2526-16776',grade:'304L',tdc:'TDC-004810',sample:'CHM-2526-0190',cast:'24-Jun 06:18',furnace:'Furnace-20T',state:'FAIL'},
- {heat:'2526-16482',grade:'416',tdc:'TDC-003922',sample:'CHM-2526-0191',cast:'23-Jun 22:40',furnace:'Furnace-6T',state:'PASS'},
- {heat:'2626-00028',grade:'304L',tdc:'TDC-004810',sample:'CHM-2526-0192',cast:'24-Jun 06:35',furnace:'Furnace-20T',state:'PENDING'},
- {heat:'2526-16819',grade:'316L',tdc:'TDC-006132',sample:'CHM-2526-0193',cast:'24-Jun 05:20',furnace:'Furnace-6T',state:'PENDING'},
- {heat:'2526-16426',grade:'416',tdc:'TDC-003922',sample:'CHM-2526-0187',cast:'23-Jun 20:10',furnace:'Furnace-20T',state:'PASS'},
- {heat:'2526-16798',grade:'304L',tdc:'TDC-004810',sample:'CHM-2526-0186',cast:'23-Jun 18:55',furnace:'Furnace-6T',state:'HOLD'}
+ {heat:'2526-16496',grade:'17-4PH',tdc:'TDC-004275',sample:'CHM-2526-0188',cast:'24-Jun 05:40',furnace:'Furnace-20T',lab:'Central Lab',state:'PASS'},
+ {heat:'2526-16783',grade:'316L',tdc:'TDC-006132',sample:'CHM-2526-0189',cast:'24-Jun 06:02',furnace:'Furnace-6T',lab:'Central Lab',state:'PASS'},
+ {heat:'2526-16776',grade:'304L',tdc:'TDC-004810',sample:'CHM-2526-0190',cast:'24-Jun 06:18',furnace:'Furnace-20T',lab:'Spectro Lab',state:'FAIL'},
+ {heat:'2526-16482',grade:'416',tdc:'TDC-003922',sample:'CHM-2526-0191',cast:'23-Jun 22:40',furnace:'Furnace-6T',lab:'Central Lab',state:'PASS'},
+ {heat:'2626-00028',grade:'304L',tdc:'TDC-004810',sample:'CHM-2526-0192',cast:'24-Jun 06:35',furnace:'Furnace-20T',lab:'Spectro Lab',state:'PENDING'},
+ {heat:'2526-16819',grade:'316L',tdc:'TDC-006132',sample:'CHM-2526-0193',cast:'24-Jun 05:20',furnace:'Furnace-6T',lab:'Central Lab',state:'PENDING'},
+ {heat:'2526-16426',grade:'416',tdc:'TDC-003922',sample:'CHM-2526-0187',cast:'23-Jun 20:10',furnace:'Furnace-20T',lab:'Wet Lab',state:'PASS'},
+ {heat:'2526-16798',grade:'304L',tdc:'TDC-004810',sample:'CHM-2526-0186',cast:'23-Jun 18:55',furnace:'Furnace-6T',lab:'Central Lab',state:'HOLD'}
 ];
 const BADGE={PASS:'b-pass',FAIL:'b-fail',PENDING:'b-pend',HOLD:'b-hold',CLEARED:'b-clr'};
 
@@ -330,7 +356,7 @@ function selectHeat(i){cur=i;curType='Ladle';renderList();renderDetail();}
 /* ===== render detail ===== */
 function renderDetail(){
   const h=HEATS[cur], spec=specFor(h), vals=store[h.heat][curType], src=store[h.heat]._src[curType]||'—';
-  const chips=[['Grade',h.grade],['TDC',h.tdc],['Sample',h.sample],['Cast',h.cast],['Furnace',h.furnace]]
+  const chips=[['Grade',h.grade],['TDC',h.tdc],['Sample',h.sample],['Cast',h.cast],['Furnace',h.furnace],['Lab',h.lab]]
     .map(p=>`<span class="chip">${p[0]}<b>${p[1]}</b></span>`).join('')
     +`<span class="chip src">Source<b>${src}</b></span>`;
   const tabs=TYPES.map(t=>`<div class="hc-tab ${t===curType?'on':''}" onclick="setType('${t}')">${t}${t==='Ladle'?'':' <span style="font-size:10px;color:#999">(opt)</span>'}</div>`).join('');
@@ -352,6 +378,7 @@ function renderDetail(){
       </div>
       <div class="hc-actions">
         <button class="btn btn-ghost btn-sm" onclick="importL2()"><i class="fa-solid fa-satellite-dish"></i> Import from L2</button>
+        <button class="btn btn-ghost btn-sm" onclick="simulateOOS()"><i class="fa-solid fa-flask-vial"></i> Simulate out-of-spec</button>
         <button class="btn btn-ghost btn-sm"><i class="fa-solid fa-floppy-disk"></i> Save</button>
       </div>
     </div>
@@ -379,6 +406,8 @@ function onEdit(inp){
   refreshOverall();
   /* update source chip */
   const chip=document.querySelector('.hc-chips .chip.src b'); if(chip)chip.textContent='Manual';
+  /* auto-hold on out-of-spec edit — independent of the corrective modal */
+  if(r==='FAIL' && h.state!=='HOLD') autoHold(h,inp.dataset.el);
 }
 function refreshOverall(){
   const ov=overall(), b=document.getElementById('ovBadge'); if(!b)return;
@@ -393,13 +422,108 @@ function importL2(){
   const failEl=(h.state==='FAIL'||h.state==='HOLD')?gi[hashIdx(h.heat,gi.length)]:-1;
   spec.forEach((e,i)=>store[h.heat][curType][e[0]]=deriveVal(h.heat,i,e,i===failEl));
   store[h.heat]._src[curType]='L2';
-  renderDetail();
-  const n=document.getElementById('hcNote'); n.textContent='✓ Pulled spectro analysis from L2'; n.className='hc-note ok';
+  const oos=overall()==='FAIL';
+  if(oos && h.state!=='HOLD') h.state='HOLD';   /* auto-hold on out-of-spec import */
+  renderList(); renderDetail();
+  const n=document.getElementById('hcNote'); n.textContent='✓ Pulled spectro analysis from '+(h.lab||'L2'); n.className='hc-note ok';
+  mesToast('Spectro result imported from L2 — '+(h.lab||'lab'),'ok');
+  if(oos) mesToast('Imported chemistry out of TDC — heat '+h.heat+' auto-held','warn');
 }
 function doClearance(){
   const h=HEATS[cur], ov=overall(); const n=()=>document.getElementById('hcNote');
-  if(ov==='PASS'){h.state='CLEARED'; renderList(); renderDetail(); n().textContent='✓ Chemistry cleared — heat released to production'; n().className='hc-note ok';}
-  else if(ov==='FAIL'){h.state='HOLD'; renderList(); renderDetail(); n().textContent='⚠ Heat held — chemistry out of TDC; route to disposition / re-test'; n().className='hc-note warn';}
+  if(ov==='PASS'){h.state='CLEARED'; renderList(); renderDetail(); n().textContent='✓ Chemistry cleared — heat released to production'; n().className='hc-note ok'; mesToast('Heat '+h.heat+' chemistry cleared — released to production','ok');}
+  else if(ov==='FAIL'){h.state='HOLD'; renderList(); renderDetail(); n().textContent='⚠ Heat held — chemistry out of TDC; route to disposition / re-test'; n().className='hc-note warn'; mesToast('Heat '+h.heat+' put ON HOLD — chemistry out of TDC','err');}
+}
+
+/* ===== toast (self-contained; matches sibling QA screens) ===== */
+function mesToast(m,k){var h=document.getElementById('mesToastHost');if(!h){h=document.createElement('div');h.id='mesToastHost';h.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px';document.body.appendChild(h);}var t=document.createElement('div');t.textContent=m;t.style.cssText='padding:10px 14px;border-radius:8px;font:13px Roboto,sans-serif;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;background:'+({ok:'#2e7d32',warn:'#ed6c02',err:'#c62828'}[k]||'#333');h.appendChild(t);requestAnimationFrame(function(){t.style.opacity='1';});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},250);},2600);}
+
+/* ===== auto-hold on out-of-spec (independent of the corrective modal) ===== */
+function autoHold(h,el){
+  h.state='HOLD'; renderList();
+  const hb=document.querySelector('.hc-heat .badge'); if(hb){hb.className='badge '+BADGE.HOLD; hb.textContent='HOLD';}
+  mesToast('Heat '+h.heat+' auto-held — '+el+' out of TDC spec','warn');
+}
+
+/* ===== corrective-action library — keyed to the FAILING element (product-agnostic; not a fixed route) ===== */
+const CA_STATIONS={ars:'ARS — Argon Rinsing Station',lf:'LRF — Ladle Refining Furnace',aod:'AOD Converter',vd:'VD — Vacuum Degasser',eaf:'EAF / Melting Furnace'};
+const CA_PLANS={
+ C:{hi:[['aod','Decarburise','O2 blow with argon dilution to bring C toward aim'],['lf','Reduce and reslag','Deoxidise and reslag after decarburisation']],
+    lo:[['lf','Recarburise','Add charge carbon / recarburiser to raise C toward aim']]},
+ S:{hi:[['lf','Desulphurise','CaSi cored-wire injection + basic reslag'],['ars','Argon stir','Bottom-stir 6-8 min to float sulphide inclusions']],
+    lo:[['lf','Sulphurise','Add FeS / pyrite to raise S toward the free-machining aim'],['ars','Homogenise','Bottom-stir under argon to homogenise the bath']]},
+ P:{hi:[['eaf','Dephosphorise','Oxidising lime slag; flush P-rich slag before tap'],['lf','Fresh slag','New reducing slag to avoid P reversion']],
+    lo:[['lf','Trim addition','Addition to raise P toward aim'],['ars','Homogenise','Stir to homogenise the bath']]},
+ N:{hi:[['vd','Vacuum degas','Strip nitrogen under vacuum; minimise N pickup'],['ars','Soft stir','Soft argon stir to settle the bath']],
+    lo:[['lf','Nitrogen alloy','Add nitrided ferro-alloy to raise N toward aim'],['ars','Homogenise','Stir to homogenise']]}
+};
+const FERRO={Cr:'Fe-Cr (LC)',Ni:'Ni cathode / Fe-Ni',Mo:'Fe-Mo',Mn:'Fe-Mn',Si:'Fe-Si 75%',Cu:'Cu shot',Nb:'Fe-Nb',Co:'Co metal',Ti:'Fe-Ti',V:'Fe-V'};
+function correctivePlan(el,dir){
+  const S=CA_STATIONS; let base;
+  if(CA_PLANS[el]){ base=(dir==='high'?CA_PLANS[el].hi:CA_PLANS[el].lo).map(r=>[S[r[0]],r[1],r[2]]); }
+  else if(FERRO[el]){
+    base = (dir==='low')
+      ? [[S.lf,'Trim addition','Add '+FERRO[el]+' to raise '+el+' toward aim'],[S.ars,'Homogenise','Bottom-stir under argon to dissolve and homogenise']]
+      : [[S.eaf,'Dilute','Blend low-'+el+' base metal / scrap to bring '+el+' within range'],[S.lf,'Re-balance','Re-trim companion elements and reslag']];
+  } else {
+    base=[[S.ars,'Homogenise','Bottom-stir to homogenise the bath'],[S.lf,'Trim / adjust','Adjust chemistry toward the TDC aim']];
+  }
+  base.push([S.lf,'Re-sample','Fresh spectro sample; re-run chemistry vs TDC']);
+  return base.map((r,i)=>({s:(i+1)+' · '+r[1], st:r[0], d:r[2]}));
+}
+
+/* ===== out-of-spec → auto-hold → corrective-action modal ===== */
+function simulateOOS(){
+  const h=HEATS[cur], spec=specFor(h);
+  const gi=spec.map((e,i)=>i).filter(i=>spec[i][2]!=null||spec[i][3]!=null);
+  if(!gi.length){ mesToast('This heat has no TDC-limited elements to fail','warn'); return; }
+  const e=spec[gi[hashIdx(h.heat,gi.length)]];
+  let val,dir;
+  if(e[3]!=null){ val=rnd(e[3]*1.06); dir='high'; } else { val=rnd(e[2]*0.90); dir='low'; }
+  store[h.heat][curType][e[0]]=val; store[h.heat]._src[curType]='Manual';
+  h.state='HOLD';                                  /* auto-hold on OOS */
+  renderList(); renderDetail();
+  const n=document.getElementById('hcNote'); if(n){ n.textContent='⚠ Re-sample received — '+e[0]+' '+val+e[1]+' is out of TDC ('+fmtSpec(e)+')'; n.className='hc-note warn'; }
+  mesToast('Out-of-spec at re-sample — '+e[0]+' '+val+e[1]+' (TDC '+fmtSpec(e)+'). Heat auto-held; stakeholders notified.','warn');
+  correctiveModal(h,e,dir,val);
+}
+function correctiveModal(h,e,dir,val){
+  const el=e[0], unit=e[1], cmp=(dir==='high'?'exceeds':'is below');
+  const planRows=correctivePlan(el,dir).map(r=>`<tr><td><span class="ca-st">${r.s}</span></td><td>${r.st}</td><td><span class="ca-dt">${r.d}</span></td></tr>`).join('');
+  const notif=[['Shift Manager','fa-user-tie'],['QC Inspector','fa-user-shield'],['Furnace / LF Operator','fa-user-gear'],['QA','fa-clipboard-check']]
+    .map(b=>`<span class="notif-badge"><i class="fa-solid ${b[1]}"></i> ${b[0]} <i class="fa-solid fa-check ok"></i></span>`).join('');
+  const ov=document.createElement('div'); ov.className='mes-modal-ov';
+  ov.innerHTML=`<div class="mes-modal" role="dialog" aria-modal="true" aria-label="Corrective action">
+    <div class="mm-head"><div class="mm-title"><i class="fa-solid fa-triangle-exclamation" style="color:var(--color-warning)"></i> Out-of-spec — auto hold &amp; corrective action · ${h.heat}</div>
+      <button class="mm-x" id="caX" aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="mm-body">
+      <div class="mm-alert"><i class="fa-solid fa-ban"></i><div><div class="mm-alert-t">Heat auto-placed ON HOLD</div>
+        <div class="mm-alert-d">Re-sample ${el} = ${val}${unit} ${cmp} the ${h.grade} TDC limit (${fmtSpec(e)}). Heat ${h.heat} is blocked from the next operation until corrected and re-cleared.</div></div></div>
+      <div class="mm-sec"><i class="fa-solid fa-screwdriver-wrench"></i> Recommended corrective action — ${el} ${dir}</div>
+      <table class="ca-tbl"><thead><tr><th>Step</th><th>Station</th><th>Detail</th></tr></thead><tbody>${planRows}</tbody></table>
+      <div class="mm-sec"><i class="fa-solid fa-bell"></i> Notifications sent</div>
+      <div class="notif-row">${notif}</div>
+    </div>
+    <div class="mm-foot"><button class="btn btn-ghost" id="caClose">Close</button>
+      <button class="btn btn-primary" id="caApply"><i class="fa-solid fa-wand-magic-sparkles"></i> Apply corrective action</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  function close(){ ov.remove(); }
+  ov.addEventListener('click',function(ev){ if(ev.target===ov) close(); });
+  document.getElementById('caX').onclick=close;
+  document.getElementById('caClose').onclick=close;
+  document.getElementById('caApply').onclick=function(){ close(); applyCorrective(h,e); };
+}
+function applyCorrective(h,e){
+  const el=e[0], mn=e[2], mx=e[3]; let v;
+  if(mn!=null&&mx!=null) v=rnd(mn+0.45*(mx-mn));
+  else if(mx!=null) v=rnd(mx*0.6);
+  else if(mn!=null) v=rnd(mn*1.10);
+  else v=rnd(0.01);
+  store[h.heat][curType][el]=v; store[h.heat]._src[curType]='Manual';
+  renderList(); renderDetail();
+  const n=document.getElementById('hcNote'); if(n){ n.textContent='✓ Corrective applied — '+el+' back to '+v+e[1]+' within TDC. Re-sample logged; record clearance to release the hold.'; n.className='hc-note ok'; }
+  mesToast('Corrective action applied — '+el+' back to '+v+e[1]+' within TDC. Re-sample and re-clearance ready.','ok');
 }
 
 document.getElementById('heatSearch').oninput=renderList;

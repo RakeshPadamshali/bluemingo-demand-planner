@@ -442,7 +442,7 @@ const DEFECT_CAT=['Surface crack','Lap / Seam','Scratch / Score','Pit','Inclusio
 const DEF_SEV={'Surface crack':'CRITICAL','Lap / Seam':'MAJOR','Inclusion':'MAJOR','UT indication':'MAJOR','Decarburisation':'MAJOR','Dimensional OOS':'MAJOR','Scratch / Score':'MINOR','Pit':'MINOR','Bend / Bow':'MINOR','Scale / Oxide':'MINOR'};
 const SEVS=['CRITICAL','MAJOR','MINOR'];
 const LOC_TYPES=['NONE','LINEAR','SURFACE_XY','ZONE','FACE','END'];
-const DISPOS=['—','REWORK','REJECT','SALVAGE','CONCESSION','SCRAP'];
+const DISPOS=['—','REWORK','REJECT','SALVAGE','CONCESSION','DOWNGRADE','SCRAP'];
 let rmDefects=[], rmRO=false;
 function seedDefects(row){
   if(row.result==='FAIL'||row.status==='REJECTED'||row.status==='HOLD'){
@@ -469,7 +469,16 @@ function syncDefects(){document.querySelectorAll('#rmDefects [data-di]').forEach
 function onDefSev(i){if(rmDefects[i])rmDefects[i].sev=DEF_SEV[rmDefects[i].defect]||'MINOR';renderDefects();evalRm();}
 function addDefect(){syncDefects();rmDefects.push({defect:DEFECT_CAT[0],sev:DEF_SEV[DEFECT_CAT[0]]||'MINOR',qty:1,loc:'NONE',pos:'',dispo:'—'});renderDefects();evalRm();}
 function delDefect(i){syncDefects();rmDefects.splice(i,1);renderDefects();evalRm();}
-function saveResult(){syncDefects();const ov=document.getElementById('rmOverall').textContent;rmRow.result=ov;rmRow.status=ov==='FAIL'?'REJECTED':(ov==='PASS'?'COMPLETED':'IN PROGRESS');rmRow.defects=rmDefects.slice();document.getElementById('overlay').classList.remove('open');renderBody();}
+function saveResult(){syncDefects();const ov=document.getElementById('rmOverall').textContent;rmRow.result=ov;rmRow.status=ov==='FAIL'?'REJECTED':(ov==='PASS'?'COMPLETED':'IN PROGRESS');rmRow.defects=rmDefects.slice();document.getElementById('overlay').classList.remove('open');renderBody();mesToast('Result saved — '+ov, ov==='FAIL'?'err':(ov==='PASS'?'ok':'warn'));}
+
+/* ===== Toast helper (standalone — this screen has no shell toast) ===== */
+function mesToast(m,k){var h=document.getElementById('mesToastHost');if(!h){h=document.createElement('div');h.id='mesToastHost';h.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px';document.body.appendChild(h);}var t=document.createElement('div');t.textContent=m;t.style.cssText='padding:10px 14px;border-radius:8px;font:13px Roboto,sans-serif;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;background:'+({ok:'#2e7d32',warn:'#ed6c02',err:'#c62828'}[k]||'#333');h.appendChild(t);requestAnimationFrame(function(){t.style.opacity='1';});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},250);},2600);}
+
+/* ===== Deep-link: hand a worklist row off to the Salvage & NCR screen (sender only; receiver lives on salvage-ncr.html) ===== */
+function raiseSalvage(ctx){
+  try{ sessionStorage.setItem('mes_raise_ncr', JSON.stringify(ctx||{})); }catch(e){}
+  window.location.href='salvage-ncr.html';
+}
 
 /* ===== Badges ===== */
 const RESULT_B={PASS:'b-pass',FAIL:'b-fail',PENDING:'b-pend',COND:'b-cond'};
@@ -479,7 +488,7 @@ function cell(c,row){
   if(c.key==='kind') return `<span class="badge ${v==='Test'?'b-test':'b-insp'}">${v}</span>`;
   if(c.key==='result') return `<span class="badge ${RESULT_B[v]||'b-draft'}">${v}</span>`;
   if(c.key==='status') return `<span class="badge ${STATUS_B[v]||'b-draft'}">${v}</span>`;
-  if(c.key==='actions') return `<button class="btn-icon" title="Inspection group" onclick="openGroup('${row.pc}')"><i class="fa-solid fa-layer-group"></i></button><button class="btn-icon" title="View (read-only)" onclick="openRecord('${row.no}','view')"><i class="fa-solid fa-eye"></i></button><button class="btn-icon" title="${row.result==='PENDING'?'Record result':'Edit result'}" onclick="openRecord('${row.no}','edit')"><i class="fa-solid fa-pen"></i></button>`;
+  if(c.key==='actions') return `<button class="btn-icon" title="Inspection group" onclick="openGroup('${row.pc}')"><i class="fa-solid fa-layer-group"></i></button><button class="btn-icon" title="View (read-only)" onclick="openRecord('${row.no}','view')"><i class="fa-solid fa-eye"></i></button><button class="btn-icon" title="${row.result==='PENDING'?'Record result':'Edit result'}" onclick="openRecord('${row.no}','edit')"><i class="fa-solid fa-pen"></i></button><button class="btn-icon" title="Raise Salvage / NCR" onclick="raiseSalvage({uid:'${row.uid}',heat:'${row.heat}',grade:'${row.grade}',stage:'${row.stage}',ref:'${row.no}',src:'Inspection'})"><i class="fa-solid fa-screwdriver-wrench"></i></button>`;
   return v??'';
 }
 

@@ -121,6 +121,26 @@ button{font-family:inherit;cursor:pointer;}
 .foot-actions{display:flex;gap:var(--sp2);}
 .auto-tag{font-size:var(--fs-xs);color:var(--color-primary-dark);background:var(--color-primary-light);border:1px solid #b3e5fc;border-radius:var(--r-sm);padding:2px 8px;font-weight:600;}
 
+/* ── Enhancement: detail-header actions, release-check source tags, downgrade segment, AUD modal ── */
+.dh-actions{display:flex;gap:var(--sp2);flex-wrap:wrap;align-items:flex-start;}
+.src{display:inline-block;font-size:var(--fs-xs);padding:2px 7px;border-radius:var(--r-sm);font-weight:600;letter-spacing:.3px;}
+.src-auto{color:var(--color-primary-dark);background:var(--color-primary-light);border:1px solid #b3e5fc;}
+.src-lab{color:#5e35b1;background:rgba(103,58,183,.1);border:1px solid rgba(103,58,183,.25);}
+.src-online{color:#00796b;background:rgba(0,150,136,.1);border:1px solid rgba(0,150,136,.25);}
+.dec-seg button.on.d-DOWNGRADE{background:#795548;color:#fff;}
+.mes-modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:5000;padding:20px;}
+.mes-modal{background:#fff;border-radius:var(--r-lg);width:min(560px,100%);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3);}
+.mm-head{display:flex;align-items:center;justify-content:space-between;gap:var(--sp3);padding:14px 18px;border-bottom:1px solid var(--color-border-light);}
+.mm-title{font-size:var(--fs-md);font-weight:600;display:flex;align-items:center;gap:var(--sp2);}
+.mm-title i{color:var(--color-primary);}
+.mm-x{border:none;background:none;color:var(--color-text-hint);font-size:16px;padding:4px 8px;border-radius:var(--r-sm);}
+.mm-x:hover{background:var(--color-bg);color:var(--color-danger);}
+.mm-body{padding:var(--sp4) 18px;overflow:auto;display:flex;flex-direction:column;gap:10px;}
+.mm-hint{font-size:var(--fs-sm);color:var(--color-text-muted);line-height:1.5;}
+.mm-audit{font-size:var(--fs-xs);color:var(--color-text-muted);background:var(--color-bg-alt);border:1px solid var(--color-border);border-radius:var(--r-sm);padding:8px 10px;display:flex;align-items:center;gap:var(--sp2);}
+.mm-audit i{color:var(--color-primary-dark);}
+.mm-foot{padding:var(--sp3) 18px;border-top:1px solid var(--color-border-light);display:flex;justify-content:flex-end;gap:var(--sp2);}
+
 .sidebar .ms-chev{margin-left:auto;font-size:10px;width:auto!important;padding:3px 4px;border-radius:3px;transition:transform .15s;color:rgba(255,255,255,.4);}
 .sidebar .ms-chev:hover{background:rgba(255,255,255,.15);color:#fff;}
 .sidebar .ms-group.open .ms-chev{transform:rotate(90deg);}
@@ -235,38 +255,39 @@ button{font-family:inherit;cursor:pointer;}
   </main>
 </div>
 <script>
-const UD_TYPES=['Standard','Deviation','Concession'];
+const UD_TYPES=['Standard','Deviation','Concession','Downgrade'];
 const UD_REASONS=['All parameters within TDC','Minor deviation accepted under concession','Chemistry out of TDC specification','Mechanical properties below spec','Reworkable non-conformance','Pending customer approval','Critical defect'];
-const UD_ACTIONS=['Release to next operation','Release / Dispatch','Release under concession','Re-heat-treat / Rework','Reroute to alternate order','Hold','Scrap / Reject'];
-const MAT_STATUS=['OK','HOLD','REWORK','REJECTED','QUARANTINE'];
+const UD_ACTIONS=['Release to next operation','Release / Dispatch','Release under concession','Re-heat-treat / Rework','Reroute to alternate order','Downgrade & re-allocate','Hold','Scrap / Reject'];
+const MAT_STATUS=['OK','HOLD','REWORK','DOWNGRADED','REJECTED','QUARANTINE'];
 const DEC_DEFAULT={
  ACCEPT:{type:'Standard',reason:'All parameters within TDC',action:'Release to next operation',status:'OK'},
  CONDITIONAL:{type:'Concession',reason:'Minor deviation accepted under concession',action:'Release under concession',status:'OK'},
  REJECT:{type:'Standard',reason:'Chemistry out of TDC specification',action:'Scrap / Reject',status:'REJECTED'},
- REWORK:{type:'Standard',reason:'Reworkable non-conformance',action:'Re-heat-treat / Rework',status:'REWORK'}
+ REWORK:{type:'Standard',reason:'Reworkable non-conformance',action:'Re-heat-treat / Rework',status:'REWORK'},
+ DOWNGRADE:{type:'Downgrade',reason:'Surface / dimension deviation — re-grade',action:'Downgrade & re-allocate',status:'DOWNGRADED'}
 };
 const LOTS=[
- {heat:'2526-16496',grade:'17-4PH',tdc:'TDC-004275',order:'POA-MN-FR-2627-0014',uid:'B030268',qty:'1.85 MT',
+ {kind:'Heat',heat:'2526-16496',grade:'17-4PH',tdc:'TDC-004275',order:'POA-MN-FR-2627-0014',uid:'B030268',qty:'1.85 MT',
   clr:{Chemistry:{r:'CLEARED',op:'Casting',recs:[['CHM-2526-0188','PASS']]},Mechanical:{r:'CLEARED',op:'Heat Treatment',recs:[['TST-2526-0034','PASS']]},Physical:{r:'CLEARED',op:'Grinding',recs:[['INS-2526-0012','PASS']]},UT:{r:'CLEARED',op:'Peeling',recs:[['UT-2526-0071','PASS']]}},
   defects:[],mstatus:'OK',ud:null},
- {heat:'2526-16776',grade:'304L',tdc:'TDC-004810',order:'POA-MN-FR-2627-0009',uid:'E121717',qty:'2.10 MT',
+ {kind:'Heat',heat:'2526-16776',grade:'304L',tdc:'TDC-004810',order:'POA-MN-FR-2627-0009',uid:'E121717',qty:'2.10 MT',
   clr:{Chemistry:{r:'FAIL',op:'Casting',recs:[['CHM-2526-0189','FAIL']]},Mechanical:{r:'CLEARED',op:'Heat Treatment',recs:[['TST-2526-0035','PASS']]},Physical:{r:'CLEARED',op:'Rolling',recs:[['INS-2526-0018','PASS']]},UT:{r:'CLEARED',op:'Rolling',recs:[['UT-2526-0072','COND']]}},
   defects:[['Chemistry out of spec','S content high','MAJOR']],mstatus:'HOLD',ud:null},
- {heat:'2526-16482',grade:'416',tdc:'TDC-003922',order:'OA-SBD-D-2627-0041',uid:'B030840',qty:'0.95 MT',
+ {kind:'Heat',heat:'2526-16482',grade:'416',tdc:'TDC-003922',order:'OA-SBD-D-2627-0041',uid:'B030840',qty:'0.95 MT',
   clr:{Chemistry:{r:'CLEARED',op:'Casting',recs:[['CHM-2526-0191','PASS']]},Mechanical:{r:'FAIL',op:'Heat Treatment',recs:[['TST-2526-0036','FAIL']]},Physical:{r:'CLEARED',op:'Straightening',recs:[['INS-2526-0016','PASS']]},UT:{r:'CLEARED',op:'Peeling',recs:[['UT-2526-0073','PASS']]}},
   defects:[['Low hardness','Below spec after Q&T','MAJOR']],mstatus:'HOLD',ud:null},
- {heat:'2526-16783',grade:'316L',tdc:'TDC-006132',order:'POA-MN-FR-2627-0011',uid:'A002668',qty:'1.40 MT',
+ {kind:'Heat',heat:'2526-16783',grade:'316L',tdc:'TDC-006132',order:'POA-MN-FR-2627-0011',uid:'A002668',qty:'1.40 MT',
   clr:{Chemistry:{r:'CLEARED',op:'Casting',recs:[['CHM-2526-0193','PASS']]},Mechanical:{r:'CLEARED',op:'Heat Treatment',recs:[['TST-2526-0038','PASS']]},Physical:{r:'CLEARED',op:'Pickling',recs:[['INS-2526-0017','PASS']]},UT:{r:'PENDING',op:'Peeling',recs:[]}},
   defects:[],mstatus:'OK',ud:null},
- {heat:'2526-16798',grade:'304L',tdc:'TDC-004810',order:'POA-MN-FR-2627-0010',uid:'E122319',qty:'1.65 MT',
+ {kind:'Heat',heat:'2526-16798',grade:'304L',tdc:'TDC-004810',order:'POA-MN-FR-2627-0010',uid:'E122319',qty:'1.65 MT',
   clr:{Chemistry:{r:'CLEARED',op:'Casting',recs:[['CHM-2526-0190','PASS']]},Mechanical:{r:'CLEARED',op:'Heat Treatment',recs:[['TST-2526-0039','PASS']]},Physical:{r:'CLEARED',op:'Drawing',recs:[['INS-2526-0014','PASS']]},UT:{r:'CLEARED',op:'Rolling',recs:[['UT-2526-0072','PASS']]}},
   defects:[['Minor surface mark','Within concession limit','MINOR']],mstatus:'OK',ud:null},
- {heat:'2526-16426',grade:'416',tdc:'TDC-003922',order:'POA-MN-FR-2627-0012',uid:'E120808',qty:'1.20 MT',
+ {kind:'Heat',heat:'2526-16426',grade:'416',tdc:'TDC-003922',order:'POA-MN-FR-2627-0012',uid:'E120808',qty:'1.20 MT',
   clr:{Chemistry:{r:'CLEARED',op:'Casting',recs:[['CHM-2526-0187','PASS']]},Mechanical:{r:'CLEARED',op:'Heat Treatment',recs:[['TST-2526-0040','PASS']]},Physical:{r:'CLEARED',op:'Grinding',recs:[['INS-2526-0019','PASS']]},UT:{r:'CLEARED',op:'Peeling',recs:[['UT-2526-0073','PASS']]}},
   defects:[],mstatus:'OK',ud:null}
 ];
-const M={READY:'b-pass',REVIEW:'b-warn',INCOMPLETE:'b-pend',ACCEPT:'b-pass',CONDITIONAL:'b-info',REJECT:'b-fail',REWORK:'b-warn',
-  OK:'b-pass',HOLD:'b-hold',REJECTED:'b-fail',QUARANTINE:'b-hold',
+const M={READY:'b-pass',REVIEW:'b-warn',INCOMPLETE:'b-pend',ACCEPT:'b-pass',CONDITIONAL:'b-info',REJECT:'b-fail',REWORK:'b-warn',DOWNGRADE:'b-warn',
+  OK:'b-pass',HOLD:'b-hold',DOWNGRADED:'b-warn',REJECTED:'b-fail',QUARANTINE:'b-hold',
   CLEARED:'b-pass',FAIL:'b-fail',PENDING:'b-pend',PASS:'b-pass',COND:'b-info'};
 function bdg(s){return `<span class="badge ${M[s]||'b-pend'}">${s}</span>`;}
 function cap(d){return d[0]+d.slice(1).toLowerCase();}
@@ -281,6 +302,32 @@ const READINGS={
  'CHM-2526-0193':'C .022 · Cr 16.8 · Ni 10.4 · Mo 2.1','CHM-2526-0187':'C .11 · Cr 13.1 · S .24 · Mn .88'};
 function inspectionsOf(lot){const out=[];Object.entries(lot.clr).forEach(([dim,c])=>{if(dim==='Physical'||dim==='UT')c.recs.forEach(r=>out.push({no:r[0],type:dim==='UT'?'Ultrasonic (NDT)':'Dimensional / Visual',stage:c.op,result:r[1]}));});return out;}
 function testsOf(lot){const out=[];Object.entries(lot.clr).forEach(([dim,c])=>{if(dim==='Chemistry'||dim==='Mechanical')c.recs.forEach(r=>out.push({no:r[0],test:dim==='Chemistry'?'Chemical (Spectro)':'Mechanical (Tensile/Hardness)',readings:READINGS[r[0]]||'—',result:r[1]}));});return out;}
+/* Release check — the Spec column is resolved from the lot's applied TDC (customer spec overlaid on the
+   grade standard), NOT a hard-coded global threshold. TDC_SPEC is keyed by TDC number; each characteristic
+   is evaluated by parsing the lot's own test readings and comparing to the TDC min/max. */
+const TDC_SPEC={
+ 'TDC-004275':{grade:'17-4PH',mech:{YS:{min:725,unit:'MPa',label:'Yield strength (YS)'},UTS:{min:930,unit:'MPa',label:'Tensile strength (UTS)'},Elong:{min:10,unit:'%',label:'Elongation'},HRC:{max:38,unit:'HRC',label:'Hardness'}},chem:{C:{max:0.07},Cr:{min:15,max:17.5},Ni:{min:3,max:5},Cu:{min:3,max:5}}},
+ 'TDC-004810':{grade:'304L',mech:{YS:{min:170,unit:'MPa',label:'Yield strength (YS)'},UTS:{min:485,unit:'MPa',label:'Tensile strength (UTS)'},Elong:{min:40,unit:'%',label:'Elongation'},HRB:{max:92,unit:'HRB',label:'Hardness'}},chem:{C:{max:0.030},Cr:{min:18,max:20},Ni:{min:8,max:12},S:{max:0.030}}},
+ 'TDC-003922':{grade:'416',mech:{YS:{min:400,unit:'MPa',label:'Yield strength (YS)'},UTS:{min:600,unit:'MPa',label:'Tensile strength (UTS)'},Elong:{min:12,unit:'%',label:'Elongation'},HRC:{min:26,unit:'HRC',label:'Hardness'}},chem:{C:{min:0.09,max:0.15},Cr:{min:12,max:14},S:{min:0.15}}},
+ 'TDC-006132':{grade:'316L',mech:{YS:{min:170,unit:'MPa',label:'Yield strength (YS)'},UTS:{min:485,unit:'MPa',label:'Tensile strength (UTS)'},Elong:{min:40,unit:'%',label:'Elongation'},HRB:{max:95,unit:'HRB',label:'Hardness'}},chem:{C:{max:0.030},Cr:{min:16,max:18},Ni:{min:10,max:14},Mo:{min:2,max:3}}}
+};
+function parseReadings(str){const out={};(str||'').split('·').forEach(function(tok){tok=tok.replace('✗','').trim();if(!tok)return;var m;if(m=tok.match(/^([A-Za-z]+)\s+\.?\d/)){var key=m[1];out[key]=parseFloat(tok.slice(key.length).replace('%','').trim());}else if(m=tok.match(/^([\d.]+)\s*(HRC|HRB|HB|HV)$/i)){out[m[2].toUpperCase()]=parseFloat(m[1]);}});return out;}
+function specText(s){var u=s.unit?(' '+s.unit):'';if(s.min!=null&&s.max!=null)return s.min+'–'+s.max+u;if(s.min!=null)return '≥ '+s.min+u;if(s.max!=null)return '≤ '+s.max+u;return '—';}
+function evalSpec(v,s){if(v==null)return null;if(s.min!=null&&v<s.min)return false;if(s.max!=null&&v>s.max)return false;return true;}
+function firstRec(c){return c&&c.recs&&c.recs.length?c.recs[0]:null;}
+function releaseCheck(lot){
+ var spec=TDC_SPEC[lot.tdc],rows=[];
+ var mr=firstRec(lot.clr.Mechanical),mv=parseReadings(mr?READINGS[mr[0]]:'');
+ if(spec&&spec.mech)Object.keys(spec.mech).forEach(function(k){var s=spec.mech[k],v=mv[k];if(v==null)return;var p=evalSpec(v,s);rows.push({prop:s.label||k,meas:v+(s.unit?(' '+s.unit):''),spec:specText(s),src:'lab',res:p?'PASS':'FAIL'});});
+ var cr=firstRec(lot.clr.Chemistry),cv=parseReadings(cr?READINGS[cr[0]]:'');
+ if(spec&&spec.chem)Object.keys(spec.chem).forEach(function(el){var s=spec.chem[el],v=cv[el];if(v==null)return;var p=evalSpec(v,s);rows.push({prop:el+' (chemistry)',meas:v+'%',spec:specText(Object.assign({unit:'%'},s)),src:'lab',res:p?'PASS':'FAIL'});});
+ var ph=firstRec(lot.clr.Physical);
+ if(ph)rows.push({prop:'Dimensional / surface',meas:ph[1]==='PASS'?'Within tolerance':ph[1]==='FAIL'?'Out of tolerance':ph[1],spec:'Per TDC dim / surface',src:'online',res:ph[1]});
+ var ut=lot.clr.UT,utr=firstRec(ut);
+ if(ut){if(utr)rows.push({prop:'Internal soundness (UT)',meas:utr[1]==='PASS'?'No recordable indication':utr[1]==='COND'?'Minor indication (acceptable)':'Indication found',spec:'No critical / Class ≤ 2',src:'AUTO',res:utr[1]});else rows.push({prop:'Internal soundness (UT)',meas:'Awaiting online scan',spec:'No critical / Class ≤ 2',src:'AUTO',res:'PENDING'});}
+ return rows;
+}
+function srcTag(src){var m={AUTO:'AUTO',lab:'Lab',online:'Online'},c={AUTO:'src-auto',lab:'src-lab',online:'src-online'};return '<span class="src '+(c[src]||'')+'">'+(m[src]||src)+'</span>';}
 /* workflow triggered by the chosen UD action */
 const WORKFLOW={
  'Release to next operation':['Record UD','Quality approval','Plant-Head approval','Release → next op'],
@@ -288,9 +335,10 @@ const WORKFLOW={
  'Release under concession':['Record UD','Concession review','Customer approval','Release (concession)'],
  'Re-heat-treat / Rework':['Record UD','Raise salvage order','Re-HT / rework','Re-inspect & re-UD'],
  'Reroute to alternate order':['Record UD','Reroute approval','Re-allocate order','Re-inspect'],
+ 'Downgrade & re-allocate':['Record UD','Re-grade material','Re-allocate order','Re-inspect'],
  'Hold':['Record UD','Material on hold','Await review'],
  'Scrap / Reject':['Record UD','Raise NCR','Quarantine','Scrap']};
-function isSalvage(a){return a==='Re-heat-treat / Rework'||a==='Reroute to alternate order';}
+function isSalvage(a){return a==='Re-heat-treat / Rework'||a==='Reroute to alternate order'||a==='Downgrade & re-allocate';}
 function wfSteps(action,done){const steps=WORKFLOW[action]||['Record UD'];return '<div class="wf">'+steps.map((s,i)=>`<span class="wf-step ${i<done?'done':i===done?'cur':''}">${i+1}. ${s}</span>`).join('<i class="fa-solid fa-angle-right wf-arr"></i>')+'</div>';}
 
 let curIdx=0, form={};
@@ -317,8 +365,12 @@ function toggleDet(i){const e=document.getElementById('det-'+i);if(!e)return;e.h
 
 function renderDetail(){
   const lot=cur();
-  const chips=[['Grade',lot.grade],['TDC',lot.tdc],['Order',lot.order],['UID',lot.uid],['Qty',lot.qty]]
+  const chips=[['Type',lot.kind],['Grade',lot.grade],['TDC',lot.tdc],['Order',lot.order],['UID',lot.uid],['Qty',lot.qty]]
     .map(p=>`<span class="chip">${p[0]}<b>${p[1]}</b></span>`).join('')+`<span class="chip">Material status<b> ${lot.mstatus}</b></span>`;
+  const acts=[];
+  if(!lot.ud)acts.push(`<button class="btn btn-ghost btn-sm" onclick="raiseAUD()"><i class="fa-solid fa-file-signature"></i> Acceptance Under Deviation</button>`);
+  acts.push(`<button class="btn btn-ghost btn-sm" onclick="raiseSalvageNCR()"><i class="fa-solid fa-screwdriver-wrench"></i> Raise Salvage / NCR</button>`);
+  const actionsHtml=acts.join('');
   const aggRows=dims(lot).map(([name,c],i)=>`
     <tr class="agg-row" onclick="toggleDet(${i})"><td class="dim">${name}</td><td>${c.op}</td><td>${c.recs.length} record(s)</td><td>${bdg(c.r)}</td><td style="text-align:right"><i class="fa-solid fa-chevron-down" id="chev-${i}" style="font-size:10px;color:#999;transition:.15s"></i></td></tr>
     <tr class="agg-detail" id="det-${i}" hidden><td colspan="5">${c.recs.length?c.recs.map(r=>`<span class="rec"><b>${r[0]}</b> ${bdg(r[1])}</span>`).join(''):'<span style="color:#888;font-style:italic">No record yet — clearance pending.</span>'}</td></tr>`).join('');
@@ -329,16 +381,20 @@ function renderDetail(){
     <table class="evi-tbl"><thead><tr><th>QC No</th><th>Type</th><th>Stage</th><th>Result</th></tr></thead><tbody>${insp.length?insp.map(x=>`<tr><td class="mono">${x.no}</td><td>${x.type}</td><td>${x.stage}</td><td>${bdg(x.result)}</td></tr>`).join(''):'<tr><td colspan="4" class="evi-empty">No inspections recorded yet.</td></tr>'}</tbody></table></section>`;
   const testSec=`<section><div class="sec-title">Test results</div>
     <table class="evi-tbl"><thead><tr><th>Test No</th><th>Test</th><th>Readings</th><th>Result</th></tr></thead><tbody>${tests.length?tests.map(x=>`<tr><td class="mono">${x.no}</td><td>${x.test}</td><td class="evi-read">${x.readings}</td><td>${bdg(x.result)}</td></tr>`).join(''):'<tr><td colspan="4" class="evi-empty">No tests recorded yet.</td></tr>'}</tbody></table></section>`;
+  const relRows=releaseCheck(lot);
+  const relSec=relRows.length?`<section><div class="sec-title">Release check — measured vs TDC spec <span class="auto-tag" style="margin-left:6px">${lot.tdc}</span></div>
+    <table class="evi-tbl"><thead><tr><th>Property</th><th>Measured</th><th>Spec (TDC)</th><th>Source</th><th>Result</th></tr></thead><tbody>${relRows.map(r=>`<tr><td>${r.prop}</td><td class="evi-read">${r.meas}</td><td class="evi-read">${r.spec}</td><td>${srcTag(r.src)}</td><td>${bdg(r.res)}</td></tr>`).join('')}</tbody></table></section>`:'';
   let decSec, foot;
   if(lot.ud){
     const u=lot.ud;
     decSec=`<section><div class="sec-title">Usage Decision — recorded</div>
       <div class="ud-sum">
-        <div class="row"><span class="v">${bdg(u.decision)}</span> <span class="auto-tag">${u.auto?'AUTO-UD':'MANUAL'}</span></div>
+        <div class="row"><span class="v">${bdg(u.decision)}</span> <span class="auto-tag">${u.auto?'AUTO-UD':u.aud?'AUD · CONCESSION':'MANUAL'}</span></div>
         <div class="row"><span><span class="k">Type:</span> <span class="v">${u.type}</span></span><span><span class="k">Action:</span> <span class="v">${u.action}</span></span><span><span class="k">Material status:</span> ${bdg(u.status)}</span></div>
         <div class="row"><span class="k">Reason:</span> <span class="v">${u.reason}</span></div>
-        ${u.remarks?`<div class="row"><span class="k">Remarks:</span> <span class="v">${u.remarks}</span></div>`:''}
-        ${u.salvageRemarks?`<div class="row"><span class="k">Salvage remarks:</span> <span class="v">${u.salvageRemarks}</span></div>`:''}
+        ${u.remarks?`<div class="row"><span class="k">${u.aud?'Justification:':'Remarks:'}</span> <span class="v">${u.remarks}</span></div>`:''}
+        ${u.salvageRemarks?`<div class="row"><span class="k">${u.decision==='DOWNGRADE'?'Re-grade / reroute:':'Salvage remarks:'}</span> <span class="v">${u.salvageRemarks}</span></div>`:''}
+        ${u.chain?`<div class="row"><span class="k">Approval chain:</span> <span class="v">${u.chain}</span></div>`:''}
         <div class="row"><span class="k">Decided by:</span> <span class="v">QA · just now</span> <span class="k">Approval:</span> ${bdg(u.approval)}</div>
       </div>
       <div class="wf-wrap"><div class="wf-label"><i class="fa-solid fa-diagram-project"></i> Workflow — <b>${u.action}</b></div>${wfSteps(u.action,u.approval==='APPROVED'?(WORKFLOW[u.action]||[]).length-1:1)}</div>
@@ -348,13 +404,13 @@ function renderDetail(){
       ${u.approval==='PENDING'?'<button class="btn btn-success" onclick="approve()"><i class="fa-solid fa-check-double"></i> Approve</button>':''}</div>`;
   } else {
     decSec=`<section><div class="sec-title">Usage Decision ${suggest(lot)?`<span class="auto-tag" style="margin-left:6px">Suggested: ${cap(suggest(lot))}</span>`:''}</div>
-      <div class="dec-seg">${['ACCEPT','CONDITIONAL','REJECT','REWORK'].map(d=>`<button class="d-${d} ${form.decision===d?'on':''}" onclick="setDecision('${d}')">${cap(d)}</button>`).join('')}</div>
+      <div class="dec-seg">${['ACCEPT','CONDITIONAL','REJECT','REWORK','DOWNGRADE'].map(d=>`<button class="d-${d} ${form.decision===d?'on':''}" onclick="setDecision('${d}')">${cap(d)}</button>`).join('')}</div>
       <div class="dec-grid">
         <div class="fld"><label>UD Type</label><select onchange="setF('type',this.value)">${opts(UD_TYPES,form.type)}</select></div>
         <div class="fld"><label>Action</label><select onchange="setF('action',this.value)">${opts(UD_ACTIONS,form.action)}</select></div>
         <div class="fld"><label>Reason</label><select onchange="setF('reason',this.value)">${opts(UD_REASONS,form.reason)}</select></div>
         <div class="fld"><label>Resulting material status</label><select onchange="setF('status',this.value)">${opts(MAT_STATUS,form.status)}</select></div>
-        ${isSalvage(form.action)?`<div class="fld full"><label>Salvage remarks <span style="color:#888;font-weight:400;font-size:11px">(rework / reroute · re-HT code · loss est.)</span></label><textarea oninput="form.salvageRemarks=this.value" placeholder="Salvage type, rework operation, re-HT code, expected loss…">${form.salvageRemarks||''}</textarea></div>`:''}
+        ${isSalvage(form.action)?(form.action==='Downgrade & re-allocate'?`<div class="fld full"><label>Re-grade / reroute remarks <span style="color:#888;font-weight:400;font-size:11px">(downgrade grade · alternate order · loss est.)</span></label><textarea oninput="form.salvageRemarks=this.value" placeholder="Downgrade grade, alternate order, expected loss…">${form.salvageRemarks||''}</textarea></div>`:`<div class="fld full"><label>Salvage remarks <span style="color:#888;font-weight:400;font-size:11px">(rework / reroute · re-HT code · loss est.)</span></label><textarea oninput="form.salvageRemarks=this.value" placeholder="Salvage type, rework operation, re-HT code, expected loss…">${form.salvageRemarks||''}</textarea></div>`):''}
         <div class="fld full"><label>UD Remarks</label><textarea oninput="form.remarks=this.value" placeholder="Decision rationale, concession ref, customer note…">${form.remarks}</textarea></div>
       </div>
       <div class="wf-wrap"><div class="wf-label"><i class="fa-solid fa-diagram-project"></i> Workflow on action — <b>${form.action}</b></div>${wfSteps(form.action,0)}</div>
@@ -365,12 +421,16 @@ function renderDetail(){
   }
 
   document.getElementById('detail').innerHTML=`
-    <div class="dhead"><div><div class="dh-title">Heat ${lot.heat} <span class="badge ${M[readiness(lot)]}">${readiness(lot)}</span></div>
-      <div class="chips">${chips}</div></div></div>
+    <div class="dhead">
+      <div><div class="dh-title">${lot.kind} ${lot.heat} <span class="badge ${M[readiness(lot)]||'b-pend'}">${readiness(lot)}</span></div>
+      <div class="chips">${chips}</div></div>
+      <div class="dh-actions">${actionsHtml}</div>
+    </div>
     <div class="dbody">
       <section><div class="sec-title">Clearance summary — by dimension</div>
         <table class="agg-table"><thead><tr><th>Dimension</th><th>Stage</th><th>Records</th><th>Result</th><th></th></tr></thead><tbody>${aggRows}</tbody></table>
       </section>
+      ${relSec}
       ${inspSec}
       ${testSec}
       ${defSec}
@@ -381,10 +441,55 @@ function renderDetail(){
 function setDecision(d){form.decision=d;Object.assign(form,DEC_DEFAULT[d]);renderDetail();}
 function setF(k,v){form[k]=v;if(k==='action')renderDetail();}
 function recordUD(){const lot=cur();const auto=form.decision==='ACCEPT'&&suggest(lot)==='ACCEPT';
-  lot.ud=Object.assign({},form,{approval:'PENDING',auto});lot.mstatus=form.status;renderList();renderDetail();}
-function approve(){cur().ud.approval='APPROVED';renderList();renderDetail();}
-function reviseUD(){cur().ud=null;initForm();renderList();renderDetail();}
-function massUD(){alert('Mass UD: filter lots (grade / order / readiness) and apply one decision to all matching lots. (demo)');}
+  lot.ud=Object.assign({},form,{approval:'PENDING',auto});lot.mstatus=form.status;renderList();renderDetail();
+  mesToast('Usage decision recorded for '+lot.kind+' '+lot.heat+' — routed for approval (Quality → Plant Head)','ok');}
+function approve(){cur().ud.approval='APPROVED';renderList();renderDetail();
+  mesToast('Usage decision approved — '+cur().kind+' '+cur().heat,'ok');}
+function reviseUD(){cur().ud=null;initForm();renderList();renderDetail();
+  mesToast('Decision cleared — re-enter the usage decision','warn');}
+function massUD(){mesToast('Mass UD — filter lots by grade / order / readiness and apply one decision to all matching lots (demo).','ok');}
+
+/* Deep-link to the Salvage & NCR screen with the selected lot's context (separate page, not an SPA). */
+function stageOf(lot){var f=Object.values(lot.clr).find(function(c){return c.r==='FAIL';});return f?f.op:(lot.clr.Mechanical?lot.clr.Mechanical.op:'Final QC');}
+function raiseSalvageNCR(){const lot=cur();
+  try{sessionStorage.setItem('mes_raise_ncr',JSON.stringify({uid:lot.uid,heat:lot.heat,grade:lot.grade,stage:stageOf(lot),ref:lot.ref||lot.heat,src:'Usage Decision'}));}catch(e){}
+  window.location.href='salvage-ncr.html';}
+
+/* Acceptance Under Deviation (concession): required justification + multi-level approval chain
+   (Planner → Quality → Plant Head), first open defect shown inline, retained in the audit trail. */
+function raiseAUD(){
+  const lot=cur();
+  const defHtml=lot.defects.length?`<div class="def"><i class="fa-solid fa-triangle-exclamation"></i> <b>${lot.defects[0][0]}</b> — ${lot.defects[0][1]}</div>`:'';
+  const chainHtml=`<div class="wf"><span class="wf-step cur">1. Planner</span><i class="fa-solid fa-angle-right wf-arr"></i><span class="wf-step">2. Quality</span><i class="fa-solid fa-angle-right wf-arr"></i><span class="wf-step">3. Plant Head</span></div>`;
+  const ov=document.createElement('div');ov.className='mes-modal-ov';
+  ov.innerHTML=`<div class="mes-modal" role="dialog" aria-modal="true" aria-label="Acceptance Under Deviation">
+    <div class="mm-head"><div class="mm-title"><i class="fa-solid fa-file-signature"></i> Acceptance Under Deviation — ${lot.kind} ${lot.heat} (${lot.grade})</div>
+      <button class="mm-x" id="audX" aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="mm-body">
+      <div class="mm-hint">Record a concession to accept material that deviates from the ${lot.tdc} / ${lot.grade} specification. The concession is routed for multi-level approval and retained in the audit trail.</div>
+      ${defHtml}
+      <div class="fld"><label>Deviation justification <span style="color:var(--color-danger)">*</span></label>
+        <textarea id="audJust" rows="4" placeholder="Describe the deviation and the technical justification for acceptance (fitness-for-use, customer concession ref, inspection evidence)…"></textarea></div>
+      <div class="wf-wrap"><div class="wf-label"><i class="fa-solid fa-diagram-project"></i> Approval chain</div>${chainHtml}</div>
+      <div class="mm-audit"><i class="fa-solid fa-clipboard-list"></i> Audit trail maintained — every AUD action is logged with user, timestamp and justification.</div>
+    </div>
+    <div class="mm-foot"><button class="btn btn-ghost" id="audCancel">Cancel</button>
+      <button class="btn btn-primary" id="audSubmit"><i class="fa-solid fa-file-signature"></i> Submit AUD</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  function close(){ov.remove();}
+  ov.addEventListener('click',function(e){if(e.target===ov)close();});
+  document.getElementById('audX').onclick=close;
+  document.getElementById('audCancel').onclick=close;
+  document.getElementById('audSubmit').onclick=function(){
+    const j=(document.getElementById('audJust').value||'').trim();
+    if(!j){mesToast('Enter a deviation justification before submitting the AUD','warn');return;}
+    lot.ud={decision:'CONDITIONAL',type:'Concession',reason:'Minor deviation accepted under concession',action:'Release under concession',status:'OK',remarks:j,approval:'PENDING',auto:false,aud:true,chain:'Planner → Quality → Plant Head'};
+    lot.mstatus='OK';close();renderList();renderDetail();
+    mesToast('AUD created; approval workflow triggered; audit trail maintained','ok');};
+  setTimeout(function(){var t=document.getElementById('audJust');if(t)t.focus();},30);}
+
+function mesToast(m,k){var h=document.getElementById('mesToastHost');if(!h){h=document.createElement('div');h.id='mesToastHost';h.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px';document.body.appendChild(h);}var t=document.createElement('div');t.textContent=m;t.style.cssText='padding:10px 14px;border-radius:8px;font:13px Roboto,sans-serif;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;background:'+({ok:'#2e7d32',warn:'#ed6c02',err:'#c62828'}[k]||'#333');h.appendChild(t);requestAnimationFrame(function(){t.style.opacity='1';});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},250);},2600);}
 
 document.getElementById('search').oninput=renderList;
 initForm(); renderList(); renderDetail();

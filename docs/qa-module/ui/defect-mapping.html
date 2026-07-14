@@ -121,6 +121,21 @@ button{font-family:inherit;cursor:pointer;}
 .icon-btn:hover{color:var(--color-danger);background:#ffebee;}
 .empty{padding:var(--sp5);text-align:center;color:var(--color-text-hint);font-size:var(--fs-sm);font-style:italic;}
 
+/* ---- defect capture / evidence gallery (pure-CSS placeholders, no external assets) ---- */
+.gal-head{display:flex;align-items:center;justify-content:space-between;gap:var(--sp3);flex-wrap:wrap;margin-bottom:var(--sp2);}
+.dm-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:var(--sp3);}
+.dm-shot{border:1px solid var(--color-border);border-radius:var(--r-md);overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+.shot-img{position:relative;height:128px;overflow:hidden;color:#5b6b75;background:linear-gradient(180deg,rgba(255,255,255,.35),rgba(0,0,0,.07)),repeating-linear-gradient(90deg,#c3ccd2 0,#c3ccd2 2px,#b3bdc4 2px,#b3bdc4 4px);}
+.shot-img .grade-sheen{position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.5) 50%,transparent 60%);}
+.shot-img .shot-scan{position:absolute;left:0;right:0;top:38%;height:2px;background:rgba(var(--color-primary-rgb),.75);box-shadow:0 0 9px rgba(var(--color-primary-rgb),.85);}
+.shot-mark{position:absolute;width:30px;height:30px;border-radius:50%;transform:translate(-50%,-50%);border:3px solid var(--color-danger);box-shadow:0 0 0 3px rgba(0,0,0,.12);}
+.shot-mark::after{content:'';position:absolute;inset:-9px;border-radius:50%;border:1px dashed rgba(0,0,0,.4);}
+.shot-tag{position:absolute;top:6px;left:6px;background:rgba(26,26,46,.82);color:#fff;font-size:9.5px;font-weight:600;letter-spacing:.3px;padding:2px 7px;border-radius:10px;}
+.shot-zoom{position:absolute;bottom:6px;right:6px;color:#fff;background:rgba(26,26,46,.7);width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;}
+.shot-cap{padding:8px 10px;font-size:var(--fs-xs);color:var(--color-text-secondary);display:flex;flex-direction:column;gap:2px;}
+.shot-cap b{color:var(--color-text-primary);font-size:var(--fs-sm);font-weight:600;}
+.shot-cap span{color:var(--color-text-hint);font-variant-numeric:tabular-nums;}
+
 /* ---- modal ---- */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:50;padding:var(--sp4);}
 .overlay.open{display:flex;}
@@ -264,12 +279,19 @@ button{font-family:inherit;cursor:pointer;}
 const DEFECT_CATALOG=['Surface crack','Scab','Pit','Lap','Inclusion','Roll mark','Scratch','Seam'];
 const SEVERITIES=['CRITICAL','MAJOR','MINOR'];
 const DISPOSITIONS=['Rework','Reject','Salvage','Concession','Scrap'];
+/* detection source — product-agnostic (maps to mes_qc_defect_record.detected_by) */
+const SOURCES=['Manual — Surface Insp.','Online gauge','Camera','NDT','Lab'];
 const SEV_COLOR={CRITICAL:'#d32f2f',MAJOR:'#f57c00',MINOR:'#fbc02d'};
 const SEV_BADGE={CRITICAL:'b-crit',MAJOR:'b-maj',MINOR:'b-min'};
 const DISP_BADGE={Rework:'b-warn',Reject:'b-fail',Salvage:'b-info',Concession:'b-purple',Scrap:'b-slate'};
 /* location_type derives from material form */
 const LINEAR_FORMS=['Round Bar','Hex'];
 function locType(form){return LINEAR_FORMS.includes(form)?'LINEAR':'SURFACE_XY';}
+function locStr(m,d){return locType(m.form)==='LINEAR'?`L ${d.pos1} mm`:`X ${d.pos1} · Y ${d.pos2} · ${d.face}`;}
+function nowHM(){const t=new Date();return String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');}
+/* short detection-source tag for capture thumbnails (product-agnostic) */
+function srcTag(s){s=s||'';if(/insp/i.test(s))return'INSP';if(/gauge/i.test(s))return'GAUGE';if(/camera/i.test(s))return'CAM';if(/ndt/i.test(s))return'NDT';if(/lab/i.test(s))return'LAB';return'CAP';}
+function mesToast(m,k){var h=document.getElementById('mesToastHost');if(!h){h=document.createElement('div');h.id='mesToastHost';h.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px';document.body.appendChild(h);}var t=document.createElement('div');t.textContent=m;t.style.cssText='padding:10px 14px;border-radius:8px;font:13px Roboto,sans-serif;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;background:'+({ok:'#2e7d32',warn:'#ed6c02',err:'#c62828'}[k]||'#333');h.appendChild(t);requestAnimationFrame(function(){t.style.opacity='1';});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},250);},2600);}
 
 /* ============ data — each defect = a mes_qc_defect_record row ============
    linear:  position_1 = mm along length (0..length_mm)
@@ -277,22 +299,22 @@ function locType(form){return LINEAR_FORMS.includes(form)?'LINEAR':'SURFACE_XY';
 const MATERIALS=[
  {uid:'B030268',heat:'2526-16496',grade:'17-4PH',form:'Round Bar',stage:'As Rolled',length_mm:3000,width_mm:65,
   defects:[
-   {id:1,defect:'Surface crack',severity:'CRITICAL',pos1:1240,pos2:null,face:null,disp:'Reject'},
-   {id:2,defect:'Roll mark',severity:'MINOR',pos1:480,pos2:null,face:null,disp:'Concession'},
-   {id:3,defect:'Inclusion',severity:'MAJOR',pos1:2380,pos2:null,face:null,disp:'Salvage'}
+   {id:1,defect:'Surface crack',severity:'CRITICAL',pos1:1240,pos2:null,face:null,disp:'Reject',source:'Manual — Surface Insp.',ts:'09:12'},
+   {id:2,defect:'Roll mark',severity:'MINOR',pos1:480,pos2:null,face:null,disp:'Concession',source:'Camera',ts:'09:15'},
+   {id:3,defect:'Inclusion',severity:'MAJOR',pos1:2380,pos2:null,face:null,disp:'Salvage',source:'NDT',ts:'09:20'}
   ]},
  {uid:'E121717',heat:'2526-16776',grade:'304L',form:'Hex',stage:'As Cast',length_mm:2600,width_mm:23,
   defects:[
-   {id:1,defect:'Seam',severity:'MAJOR',pos1:1750,pos2:null,face:null,disp:'Rework'}
+   {id:1,defect:'Seam',severity:'MAJOR',pos1:1750,pos2:null,face:null,disp:'Rework',source:'Manual — Surface Insp.',ts:'08:47'}
   ]},
  {uid:'E122956',heat:'2526-16030',grade:'304L',form:'Flat Bar / Plate',stage:'As Rolled',length_mm:2400,width_mm:300,
   defects:[
-   {id:1,defect:'Scab',severity:'MAJOR',pos1:600,pos2:240,face:'TOP',disp:'Salvage'},
-   {id:2,defect:'Pit',severity:'MINOR',pos1:1820,pos2:70,face:'BOTTOM',disp:'Concession'}
+   {id:1,defect:'Scab',severity:'MAJOR',pos1:600,pos2:240,face:'TOP',disp:'Salvage',source:'Online gauge',ts:'10:03'},
+   {id:2,defect:'Pit',severity:'MINOR',pos1:1820,pos2:70,face:'BOTTOM',disp:'Concession',source:'Camera',ts:'10:08'}
   ]},
  {uid:'B030840',heat:'2526-16482',grade:'416',form:'Round Bar',stage:'As Bright',length_mm:3000,width_mm:68,
   defects:[
-   {id:1,defect:'Scratch',severity:'MINOR',pos1:2100,pos2:null,face:null,disp:'Concession'}
+   {id:1,defect:'Scratch',severity:'MINOR',pos1:2100,pos2:null,face:null,disp:'Concession',source:'Manual — Surface Insp.',ts:'11:22'}
   ]}
 ];
 
@@ -374,6 +396,36 @@ function surfaceSVG(m){
   </svg>`;
 }
 
+/* ============ defect capture / evidence gallery — pure-CSS placeholders (maps to mes_qc_defect_capture) ============ */
+function shotsFor(m,d){
+  const label=srcTag(d.source);
+  const scan=/gauge|ndt/i.test(d.source||'');   // automated sources render a scan line
+  const base=[{view:'Overview',zoom:false},{view:'Defect zoom ×8',zoom:true}];
+  if(d.severity==='CRITICAL')base.push({view:'Profile scan',zoom:true});
+  const views=base.map((o,i)=>({view:o.view,zoom:o.zoom,tag:label+' · CH-0'+(i+1),scan:scan,ts:d.ts}));
+  (d.shots||[]).forEach((a,i)=>views.push({view:a.view||'Attached capture',zoom:true,tag:srcTag(a.source)+' · UP-0'+(i+1),scan:false,ts:a.ts,attached:true}));
+  return views;
+}
+function shotHtml(m,d,s){
+  const lt=locType(m.form),col=SEV_COLOR[d.severity];
+  const xPct=s.zoom?50:Math.max(8,Math.min(92,(d.pos1/m.length_mm)*100));
+  const yPct=s.zoom?50:(lt==='LINEAR'?50:Math.max(12,Math.min(88,(d.pos2/m.width_mm)*100)));
+  const mark=`<span class="shot-mark" style="left:${xPct}%;top:${yPct}%;border-color:${col};"></span>`;
+  const scan=s.scan?'<span class="shot-scan"></span>':'';
+  return `<div class="dm-shot">
+    <div class="shot-img">
+      <span class="grade-sheen"></span>${scan}
+      <span class="shot-tag">${s.tag}</span>
+      ${mark}
+      <span class="shot-zoom"><i class="fa-solid ${s.zoom?'fa-magnifying-glass-plus':'fa-image'}"></i></span>
+    </div>
+    <div class="shot-cap">
+      <b>${d.defect}${s.attached?' · attached':''}</b>
+      <span>${s.view} · ${locStr(m,d)} · ${s.ts}</span>
+    </div>
+  </div>`;
+}
+
 /* ============ detail ============ */
 function renderDetail(){
   const m=cur(),lt=locType(m.form);
@@ -398,12 +450,25 @@ function renderDetail(){
       <td><b>${d.defect}</b></td>
       <td><span class="badge ${SEV_BADGE[d.severity]}">${d.severity}</span></td>
       <td class="loc">${loc}</td>
+      <td>${d.source}</td>
       <td><span class="badge ${DISP_BADGE[d.disp]}">${d.disp}</span></td>
       <td style="text-align:right"><button class="icon-btn" title="Delete" onclick="event.stopPropagation();delDefect(${d.id})"><i class="fa-solid fa-trash-can"></i></button></td>
     </tr>`;}).join('') : '';
   const tableSec = m.defects.length
-    ? `<table class="dtable"><thead><tr><th style="width:34px"></th><th>Defect</th><th>Severity</th><th>Location</th><th>Disposition</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+    ? `<table class="dtable"><thead><tr><th style="width:34px"></th><th>Defect</th><th>Severity</th><th>Location</th><th>Detected by</th><th>Disposition</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
     : `<div class="empty">No defects recorded for this material yet. Use “Add defect” to plot one.</div>`;
+
+  // capture gallery keyed to the active (or first) defect
+  const gd = m.defects.find(x=>x.id===activeDefect) || m.defects[0];
+  const gallerySec = m.defects.length ? `
+      <section>
+        <div class="gal-head">
+          <div class="sec-title" style="margin:0">Defect capture &amp; evidence${gd?` — <span style="color:var(--color-text-primary);text-transform:none;letter-spacing:0">${gd.defect}</span>`:''}</div>
+          <button class="btn btn-ghost btn-sm" onclick="attachShot()"><i class="fa-solid fa-camera"></i> Attach capture</button>
+        </div>
+        <div class="dm-gallery">${gd?shotsFor(m,gd).map(s=>shotHtml(m,gd,s)).join(''):'<div class="empty">Select a defect to review its captures.</div>'}</div>
+        ${gd?`<div class="hint" style="margin-top:8px"><i class="fa-solid fa-circle-info"></i> Detected by <b>${gd.source}</b> at ${gd.ts}. Marker overlaid at the recorded position — select a defect row or marker to switch.</div>`:''}
+      </section>` : '';
 
   document.getElementById('detail').innerHTML=`
     <div class="dhead">
@@ -429,6 +494,7 @@ function renderDetail(){
           ${legend}
         </div>
       </section>
+      ${gallerySec}
       <section>
         <div class="sec-title">Defect records (${m.defects.length}) — maps to mes_qc_defect_record</div>
         ${tableSec}
@@ -452,7 +518,7 @@ function wireMarkers(){
     const m=cur(),d=m.defects.find(x=>x.id===id);if(!d)return;
     const r=wrap.getBoundingClientRect();
     const loc=locType(m.form)==='LINEAR'?`${d.pos1} mm from head`:`X ${d.pos1} · Y ${d.pos2} · ${d.face}`;
-    tip.innerHTML=`<b><span class="ts" style="background:${SEV_COLOR[d.severity]}"></span>${d.defect}</b>${d.severity} · ${loc} · ${d.disp}`;
+    tip.innerHTML=`<b><span class="ts" style="background:${SEV_COLOR[d.severity]}"></span>${d.defect}</b>${d.severity} · ${loc} · ${d.disp}<br>${d.source} · ${d.ts}`;
     tip.style.left=(e.clientX-r.left)+'px';tip.style.top=(e.clientY-r.top)+'px';
     tip.classList.add('show');
   }
@@ -465,7 +531,17 @@ function pick(id){activeDefect=(activeDefect===id?null:id);
 function setFace(f){curFace=f;activeDefect=null;renderDetail();}
 
 /* ============ delete ============ */
-function delDefect(id){const m=cur();m.defects=m.defects.filter(d=>d.id!==id);if(activeDefect===id)activeDefect=null;renderDetail();renderList();}
+function delDefect(id){const m=cur();const d=m.defects.find(x=>x.id===id);m.defects=m.defects.filter(x=>x.id!==id);if(activeDefect===id)activeDefect=null;renderDetail();renderList();mesToast('Defect removed'+(d?' — '+d.defect:''),'warn');}
+
+/* ============ attach capture (evidence) ============ */
+function attachShot(){
+  const m=cur();const d=m.defects.find(x=>x.id===activeDefect)||m.defects[0];
+  if(!d){mesToast('Select a defect first to attach a capture','warn');return;}
+  activeDefect=d.id;
+  (d.shots=d.shots||[]).push({view:'Attached capture',source:d.source,ts:nowHM()});
+  renderDetail();
+  mesToast('Capture attached to '+m.uid+' — '+d.defect,'ok');
+}
 
 /* ============ add-defect modal ============ */
 function fopts(list,sel){return list.map(o=>`<option ${o===sel?'selected':''}>${o}</option>`).join('');}
@@ -476,6 +552,7 @@ function openModal(){
     <div class="fld full"><label>Defect</label><select id="f_def">${fopts(DEFECT_CATALOG)}</select></div>
     <div class="fld"><label>Severity</label><select id="f_sev">${fopts(SEVERITIES,'MAJOR')}</select></div>
     <div class="fld"><label>Disposition</label><select id="f_disp">${fopts(DISPOSITIONS,'Rework')}</select></div>
+    <div class="fld full"><label>Detected by</label><select id="f_src">${fopts(SOURCES,'Manual — Surface Insp.')}</select></div>
     <div class="fld full"><label>Location type</label><input value="${lt} (auto from form: ${m.form})" disabled /></div>
     <div class="fld"><label>Position 1 — ${plate?'X along length':'length'} (mm)</label>
       <input id="f_p1" type="number" min="0" max="${m.length_mm}" value="${Math.round(m.length_mm/2)}" />
@@ -497,6 +574,8 @@ function saveDefect(){
     defect:document.getElementById('f_def').value,
     severity:document.getElementById('f_sev').value,
     disp:document.getElementById('f_disp').value,
+    source:document.getElementById('f_src').value,
+    ts:nowHM(),
     pos1:p1,
     pos2:plate?Math.max(0,Math.min(+document.getElementById('f_p2').value||0,m.width_mm)):null,
     face:plate?document.getElementById('f_face').value:null
@@ -505,6 +584,7 @@ function saveDefect(){
   if(plate)curFace=rec.face;
   activeDefect=rec.id;
   closeModal();renderDetail();renderList();
+  mesToast('Defect logged on '+m.uid+' — '+rec.defect+' · '+rec.severity+' · '+rec.disp,'ok');
 }
 
 /* close overlay on backdrop click / Esc */

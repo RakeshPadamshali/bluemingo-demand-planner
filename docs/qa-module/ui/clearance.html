@@ -131,6 +131,20 @@ td.col-final.clickable .badge{box-shadow:0 0 0 1px rgba(var(--color-primary-rgb)
 .fld textarea{resize:vertical;min-height:60px;}
 .fld + .fld{margin-top:var(--sp4);}
 
+/* AUD (acceptance-under-deviation) panel — shown in the modal only when Result = CONDITIONAL */
+.hidden{display:none!important;}
+.alert{padding:11px 14px;border-radius:var(--r-sm);font-size:12.5px;display:flex;align-items:flex-start;gap:9px;border:1px solid transparent;}
+.alert i{margin-top:1px;}
+.alert-info{background:#e3f2fd;color:#1565c0;border-color:#90caf9;}
+.alert .a-title{font-weight:600;}
+.flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;}
+.flow .step{display:flex;align-items:center;gap:5px;color:#999;}
+.flow .step.done{color:var(--color-success);}
+.flow .step.current{color:var(--color-primary);font-weight:600;}
+.flow .step .s-dot{width:9px;height:9px;border-radius:50%;background:currentColor;}
+.flow .arrow{color:#999;font-size:9px;}
+.mt-8{margin-top:8px;}
+
 .sidebar .ms-chev{margin-left:auto;font-size:10px;width:auto!important;padding:3px 4px;border-radius:3px;transition:transform .15s;color:rgba(255,255,255,.4);}
 .sidebar .ms-chev:hover{background:rgba(255,255,255,.15);color:#fff;}
 .sidebar .ms-group.open .ms-chev{transform:rotate(90deg);}
@@ -244,6 +258,7 @@ td.col-final.clickable .badge{box-shadow:0 0 0 1px rgba(var(--color-primary-rgb)
           <div class="mh-title" id="ordTitle">Clearance</div>
           <div class="legend">
             <span class="badge b-pass">Cleared</span>
+            <span class="badge b-info">Conditional</span>
             <span class="badge b-pend">Pending</span>
             <span class="badge b-hold">Hold</span>
             <span class="badge b-fail">Fail</span>
@@ -284,8 +299,9 @@ td.col-final.clickable .badge{box-shadow:0 0 0 1px rgba(var(--color-primary-rgb)
         <div class="fld"><label>Result</label>
           <select id="f-result">
             <option value="CLEARED">CLEARED</option>
-            <option value="HOLD">HOLD</option>
             <option value="CONDITIONAL">CONDITIONAL</option>
+            <option value="HOLD">HOLD</option>
+            <option value="FAIL">REJECTED</option>
           </select>
         </div>
         <div class="fld"><label>Cleared by</label>
@@ -293,6 +309,24 @@ td.col-final.clickable .badge{box-shadow:0 0 0 1px rgba(var(--color-primary-rgb)
         </div>
         <div class="fld"><label>Remarks</label>
           <textarea id="f-rem" placeholder="Basis of clearance, concession ref, customer note…"></textarea>
+        </div>
+        <div class="fld hidden" id="audPanel">
+          <div class="alert alert-info">
+            <i class="fa-solid fa-circle-info"></i>
+            <div>
+              <span class="a-title">Acceptance under deviation — </span>
+              <span>material is released conditionally and stays flagged until sign-off.</span>
+              <div class="flow mt-8">
+                <span class="step done"><span class="s-dot"></span>Planner</span>
+                <span class="arrow">→</span>
+                <span class="step done"><span class="s-dot"></span>Quality</span>
+                <span class="arrow">→</span>
+                <span class="step current"><span class="s-dot"></span>Plant Head</span>
+              </div>
+            </div>
+          </div>
+          <label style="display:block;margin:8px 0 4px;font-weight:500;color:var(--color-text-secondary);font-size:12px">Deviation / concession ref</label>
+          <input id="f-devref" placeholder="Deviation / concession ref (e.g. AUD-2026-0142)" />
         </div>
       </div>
     </div>
@@ -400,27 +434,49 @@ function openModal(si,dim){
     <div class="row"><span><span class="k">Order:</span> <span class="v">${o.fpo}</span></span><span><span class="k">Stage:</span> <span class="v">${st.stage}</span></span></div>
     <div class="row"><span><span class="k">Gate:</span> <span class="v">${DIM_LABEL[dim]}</span></span><span><span class="k">Current:</span> ${bdg(st[dim])}</span></div>
     <div class="row"><span class="k">Heat:</span> <span class="v">${o.heat}</span> <span class="k">Grade:</span> <span class="v">${o.grade}</span> <span class="k">TDC:</span> <span class="v">${o.tdc}</span></div>`;
-  document.getElementById('f-result').value='CLEARED';
+  // nice touch: a failed/rejected gate defaults to CONDITIONAL (acceptance under deviation)
+  document.getElementById('f-result').value=st[dim]==='FAIL'?'CONDITIONAL':'CLEARED';
   document.getElementById('f-by').value='QA';
   document.getElementById('f-rem').value='';
+  document.getElementById('f-devref').value='';
+  syncAud();
   document.getElementById('overlay').classList.add('open');
 }
 function closeModal(){document.getElementById('overlay').classList.remove('open');modalCtx=null;}
+// AUD approval chain shows only for conditional (acceptance-under-deviation) clearance
+function syncAud(){document.getElementById('audPanel').classList.toggle('hidden',document.getElementById('f-result').value!=='CONDITIONAL');}
 function saveClearance(){
   if(!modalCtx)return;
   const {si,dim}=modalCtx;
-  ORDERS[curOrder].stages[si][dim]=document.getElementById('f-result').value;
+  const o=ORDERS[curOrder];
+  const val=document.getElementById('f-result').value;
+  if(val==='CONDITIONAL' && !document.getElementById('f-devref').value.trim()){
+    mesToast('Deviation / concession ref is required for conditional clearance','err');
+    document.getElementById('f-devref').focus();
+    return;
+  }
+  o.stages[si][dim]=val;
   closeModal();
   renderStages();renderOrders();renderStrip();
+  const g=DIM_LABEL[dim];
+  if(val==='CONDITIONAL')mesToast(o.heat+' · '+g+' cleared under deviation — pending Plant Head approval','warn');
+  else if(val==='CLEARED')mesToast(o.heat+' · '+g+' gate cleared','ok');
+  else if(val==='HOLD')mesToast(o.heat+' · '+g+' held — routed to disposition','warn');
+  else mesToast(o.heat+' · '+g+' gate rejected','err');
 }
 function releaseStage(si){
-  ORDERS[curOrder].stages[si].released=true;
+  const o=ORDERS[curOrder], st=o.stages[si];
+  st.released=true;
   renderStages();renderOrders();renderStrip();
+  mesToast(o.fpo+' · '+st.stage+' released to next stage','ok');
 }
 
 // close on overlay backdrop / Esc
 document.getElementById('overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeModal();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+document.getElementById('f-result').addEventListener('change',syncAud);
+
+function mesToast(m,k){var h=document.getElementById('mesToastHost');if(!h){h=document.createElement('div');h.id='mesToastHost';h.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px';document.body.appendChild(h);}var t=document.createElement('div');t.textContent=m;t.style.cssText='padding:10px 14px;border-radius:8px;font:13px Roboto,sans-serif;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;background:'+({ok:'#2e7d32',warn:'#ed6c02',err:'#c62828'}[k]||'#333');h.appendChild(t);requestAnimationFrame(function(){t.style.opacity='1';});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},250);},2600);}
 
 renderStrip();renderOrders();renderStages();
 </script>

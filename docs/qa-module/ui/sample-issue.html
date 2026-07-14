@@ -154,6 +154,18 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .vrow .vk{color:var(--color-text-muted);font-weight:500;white-space:nowrap;}
 .vrow .vv{text-align:right;color:var(--color-text-primary);}
 .vrow .vv .btn-icon{display:none;}
+/* per-heat sample-plan strip (planning / coverage layer) */
+.plan-strip{display:flex;align-items:center;flex-wrap:wrap;gap:8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--r-md);padding:9px 12px;margin-bottom:var(--sp3);}
+.plan-strip .pl-title{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--color-text-muted);font-weight:600;}
+.plan-strip .pl-heat{font-weight:600;font-variant-numeric:tabular-nums;}
+.plan-strip .pl-grade{font-size:12px;color:var(--color-text-hint);}
+.plan-strip .pl-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:var(--color-bg-alt);border:1px solid var(--color-border-light);border-radius:999px;padding:3px 10px;cursor:pointer;}
+.plan-strip .pl-chip:hover{border-color:var(--color-primary);background:var(--color-primary-light);}
+.plan-strip .pl-chip.on{border-color:var(--color-primary);background:var(--color-primary-light);color:var(--color-primary-dark);}
+.plan-strip .pl-chip b{font-variant-numeric:tabular-nums;color:var(--color-primary-dark);}
+.plan-strip .pl-total{margin-left:auto;font-size:12px;color:var(--color-text-muted);}
+.plan-strip .pl-total b{color:var(--color-text-primary);font-size:14px;}
+.b-plan{background:rgba(158,158,158,.14);color:#757575;border:1px dashed #bdbdbd;}
 </style>
 </head>
 <body>
@@ -223,11 +235,16 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
     <div class="tabbar" id="tabbar"></div>
     <div class="page-head">
       <div><h1>Sample Issue</h1><div class="sub">Draw, barcode, prep and assign samples for testing — per the sampling rule</div></div>
-      <button class="btn btn-primary btn-sm" onclick="openIssue()"><i class="fa-solid fa-plus"></i> Issue Sample</button>
+      <div style="display:flex;gap:8px;flex:none">
+        <button class="btn btn-ghost btn-sm" onclick="generateIds()"><i class="fa-solid fa-barcode"></i> Generate sample IDs &amp; barcodes</button>
+        <button class="btn btn-primary btn-sm" onclick="openIssue()"><i class="fa-solid fa-plus"></i> Issue Sample</button>
+      </div>
     </div>
+    <div class="plan-strip" id="planStrip"></div>
     <div class="filterbar">
       <span class="lbl">Filters</span>
       <div class="fsearch"><i class="fa-solid fa-magnifying-glass"></i><input id="search" placeholder="Sample / heat / UID…" oninput="render()"/></div>
+      <select id="fOp" onchange="render()"><option value="">All operations</option><option value="OP_CASTING">Casting</option><option value="OP_ROLLING">Rolling</option><option value="OP_HEAT TREATMENT">Heat Treatment</option><option value="OP_FINISHING">Finishing</option><option value="OP_INSPECTION">Inspection</option></select>
       <select id="fStatus" onchange="render()"><option value="">All statuses</option></select>
       <select id="fType" onchange="render()"><option value="">All types</option></select>
       <select id="fAgency" onchange="render()"><option value="">All agencies</option></select>
@@ -251,6 +268,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <div class="fld"><label>Condition</label><input id="iCond"/></div>
         <div class="fld"><label>Ht Card No.</label><input id="iHtCard"/></div>
         <div class="fld"><label>Issue date</label><input id="iIssue" value="24-Jun 13:20"/></div>
+        <div class="fld"><label>Draw location <span style="color:var(--color-text-hint);font-weight:400;font-size:11px">— from sampling rule</span></label><input id="iLoc" readonly/></div>
         <div class="fld"><label>Sample length (mm)</label><input id="iLen" type="number" step="any"/></div>
         <div class="fld"><label>Pieces</label><input id="iPcs" type="number"/></div>
         <div class="fld"><label>Sample weight (MT)</label><input id="iWt" type="number" step="any"/></div>
@@ -282,7 +300,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 
 <script>
 const AGENCIES=['In-house Lab','Lab-A','Lab-B','TPI-Bureau Veritas'];
-const STATUSES=['DRAWN','ISSUED','IN PREP','TESTED','CONSUMED','RETAINED','HOLD'];
+const STATUSES=['PLANNED','DRAWN','ISSUED','IN PREP','TESTED','CONSUMED','RETAINED','HOLD'];
 const TYPES={
  'Mechanical':{pcs:2,len:300,wt:0.020,tests:'Tensile, Hardness, Impact',prep:['Cut test bar to length','Machine tensile specimen (ASTM A370)','Prepare hardness coupon','Label & barcode']},
  'Chemical':{pcs:1,len:30,wt:0.005,tests:'Spectro (OES)',prep:['Cut chip / disc sample','Surface grind to bright finish','Label & barcode']},
@@ -333,16 +351,20 @@ const HEATS=[
 ];
 const HEAT_OP=Object.fromEntries(HEATS.map(h=>[h.heat,h.op]));
 function opOf(r){return r.op||HEAT_OP[r.heat]||'—';}
-const SB={'DRAWN':'b-draft','ISSUED':'b-info','IN PREP':'b-pend','TESTED':'b-done','CONSUMED':'b-clr','RETAINED':'b-clr','HOLD':'b-hold'};
+const SB={'PLANNED':'b-plan','DRAWN':'b-draft','ISSUED':'b-info','IN PREP':'b-pend','TESTED':'b-done','CONSUMED':'b-clr','RETAINED':'b-clr','HOLD':'b-hold'};
 const SAMPLES=[
  {no:'SMP-2526-0451',htCard:'HT-2526-0188',heat:'2526-16496',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'Mechanical',condition:'H1150',issue:'24-Jun 09:10',recv:'24-Jun 10:05',completion:'',len:300,pcs:2,wt:0.02,testReq:'Tensile, Hardness, Impact',agency:'Lab-A',status:'IN PREP',prepDone:2},
  {no:'SMP-2526-0452',htCard:'HT-2526-0188',heat:'2526-16496',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'Macro',condition:'H1150',issue:'24-Jun 09:12',recv:'24-Jun 10:06',completion:'',len:20,pcs:1,wt:0.01,testReq:'Macro etch',agency:'In-house Lab',status:'IN PREP',prepDone:3},
- {no:'CHM-2526-0188',htCard:'HT-2526-0188',heat:'2526-16496',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'Chemical',condition:'As cast',issue:'24-Jun 05:35',recv:'24-Jun 05:50',completion:'24-Jun 06:02',len:30,pcs:1,wt:0.005,testReq:'Spectro (OES)',agency:'In-house Lab',status:'TESTED',prepDone:3},
+ {no:'CHM-2526-0188',htCard:'HT-2526-0188',heat:'2526-16496',op:'OP_CASTING',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'Chemical',condition:'As cast',issue:'24-Jun 05:35',recv:'24-Jun 05:50',completion:'24-Jun 06:02',len:30,pcs:1,wt:0.005,testReq:'Spectro (OES)',agency:'In-house Lab',status:'TESTED',prepDone:3},
  {no:'SMP-2526-0448',htCard:'HT-2526-0192',heat:'2526-16783',grade:'316L',uid:'A002668',type:'Mechanical',condition:'Sol. Ann.',issue:'23-Jun 16:40',recv:'23-Jun 17:30',completion:'24-Jun 09:00',len:300,pcs:2,wt:0.02,testReq:'Tensile, Hardness',agency:'Lab-B',status:'TESTED',prepDone:4},
  {no:'SMP-2526-0455',htCard:'HT-2526-0191',heat:'2526-16482',grade:'416',uid:'B030840',type:'Mechanical',condition:'Q&T',issue:'23-Jun 19:00',recv:'23-Jun 19:40',completion:'',len:300,pcs:2,wt:0.02,testReq:'Tensile, Hardness, Impact',agency:'Lab-A',status:'HOLD',prepDone:4},
  {no:'UT-2526-0071',htCard:'HT-2526-0186',heat:'2526-16798',grade:'304L',uid:'E122319',type:'UT piece',condition:'Annealed',issue:'24-Jun 08:30',recv:'',completion:'',len:200,pcs:1,wt:0.05,testReq:'Ultrasonic',agency:'TPI-Bureau Veritas',status:'ISSUED',prepDone:0},
  {no:'SMP-2526-0460',htCard:'HT-2526-0193',heat:'2526-16819',grade:'316L',uid:'E122789',type:'Mechanical',condition:'Sol. Ann.',issue:'',recv:'',completion:'',len:300,pcs:2,wt:0.02,testReq:'Tensile, Hardness',agency:'',status:'DRAWN',prepDone:0},
- {no:'SMP-2526-0462',htCard:'HT-2526-0192',heat:'2526-16783',grade:'316L',uid:'A002668',type:'Macro',condition:'Sol. Ann.',issue:'23-Jun 16:42',recv:'23-Jun 17:35',completion:'24-Jun 08:10',len:20,pcs:1,wt:0.01,testReq:'Macro etch',agency:'In-house Lab',status:'RETAINED',prepDone:6}
+ {no:'SMP-2526-0462',htCard:'HT-2526-0192',heat:'2526-16783',grade:'316L',uid:'A002668',type:'Macro',condition:'Sol. Ann.',issue:'23-Jun 16:42',recv:'23-Jun 17:35',completion:'24-Jun 08:10',len:20,pcs:1,wt:0.01,testReq:'Macro etch',agency:'In-house Lab',status:'RETAINED',prepDone:6},
+ /* PLANNED (undrawn) samples — coverage for heat 2526-16496's remaining route; barcodes assigned on "Generate sample IDs" */
+ {no:'',htCard:'HT-2526-0188',heat:'2526-16496',op:'OP_ROLLING',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'UT piece',condition:'As rolled',issue:'',recv:'',completion:'',len:200,pcs:1,wt:0.05,testReq:'Ultrasonic',agency:'',status:'PLANNED',prepDone:0},
+ {no:'',htCard:'HT-2526-0188',heat:'2526-16496',op:'OP_FINISHING',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'Mechanical',condition:'As bright',issue:'',recv:'',completion:'',len:300,pcs:2,wt:0.02,testReq:'Tensile, Hardness',agency:'',status:'PLANNED',prepDone:0},
+ {no:'',htCard:'HT-2526-0188',heat:'2526-16496',op:'OP_INSPECTION',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'Chemical',condition:'Final',issue:'',recv:'',completion:'',len:30,pcs:1,wt:0.005,testReq:'PMI',agency:'',status:'PLANNED',prepDone:0}
 ];
 
 const COLS=[
@@ -368,7 +390,9 @@ function cmp(a,b){return (''+(a??'')).localeCompare(''+(b??''),undefined,{numeri
 function passes(r){
   const q=(document.getElementById('search').value||'').toLowerCase();
   const fs=document.getElementById('fStatus').value,ft=document.getElementById('fType').value,fa=document.getElementById('fAgency').value;
+  const foEl=document.getElementById('fOp'),fo=foEl?foEl.value:'';
   if(q&&!(r.no+' '+r.heat+' '+r.uid+' '+r.grade+' '+r.htCard).toLowerCase().includes(q))return false;
+  if(fo&&opOf(r)!==fo)return false;
   if(fs&&r.status!==fs)return false; if(ft&&r.type!==ft)return false; if(fa&&r.agency!==fa)return false;
   return true;
 }
@@ -387,8 +411,45 @@ function render(){
   if(!rows.length){tb.innerHTML=`<tr class="empty"><td colspan="${COLS.length}">No samples match the filters.</td></tr>`;}
   else tb.innerHTML=rows.map(({r,i})=>`<tr>${COLS.map(c=>`<td class="${c.cls||''}${c.actions?' actions':''}">${cell(c,r,i)}</td>`).join('')}</tr>`).join('');
   document.getElementById('rowCount').textContent=`${rows.length} of ${SAMPLES.length} samples`;
-  document.getElementById('meta').textContent='';
+  const pending=SAMPLES.filter(s=>!s.no).length;
+  document.getElementById('meta').textContent=pending?(pending+' sample'+(pending>1?'s':'')+' pending sticker'):'All samples bar-coded';
+  renderPlanStrip();
 }
+
+/* ===== toast helper ===== */
+function mesToast(m,k){var h=document.getElementById('mesToastHost');if(!h){h=document.createElement('div');h.id='mesToastHost';h.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px';document.body.appendChild(h);}var t=document.createElement('div');t.textContent=m;t.style.cssText='padding:10px 14px;border-radius:8px;font:13px Roboto,sans-serif;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;background:'+({ok:'#2e7d32',warn:'#ed6c02',err:'#c62828'}[k]||'#333');h.appendChild(t);requestAnimationFrame(function(){t.style.opacity='1';});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},250);},2600);}
+
+/* ===== per-heat sample-plan strip (planning / coverage layer) ===== */
+const PLAN_HEAT='2526-16496';
+const OP_LABELS={'OP_CASTING':'Casting','OP_ROLLING':'Rolling','OP_HEAT TREATMENT':'Heat Treatment','OP_FINISHING':'Finishing','OP_INSPECTION':'Inspection'};
+const PLAN_OPS=['OP_CASTING','OP_ROLLING','OP_HEAT TREATMENT','OP_FINISHING','OP_INSPECTION'];
+function opLabel(op){return OP_LABELS[op]||(op||'').replace(/^OP_/,'');}
+function renderPlanStrip(){
+  const host=document.getElementById('planStrip'); if(!host)return;
+  const rows=SAMPLES.filter(s=>s.heat===PLAN_HEAT);
+  const grade=(HEATS.find(h=>h.heat===PLAN_HEAT)||{}).grade||'';
+  const foEl=document.getElementById('fOp'), cur=foEl?foEl.value:'';
+  const chips=PLAN_OPS.map(op=>{
+    const n=rows.filter(s=>opOf(s)===op).length; if(!n)return '';
+    return `<span class="pl-chip${cur===op?' on':''}" onclick="filterOp('${op}')">${opLabel(op)} <b>${n}</b></span>`;
+  }).join('');
+  host.innerHTML=`<span class="pl-title">Sample plan</span><span class="pl-heat">Heat ${PLAN_HEAT}</span><span class="pl-grade">${grade}</span>${chips}<span class="pl-total">Planned samples <b>${rows.length}</b></span>`;
+}
+function filterOp(op){const sel=document.getElementById('fOp');if(!sel)return;sel.value=(sel.value===op?'':op);render();}
+
+/* ===== bulk: assign sample IDs + barcodes to every planned/un-issued sample & print stickers ===== */
+let genSeq=501;
+function nextSampleNo(type){const pfx=type==='Chemical'?'CHM':(type==='UT piece'?'UT':'SMP');return pfx+'-2526-0'+(genSeq++);}
+function generateIds(){
+  let n=0;
+  SAMPLES.forEach(s=>{ if(!s.no){ s.no=nextSampleNo(s.type); if(s.status==='PLANNED')s.status='DRAWN'; n++; } });
+  render();
+  if(n)mesToast('Sticker print triggered — '+n+' barcode label'+(n>1?'s':'')+' sent to the lab printer','ok');
+  else mesToast('All samples already have IDs & barcodes','warn');
+}
+
+/* draw location for the Issue modal — auto-filled (readonly) from the matching sampling rule */
+function setIssueLoc(){const lv=document.getElementById('iLot'),el=document.getElementById('iLoc');if(!el)return;const h=lv?HEATS[+lv.value]:null,type=document.getElementById('iType').value,rule=h?ruleFor(h.op,type):null;el.value=rule?rule.location:(h?opLabel(h.op):'');}
 
 /* ===== Issue modal ===== */
 function openIssue(){
@@ -400,20 +461,22 @@ function openIssue(){
   document.getElementById('issueOverlay').classList.add('open');
 }
 function closeIssue(){document.getElementById('issueOverlay').classList.remove('open');}
-function lotChange(){const h=HEATS[+document.getElementById('iLot').value];document.getElementById('iHtCard').value=h.htCard;document.getElementById('iCond').value=h.condition;renderTestList(h.grade,document.getElementById('iType').value,h.op);}
-function typeChange(){const t=TYPES[document.getElementById('iType').value];document.getElementById('iLen').value=t.len;document.getElementById('iPcs').value=t.pcs;document.getElementById('iWt').value=t.wt;const h=HEATS[+document.getElementById('iLot').value];renderTestList(h?h.grade:'',document.getElementById('iType').value,h?h.op:'');}
+function lotChange(){const h=HEATS[+document.getElementById('iLot').value];document.getElementById('iHtCard').value=h.htCard;document.getElementById('iCond').value=h.condition;setIssueLoc();renderTestList(h.grade,document.getElementById('iType').value,h.op);}
+function typeChange(){const t=TYPES[document.getElementById('iType').value];document.getElementById('iLen').value=t.len;document.getElementById('iPcs').value=t.pcs;document.getElementById('iWt').value=t.wt;const h=HEATS[+document.getElementById('iLot').value];setIssueLoc();renderTestList(h?h.grade:'',document.getElementById('iType').value,h?h.op:'');}
 function saveIssue(){
   const h=HEATS[+document.getElementById('iLot').value], type=document.getElementById('iType').value;
   const sel=checkedTests(), def=defaultTests(h.grade,type,h.op);
   const edited=sel.slice().sort().join('|')!==def.slice().sort().join('|');
-  SAMPLES.unshift({no:document.getElementById('iBarcode').textContent,htCard:document.getElementById('iHtCard').value,heat:h.heat,op:h.op,grade:h.grade,rmSize:h.rmSize,uid:h.uid,type,condition:document.getElementById('iCond').value,issue:document.getElementById('iIssue').value,recv:'',completion:'',len:+document.getElementById('iLen').value,pcs:+document.getElementById('iPcs').value,wt:+document.getElementById('iWt').value,testReq:sel.join(', '),testsEdited:edited,agency:document.getElementById('iAgency').value,status:'ISSUED',prepDone:0});
+  const newNo=document.getElementById('iBarcode').textContent;
+  SAMPLES.unshift({no:newNo,htCard:document.getElementById('iHtCard').value,heat:h.heat,op:h.op,grade:h.grade,rmSize:h.rmSize,uid:h.uid,type,condition:document.getElementById('iCond').value,issue:document.getElementById('iIssue').value,recv:'',completion:'',len:+document.getElementById('iLen').value,pcs:+document.getElementById('iPcs').value,wt:+document.getElementById('iWt').value,testReq:sel.join(', '),testsEdited:edited,agency:document.getElementById('iAgency').value,status:'ISSUED',prepDone:0});
   closeIssue(); render();
+  mesToast('Sample '+newNo+' issued — barcode printed','ok');
 }
 
 /* ===== Prep checklist modal ===== */
 function openPrep(i){
   curPrep=i; const r=SAMPLES[i], steps=TYPES[r.type].prep;
-  document.getElementById('prepTitle').textContent='Sample prep — '+r.no;
+  document.getElementById('prepTitle').textContent='Sample prep — '+(r.no||'(unissued)');
   renderPrep();
   document.getElementById('prepOverlay').classList.add('open');
 }
@@ -426,7 +489,7 @@ function renderPrep(){
     <div class="note-band"><i class="fa-solid fa-circle-info"></i> Mandatory tests planned: <b>${r.testReq}</b>. Assign to a test agency once prep is complete.</div>`;
 }
 function toggleStep(si,on){ const r=SAMPLES[curPrep]; r.prepDone = on ? Math.max(r.prepDone||0, si+1) : Math.min(r.prepDone||0, si); renderPrep(); }
-function markPrepDone(){ const r=SAMPLES[curPrep]; r.prepDone=TYPES[r.type].prep.length; if(r.status==='IN PREP'||r.status==='ISSUED')r.status='TESTED'; r.completion=r.completion||'24-Jun 13:30'; closePrep(); render(); }
+function markPrepDone(){ const r=SAMPLES[curPrep]; r.prepDone=TYPES[r.type].prep.length; if(r.status==='IN PREP'||r.status==='ISSUED')r.status='TESTED'; r.completion=r.completion||'24-Jun 13:30'; closePrep(); render(); mesToast('Prep complete for '+(r.no||'sample')+' — ready for testing','ok'); }
 function closePrep(){document.getElementById('prepOverlay').classList.remove('open');}
 
 fill('fStatus',STATUSES); fill('fType',Object.keys(TYPES)); fill('fAgency',AGENCIES);
