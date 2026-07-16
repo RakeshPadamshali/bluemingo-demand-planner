@@ -11,10 +11,10 @@
 | # | Decision | Rationale |
 |---|----------|-----------|
 | **D0** | **Company-, product- & steel-type-agnostic — governing.** No customer/plant/product-form/grade/standard hardcoded in schema, screens or logic; all such variation is master data, attribute values, or config. | One reusable product; deployments differ by **data, not code**. Definition-of-done for every QA deliverable. |
-| D1 | Reuse `mes_global_attributes` for every measured property (chemistry, mechanical, dimensional, NDT). | The dictionary already exists; avoids duplicating elements/properties. |
-| D2 | Read spec targets from `mes_tdc_input` + `mes_tdc_attr_range` (`ra_n_min/max`). | TDC already loaded; single source of spec. |
+| D1 | **Two dictionaries.** Chemistry elements live in their own master — `mes_qc_element` (§5.10) — referenced at **every** place chemistry appears; `mes_global_attributes` serves every **non-chemistry** measured property (mechanical, dimensional, NDT, process). | Chemistry and attributes have separate uses (decision 2026-07-16): elements get first-class identity (symbol, order, wide-column mapping) while the platform dictionary keeps serving properties. |
+| D2 | Read spec targets from `mes_tdc_input` + `mes_tdc_attr_range` (`ra_n_min/max`). Chemistry `RA_n` columns are keyed by the **element dictionary** (`mes_qc_element.tdc_range_ref`, §5.10) — not the attribute dictionary. | TDC already loaded; single source of spec. |
 | D3 | **Inspection ≠ Testing** — two transaction families. **Inspection** = material examined at an operation (dimensional/visual/surface). **Testing** = lab analysis on a drawn **sample** (chemical/mechanical/metallurgical/NDT). | Different anchors, lifecycles and data: inspection is non-destructive on the lot; testing consumes a drawn sample and yields deeper results. |
-| D4 | **Hybrid storage.** Chemistry actuals → **wide** element-per-column table (fast reporting). All other test/inspection actuals → **normalized** rows referencing `mes_global_attributes`, with **min/max + result snapshotted** on each row. | Chemistry is a fixed, high-volume element set → wide reads stay fast; everything else stays normalized and flexible. |
+| D4 | **Hybrid storage.** Chemistry actuals → **wide** element-per-column table (columns keyed by `mes_qc_element.column_reference`, §5.10). All other test/inspection actuals → **normalized** rows referencing `mes_global_attributes`, with **min/max + result snapshotted** on each row. Element-wise spot readings captured normalized (e.g. PMI) reference `mes_qc_element` (§7.3). | Chemistry is a fixed, high-volume element set → wide reads stay fast; everything else stays normalized and flexible. |
 | D5 | Recording mirrors `mes_process_attributes` (config) → `mes_process_parameters_captured` (actual). `capture_source` includes `L2` (= existing `PLC`). | Platform precedent; "sample from L2". |
 | D6 | **Master-driven Usage Decision** — UD references type/reason/action + sets a material status; defects can auto-hold. | Configurable decision vocabulary + status transitions without code changes. |
 | D7 | **Product-agnostic by configuration**, not by product-specific tables (see §3). | One schema serves bar, plate, slab and coil — product variation lives in config + the attribute dictionary. |
@@ -28,6 +28,7 @@
 - **PK:** `<entity>_id bigint` identity.
 - **Audit tail** (every table, shown below as **`+ audit tail`**): `active_status varchar(20)` ACTIVE/INACTIVE · `txn_access_code varchar(50)` · `created_by bigint` · `created_date timestamptz` · `updated_by bigint` · `updated_date timestamptz` · `version_id bigint`.
 - Measures `numeric(18,4)`; codes/names `varchar`; timestamps `timestamptz`; enumerations via CHECK.
+- QA transaction tables denormalize `heat_number`, `material_number`, and `grade` (snapshot at row creation) for grid display/filtering; authoritative values live on `mes_batches` / `mes_schedule_material_childs` / `mes_tdc_input`.
 
 ---
 
@@ -40,7 +41,7 @@
 | G2 | **Characteristics from the dictionary** | Diameter (bar) / thickness·width·camber (plate) are all `mes_global_attributes`. QA records attribute values; no product columns. |
 | G3 | **Generic defect-location model** | `location_type` (LINEAR / SURFACE_XY / ZONE / FACE / END / NONE) + `position_1` + `position_2` + `position_ref` + `location_text` + `location_uom_unit_id`. Bar→LINEAR; plate→SURFACE_XY; billet/slab→ZONE. |
 | G4 | **Product-agnostic anchor** | Inspection/test → production-confirmation batch/lot per operation (+ optional sample). "Piece" may be plate, bar, billet, coil. |
-| G5 | **Chemistry universal** | Elements are product-independent → the single safe place for a wide table. |
+| G5 | **Chemistry universal, separately modelled** | Elements are product-independent → the single safe place for a wide table; they live in their own dictionary `mes_qc_element` (§5.10), not the attribute dictionary. |
 | G6 | **Steel-type-agnostic** | Carbon / alloy / stainless differ only by which chemistry/mechanical attributes & grades are configured; the attribute dictionary + TDC carry it, not the schema. |
 
 ---
@@ -49,8 +50,8 @@
 
 | Existing table | Used as | Link |
 |----------------|---------|------|
-| `mes_global_attributes` | Property dictionary | `*.attribute_id` |
-| `mes_tdc_input` / `mes_tdc_attr_range` | Spec targets | `inspection/test.tdc_id`; spec snapshot |
+| `mes_global_attributes` | Property dictionary (**non-chemistry** — mechanical/dimensional/NDT/process; chemistry → `mes_qc_element` §5.10) | `*.attribute_id` |
+| `mes_tdc_input` / `mes_tdc_attr_range` | Spec targets | `inspection/test.tdc_id`; spec snapshot; chemistry `RA_n` keyed by `mes_qc_element.tdc_range_ref` (§5.10) |
 | `mes_operations` (stage) / `mes_processes` | Stage of inspection/test | `*.operation_id` |
 | `mes_material_forms` | **Product form** (bar/plate/slab/coil) | config `material_form_id` (G1) |
 | `mes_product_category_input` | Product category | config `product_category_id` (G1) |
@@ -75,11 +76,14 @@
 | `mes_qc_chemistry_type` | — (LADLE / PRODUCT / CHECK) | Ladle / product / check analysis |
 | `mes_qc_defect_type` | — | Defect categories |
 | `mes_qc_defect_reason` | — | Defect root reasons |
-| `mes_qc_sample_status` | — (PLANNED/DRAWN/ISSUED/TESTED/CONSUMED/RETAINED) | Sample lifecycle (**PLANNED** = rule-generated, not yet drawn — drives the sample-plan strip) |
-| `mes_qc_material_status` | — (OK/HOLD/REJECTED/REWORK/QUARANTINE) | Quality status of material |
+| `mes_qc_sample_status` | — (PLANNED/DRAWN/ISSUED/IN_PREP/TESTED/CONSUMED/RETAINED/HOLD) | Sample lifecycle (**PLANNED** = rule-generated, not yet drawn — drives the sample-plan strip) |
+| `mes_qc_material_status` | — (OK/HOLD/REJECTED/REWORK/QUARANTINE), `blocks_dispatch` (boolean — holds/quarantine block dispatch) | Quality status of material |
 | `mes_qc_ud_type` | — | Usage-decision categories |
 | `mes_qc_ud_reason` | — | Usage-decision reasons |
 | `mes_qc_ud_action` | `material_status_id` (resulting status) | Usage-decision actions |
+| `mes_qc_size_basis` | — (e.g. BY_LENGTH / BY_WEIGHT / BY_PIECES / FULL_SECTION — data, not enum) | Sample **size basis** (referenced by the sampling rule §7.5.3) |
+
+*All lookup masters also carry an optional `description varchar(255)` + the standard audit tail.*
 
 ### 5.2 `mes_qc_test` — quality test master
 | Field | Type | Key | Null | Description |
@@ -91,6 +95,7 @@
 | `sample_required` | boolean | | N | Almost always true |
 | `validate_against_tdc` | boolean | | N | |
 | `description` | varchar(255) | | Y | |
+| `method_standard` | varchar(100) | | Y | Default test-method standard (e.g. ASTM A370 / E18); overridable per-TDC via §11.6 |
 | | | | | **+ audit tail** |
 
 ### 5.3 `mes_qc_test_attribute` — attributes a test measures (+ aggregation)
@@ -98,7 +103,8 @@
 |-------|------|-----|------|-------------|
 | `test_attribute_id` | bigint | PK | N | |
 | `test_id` | bigint | FK→`mes_qc_test` | N | |
-| `attribute_id` | bigint | FK→`mes_global_attributes` | N | Measured property |
+| `attribute_id` | bigint | FK→`mes_global_attributes` | Y | Measured property (non-chemistry) |
+| `element_id` | bigint | FK→`mes_qc_element` | Y | Measured **element** when the test is chemical (Spectro / PMI / product analysis) — exactly one of `attribute_id`/`element_id` |
 | `default_min` | numeric(18,4) | | Y | Default valid range — min (null = unbounded that side). Overridden at Test Entry by the applicable TDC limit (D2). |
 | `default_max` | numeric(18,4) | | Y | Default valid range — max (null = unbounded that side). |
 | `no_of_specimens` | integer | | N | Test values per attribute (e.g. hardness ×3), default 1 |
@@ -123,6 +129,7 @@
 | `use_for_ud` | boolean | | N | Feeds Usage Decision |
 | `auto_hold` | boolean | | N | Auto-hold material on detection |
 | `description` | text | | Y | |
+| `default_location_type` | varchar(20) | | Y | Seeds `mes_qc_defect_record.location_type` (LINEAR/SURFACE_XY/ZONE/FACE/END/NONE, G3) |
 | | | | | **+ audit tail** |
 *The flags (`auto_hold`, `use_for_ud`, `use_for_inspection`, `use_for_test`) let a defect drive an automatic hold and feed the Usage Decision.*
 
@@ -137,11 +144,13 @@
 | `qc_kind` | varchar(10) | | N | `INSPECTION` or `TEST` |
 | `inspection_type_id` | bigint | FK→`mes_qc_inspection_type` | Y | When kind=INSPECTION |
 | `test_id` | bigint | FK→`mes_qc_test` | Y | When kind=TEST |
-| `attribute_id` | bigint | FK→`mes_global_attributes` | Y | Specific characteristic (null = defect-only / use test def) |
+| `attribute_id` | bigint | FK→`mes_global_attributes` | Y | Specific characteristic, non-chemistry (null = defect-only / use test def) |
+| `element_id` | bigint | FK→`mes_qc_element` | Y | Chemistry characteristic when the QC item is chemical (at most one of `attribute_id`/`element_id`) |
 | `is_mandatory` | boolean | | N | Required to clear the stage |
 | `limit_source` | varchar(30) | | N | TDC / ATTRIBUTE_MASTER / FIXED |
 | `fixed_min` / `fixed_max` | numeric(18,4) | | Y | When limit_source=FIXED |
 | `capture_source` | varchar(30) | | N | L2 / MANUAL / INSTRUMENT |
+| `default_inspection_mode` | varchar(10) | | Y | ONLINE / OFFLINE — default mode for inspections generated from this row |
 | `sequence_no` | integer | | Y | |
 | | | | | **+ audit tail** |
 *Presence of active rows for an operation = that operation requires QA (D9). Absence = none.*
@@ -152,7 +161,8 @@
 | `corrective_action_id` | bigint | PK | N | |
 | `code` / `name` | varchar(50)/(255) | | N | |
 | `scope` | varchar(20) | | N | ATTRIBUTE / CLEARANCE_TYPE / DEFECT — what the recommendation keys off |
-| `attribute_id` | bigint | FK→`mes_global_attributes` | Y | When scope=ATTRIBUTE (e.g. C, S, YS out of range) |
+| `attribute_id` | bigint | FK→`mes_global_attributes` | Y | When scope=ATTRIBUTE and the failing characteristic is non-chemistry (e.g. YS out of range) |
+| `element_id` | bigint | FK→`mes_qc_element` | Y | When the failing characteristic is a chemistry element (e.g. C, S high) — exactly one of `attribute_id`/`element_id` |
 | `clearance_type` | varchar(30) | | Y | When scope=CLEARANCE_TYPE (CHEMISTRY/MECHANICAL/…) |
 | `defect_id` | bigint | FK→`mes_qc_defect` | Y | When scope=DEFECT |
 | `deviation_dir` | varchar(10) | | Y | BELOW_MIN / ABOVE_MAX / ANY — which side of the limit triggers it |
@@ -175,6 +185,54 @@
 | | | | | **+ audit tail** |
 *Turns Salvage/UD "downgrade" from free text into a controlled hierarchy; the alternate open-order rematch then searches the order book for open demand in `to_grade`. Grade is generic (D0) — works for any product.*
 
+### 5.8 `mes_qc_corrective_action_applied` — applied corrective transaction (companion to the §5.6 library)
+| Field | Type | Key | Null | Description |
+|-------|------|-----|------|-------------|
+| `corrective_action_applied_id` | bigint | PK | N | |
+| `corrective_action_id` | bigint | FK→`mes_qc_corrective_action` | Y | |
+| `clearance_id` | bigint | FK→`mes_qc_clearance` | Y | |
+| `batch_id` | bigint | FK→`mes_batches` | Y | |
+| `heat_number` | varchar(100) | | Y | Denormalized |
+| `attribute_id` | bigint | FK→`mes_global_attributes` | Y | The OOS characteristic (non-chemistry) |
+| `element_id` | bigint | FK→`mes_qc_element` | Y | The OOS chemistry element (exactly one of `attribute_id`/`element_id`) |
+| `applied_by` | bigint | | Y | |
+| `applied_date` | timestamptz | | Y | |
+| `resample_sample_id` | bigint | FK→`mes_qc_sample` | Y | |
+| `outcome` | varchar(20) | | Y | IN_SPEC / PENDING_RESAMPLE / FAILED |
+| `remarks` | varchar(500) | | Y | |
+| | | | | **+ audit tail** |
+*Records a corrective action actually applied to an out-of-spec heat (e.g. chemistry trim / re-HT) + its re-sample; the recommendation library is §5.6.*
+
+### 5.9 `mes_qc_grade_chemistry` — grade chemistry master (works/internal spec per grade)
+| Field | Type | Key | Null | Description |
+|-------|------|-----|------|-------------|
+| `grade_chemistry_id` | bigint | PK | N | |
+| `grade` | varchar(50) | UQ(grade,element) | N | Grade (data) |
+| `element_id` | bigint | FK→`mes_qc_element` | N | Chemistry element (§5.10 dictionary) |
+| `min_value` / `max_value` | numeric(18,4) | | Y | Works/internal range (null = unbounded that side) |
+| `aim_value` | numeric(18,4) | | Y | Aim/target for the melt shop |
+| `uom_unit_id` | bigint | FK→`mes_units` | Y | |
+| `remarks` | varchar(255) | | Y | |
+| | | | | **+ audit tail** |
+*The internal (works) chemistry spec per grade, independent of any customer TDC. **Heat Chemistry limit resolution: TDC `APPLIED` (§11.2) → else grade-chemistry → else report-only**, with per-element source tags TDC / GRADE / REPORT. Product-agnostic: grade + dictionary element are data (D0/G6).*
+
+### 5.10 `mes_qc_element` — chemistry element dictionary (**the chemistry model**)
+Chemistry is modelled **separately from attributes** (D1): this dictionary is the single chemistry reference everywhere it appears — grade chemistry §5.9, TDC chemical limits §11.2, standard chemical limits §11.4, stage-QC map chemical rows §5.5, corrective actions §5.6/§5.8, chemical test definitions §5.3, normalized element readings §7.3, RM chemistry checks §13.4, certificate chemical lines §16.2, the wide heat-chemistry column set §7.4, **and the wide TDC range projection `mes_tdc_attr_range` (§11.10, via `tdc_range_ref`)**. `mes_global_attributes` no longer carries chemistry — anywhere.
+
+| Field | Type | Key | Null | Description |
+|-------|------|-----|------|-------------|
+| `element_id` | bigint | PK | N | |
+| `element_code` | varchar(10) | UQ | N | Symbol — C, Mn, Si, S, P, Cr, Ni, Mo, Cu, N, Nb, Co, Ti, V, Al… |
+| `element_name` | varchar(100) | | N | Carbon, Manganese, Silicon… |
+| `sequence_no` | integer | | Y | Display / report order (ladle-sheet order) |
+| `default_uom_unit_id` | bigint | FK→`mes_units` | Y | Usually % by mass |
+| `decimals` | integer | | Y | Display precision (chemistry commonly 3–4 dp) |
+| `column_reference` | varchar(30) | | Y | Wide-column mapping into `mes_qc_heat_chemistry` (§7.4) — e.g. `c_value` |
+| `tdc_range_ref` | varchar(20) | | Y | **Direct `RA_n` mapping** into the wide `mes_tdc_attr_range` (§11.10) — e.g. `RA_1`. The element dictionary owns this mapping; `mes_global_attributes` is not involved for chemistry |
+| `description` | varchar(255) | | Y | |
+| | | | | **+ audit tail** |
+*The element set is deployment configuration (D0): adding an element = a dictionary row (+ a wide-column migration in §7.4, same as today). Spec tables that hold both kinds of characteristic carry `attribute_id` **xor** `element_id` — one limits/fill/approval engine, two dictionaries. **Migration:** the platform's legacy chemistry rows in `mes_global_attributes` (ids 1–33, `column_reference` RA_n) seed this dictionary once (symbol/order/RA_n → `tdc_range_ref`), then retire — chemistry references the attribute dictionary **nowhere**.*
+
 ---
 
 ## 6. Submodule 2 — Inspection (material-level, per confirmation)
@@ -193,6 +251,7 @@
 | `tdc_id` | bigint | FK→`mes_tdc_input` | Y | Governing spec |
 | `material_number` / `heat_number` | varchar(100) | | Y | Denormalized |
 | `capture_source` | varchar(30) | | N | L2 / MANUAL / INSTRUMENT |
+| `inspection_mode` | varchar(10) | | Y | **ONLINE** (in-line during production, L2/gauge) / **OFFLINE** (bench) — default from §5.5 `default_inspection_mode` |
 | `inspected_by` | bigint | | Y | |
 | `inspection_date` | timestamptz | | Y | |
 | `overall_result` | varchar(20) | | N | PASS/FAIL/CONDITIONAL/PENDING |
@@ -239,6 +298,10 @@
 | `storage_location` | varchar(100) | | Y | |
 | `drawn_by` | bigint | | Y | |
 | `drawn_date` / `received_date` | timestamptz | | Y | |
+| `sample_pieces` | integer | | Y | Pieces drawn |
+| `rm_size` | varchar(50) | | Y | Parent-material size (e.g. 68 Dia / 23 Hex), denormalized |
+| `draw_position` | varchar(20) | | Y | **HEAD / MID / TAIL** — position along the piece the sample was drawn from (default from the rule's `location_rule`) |
+| `rm_receipt_id` | bigint | FK→`mes_qc_rm_receipt` | Y | RM lot sampled at inward — RM Inspection→Testing→UD flow (§13.6) |
 | | | | | **+ audit tail** |
 *Generic sample dimensions keep the sample product-agnostic (bar length vs plate L×W×T).*
 
@@ -257,6 +320,7 @@
 | `overall_result` | varchar(20) | | N | PASS/FAIL/CONDITIONAL/PENDING |
 | `retest_of_test_record_id` | bigint | FK→`mes_qc_test_record` | Y | Resample/retest chain |
 | `status` | varchar(30) | | N | DRAFT/IN_PROGRESS/COMPLETED |
+| `specimen_orientation` | varchar(20) | | Y | LONGITUDINAL / TRANSVERSE (printed on MTC) |
 | `remarks` | varchar(500) | | Y | |
 | | | | | **+ audit tail** |
 
@@ -265,7 +329,8 @@
 |-------|------|-----|------|-------------|
 | `test_result_id` | bigint | PK | N | |
 | `test_record_id` | bigint | FK→`mes_qc_test_record` | N | |
-| `attribute_id` | bigint | FK→`mes_global_attributes` | N | YS, UTS, EL, RA, Hardness, Impact… |
+| `attribute_id` | bigint | FK→`mes_global_attributes` | Y | YS, UTS, EL, RA, Hardness, Impact… (non-chemistry) |
+| `element_id` | bigint | FK→`mes_qc_element` | Y | Element for **normalized element-wise readings** (e.g. PMI / check-analysis spot values) — exactly one of the two; bulk heat chemistry stays wide (§7.4, D4) |
 | `specimen_seq` | integer | | N | 1..no_of_specimens, default 1 |
 | `value_num` | numeric(18,4) | | Y | |
 | `value_text` | varchar(255) | | Y | Qualitative (e.g. UT OK/NOT OK, microstructure) |
@@ -274,11 +339,14 @@
 | `spec_source` | varchar(30) | | Y | TDC/ATTRIBUTE_MASTER/FIXED |
 | `aggregate_value` | numeric(18,4) | | Y | Rolled value per aggregate_rule (e.g. AVG of specimens) |
 | `result` | varchar(20) | | N | PASS/FAIL/NA |
+| `agency_id` | bigint | FK→`mes_qc_agency` | Y | Lab/agency that produced this reading (multi-lab) |
+| `source_label` | varchar(100) | | Y | Named source/column label (e.g. lab name or "Specimen 2") |
+| `instrument_id` | bigint | FK→`mes_qc_instrument` | Y | **Actual** equipment that produced this reading (plan on §7.5.7) |
 | `remarks` | varchar(255) | | Y | |
 | | | | | **+ audit tail** |
 
 ### 7.4 `mes_qc_heat_chemistry` — chemistry actuals (**WIDE**, fast reporting)
-One numeric column per element in the deployment's configured chemistry attribute set (`mes_global_attributes`, chemistry family — never a fixed/company-specific list), keyed by sample.
+One numeric column per element in the deployment's configured **element dictionary** (`mes_qc_element` §5.10 — each element's `column_reference` names its wide column; never a fixed/company-specific list), keyed by sample.
 
 | Field | Type | Key | Null | Description |
 |-------|------|-----|------|-------------|
@@ -292,8 +360,10 @@ One numeric column per element in the deployment's configured chemistry attribut
 | `result` | varchar(20) | | N | PASS/FAIL vs TDC chemistry |
 | `tested_by` | bigint | | Y | |
 | `test_date` | timestamptz | | Y | |
+| `tdc_id` | bigint | FK→`mes_tdc_input` | Y | Governing TDC the result is judged against |
+| `agency_id` | bigint | FK→`mes_qc_agency` | Y | Lab that ran the analysis |
 | | | | | **+ audit tail** |
-*A wide table is used for chemistry only — fixed element set, high volume, report-heavy. Its columns mirror the configured `mes_global_attributes` chemistry family (per deployment) for parity with the wide TDC range; any novel element falls back to the normalized path.*
+*A wide table is used for chemistry only — fixed element set, high volume, report-heavy. Its columns mirror the configured `mes_qc_element` dictionary (per deployment, via `column_reference`) for parity with the wide TDC range; adding an element = a dictionary row + a column migration.*
 
 ---
 
@@ -317,11 +387,13 @@ Sampling rules decide **how many / what size / where** samples are drawn per hea
 | `product_category_id` | bigint | FK→`mes_product_category_input` | Y | |
 | `sku_id` | bigint | FK→`mes_skus` | Y | |
 | `grade` | varchar(50) | | Y | Optional grade scope (data) |
+| `tdc_id` | bigint | FK→`mes_tdc_input` | Y | **Optional TDC scope** — a TDC-specific rule overrides the generic one (most-specific wins); backs "TDC + sample-type" driven generation |
 | `sample_type_id` | bigint | FK→`mes_qc_sample_type` | N | |
 | `sampling_basis` | varchar(20) | | N | PER_HEAT / PER_LOT / PER_N_PIECES |
 | `qty_basis` | numeric(18,4) | | Y | e.g. 1 sample per N pieces / MT |
 | `samples_count` | integer | | N | Samples to draw |
 | `sample_length` / `sample_pieces` / `sample_weight` | numeric(18,4) | | Y | Target sample size |
+| `size_basis_id` | bigint | FK→`mes_qc_size_basis` | Y | **Size basis** (master-driven §5.1) — which of the size fields governs |
 | `location_rule` | varchar(50) | | Y | TOP/MIDDLE/BOTTOM · HEAD/TAIL · etc. |
 | `is_mandatory` | boolean | | N | |
 | | | | | **+ audit tail** |
@@ -337,7 +409,20 @@ Add: `sample_type_id` FK→`mes_qc_sample_type` · `sampling_rule_id` FK→`mes_
 - **`mes_qc_sample_prep_record`**: `id` PK · `sample_id` FK→`mes_qc_sample` · `step_id` FK · `is_done boolean` · `done_by bigint` · `done_date timestamptz` · **+ audit tail**.
 
 ### 7.5.6 `mes_qc_agency` — test/inspection agency (minimal; extended in Task #23)
-`agency_id` PK · `agency_code varchar(50)` · `agency_name varchar(255)` · `agency_type varchar(20)` (IN_HOUSE / THIRD_PARTY) · **+ audit tail**. *(Scheduling, plan-vs-actual & performance added in Task #23.)*
+`agency_id` PK · `agency_code varchar(50)` · `agency_name varchar(255)` · `agency_type varchar(20)` (IN_HOUSE / THIRD_PARTY) · `scope varchar(255)` · `accreditation varchar(255)` · **+ audit tail**. *(Scheduling, plan-vs-actual & performance added in Task #23; `scope` + `accreditation` fold that Task #23 extension.)*
+
+### 7.5.7 `mes_qc_sample_test` — per-sample planned test
+| Field | Type | Key | Null | Description |
+|-------|------|-----|------|-------------|
+| `sample_test_id` | bigint | PK | N | |
+| `sample_id` | bigint | FK→`mes_qc_sample` | N | |
+| `test_id` | bigint | FK→`mes_qc_test` | N | |
+| `source` | varchar(20) | | N | RULE / TDC / MANUAL |
+| `is_selected` | boolean | | N | |
+| `instrument_id` | bigint | FK→`mes_qc_instrument` | Y | **Planned** lab equipment for this test (mapped at Sample Issue; actual on §7.2/§7.3) |
+| `sequence_no` | integer | | Y | |
+| | | | | **+ audit tail** |
+*Structures the "Tests to perform" checklist (replaces free-text `mes_qc_sample.testing_required`); each selected row maps to a `mes_qc_test_record` at Test Entry.*
 
 ---
 
@@ -396,6 +481,9 @@ Add: `sample_type_id` FK→`mes_qc_sample_type` · `sampling_rule_id` FK→`mes_
 | `deviation_ref` | varchar(100) | | Y | Concession / AUD reference when result=CONDITIONAL |
 | `cleared_by` | bigint | | Y | |
 | `cleared_date` | timestamptz | | Y | |
+| `work_order_no` | varchar(100) | | Y | Denormalized grouping axis (see §2) |
+| `sales_order_no` | varchar(100) | | Y | Denormalized |
+| `hold_reason_id` | bigint | FK→`mes_hold_reasons` | Y | Master-driven hold reason (alongside the `hold_reason` snapshot text) |
 | `remarks` | varchar(500) | | Y | |
 | | | | | **+ audit tail** |
 *`CONDITIONAL` = **acceptance under deviation (AUD)**: material is released conditionally and stays flagged until a multi-level sign-off (recorded in `mes_qc_approval` §10.3) completes; `deviation_ref` links the concession.*
@@ -428,9 +516,14 @@ Add: `sample_type_id` FK→`mes_qc_sample_type` · `sampling_rule_id` FK→`mes_
 | `approved_by` | bigint | | Y | |
 | `approved_date` | timestamptz | | Y | |
 | `hold_id` | bigint | FK→`mes_inventory_holds` | Y | Link to hold/release |
+| `work_order_no` | varchar(100) | | Y | Denormalized |
+| `sales_order_no` | varchar(100) | | Y | Denormalized |
+| `rm_receipt_id` | bigint | FK→`mes_qc_rm_receipt` | Y | UD on an **RM inward lot** (RM Inspection→Testing→UD flow §13.6) |
+| `mass_ud_ref` | varchar(100) | | Y | Groups the UDs recorded in one **Bulk / Mass-UD** run (same filter, one decision) |
+| `supersedes_ud_id` | bigint | FK→`mes_qc_usage_decision` | Y | **Re-UD chain** — this decision supersedes the referenced one |
 | | | | | **+ audit tail** |
 
-*Lot identity is **kind-aware**: `batch_id` = Heat/lot, `schedule_material_child_id` = the piece (Slab / Coil / Bar / Bundle); the UD screen labels the lot by the batch/child's `material_form` (D0), not heat-only. The concession sign-off chain lives in `mes_qc_approval` (§10.3).*
+*Lot identity is **kind-aware**: `batch_id` = Heat/lot, `schedule_material_child_id` = the piece (Slab / Coil / Bar / Bundle); the UD screen labels the lot by the batch/child's `material_form` (D0), not heat-only. The concession sign-off chain lives in `mes_qc_approval` (§10.3). **Re-UD:** after rework/re-test the lot is re-decided as a NEW `usage_decision` row pointing at the old one via `supersedes_ud_id` — the latest row in the chain is current, superseded rows are kept for audit (their `active_status` stays ACTIVE; currency is derived from the chain). **Bulk UD** stamps one `mass_ud_ref` across all rows recorded in the run (`is_auto` marks rule-driven auto-UD).*
 
 ### 10.2 `mes_qc_usage_decision_line` — aggregated detail (drill-down)
 | Field | Type | Key | Null | Description |
@@ -463,7 +556,7 @@ Add: `sample_type_id` FK→`mes_qc_sample_type` · `sampling_rule_id` FK→`mes_
 
 ## 11. Submodule — TDC Management (full spec model)
 
-A TDC is a **customer specification overlaid on one or more standards**. Each characteristic (chemical element, mechanical property, dimensional feature — all `mes_global_attributes`) carries up to **three limit tiers** + a print flag:
+A TDC is a **customer specification overlaid on one or more standards**. Each characteristic — chemical elements from `mes_qc_element` (§5.10), mechanical/dimensional features from `mes_global_attributes` — carries up to **three limit tiers** + a print flag:
 
 | Tier | Meaning | Source |
 |------|---------|--------|
@@ -493,13 +586,15 @@ Validation reads **`APPLIED`** only (snapshotted onto results, D4). Modelled **n
 | `revision_no` | integer | | Y | |
 | `parent_tdc_id` | bigint | FK→`mes_tdc_input` | Y | Prior revision |
 | `reason` | varchar(255) | | Y | Change reason |
+| `copied_from_tdc_id` | bigint | FK→`mes_tdc_input` | Y | Source TDC when created via **Copy** (new independent TDC, deep-copies limits/standards/tests/remarks/grades; ≠ the `parent_tdc_id` revision chain) |
 
 ### 11.2 `mes_qc_tdc_limit` — **3-tier characteristic limits (core)**
 | Field | Type | Key | Null | Description |
 |-------|------|-----|------|-------------|
 | `tdc_limit_id` | bigint | PK | N | |
 | `tdc_id` | bigint | FK→`mes_tdc_input` | N | |
-| `attribute_id` | bigint | FK→`mes_global_attributes` | N | Element / mechanical / dimensional characteristic |
+| `attribute_id` | bigint | FK→`mes_global_attributes` | Y | Mechanical / dimensional / other characteristic (non-chemistry) |
+| `element_id` | bigint | FK→`mes_qc_element` | Y | Chemistry element for chemical-section rows (§5.10) — exactly one of `attribute_id`/`element_id` |
 | `tier` | varchar(20) | | N | `STANDARD` / `CUSTOMER` / `APPLIED` |
 | `min_value` / `max_value` / `target_value` | numeric(18,4) | | Y | |
 | `text_value` | varchar(255) | | Y | Discrete / value-selection specs |
@@ -508,13 +603,13 @@ Validation reads **`APPLIED`** only (snapshotted onto results, D4). Modelled **n
 | `source_standard_id` | bigint | FK→`mes_qc_standard` | Y | Origin of a `STANDARD`-tier value |
 | `sequence_no` | integer | | Y | |
 | | | | | **+ audit tail** |
-*Unique (`tdc_id`,`attribute_id`,`tier`,`uom_unit_id`). Proof-stress RP 0.1/0.2/1.0, hardness HRC, Charpy L/T+temp+lateral+shear are just more attribute rows — no schema change.*
+*Exactly one of `attribute_id`/`element_id` per row; unique (`tdc_id`, `attribute_id`|`element_id`, `tier`, `uom_unit_id`). Proof-stress RP 0.1/0.2/1.0, hardness HRC, Charpy L/T+temp+lateral+shear are just more attribute rows — no schema change; chemical rows reference the element dictionary.*
 
 ### 11.3 `mes_qc_standard` — Standards master
 `standard_id` PK · `standard_code varchar(50)` UQ (ASTM A 276 / A 370 / A 388 / EN 10088-3 / JIS…) · `standard_name varchar(255)` · `standard_year varchar(10)` · `standard_type varchar(30)` (CHEMICAL/MECHANICAL/DIMENSIONAL/TEST_METHOD/PRODUCT) · `description varchar(500)` · **+ audit tail**.
 
 ### 11.4 `mes_qc_standard_limit` — a standard's published spec (drives Fill-from-standard)
-`standard_limit_id` PK · `standard_id` FK · `grade varchar(50)` · `attribute_id` FK→`mes_global_attributes` · `min_value`/`max_value`/`target_value numeric(18,4)` · `uom_unit_id` FK→`mes_units` · **+ audit tail**. *("Fill standards" copies matching rows into `mes_qc_tdc_limit` as `tier=STANDARD`.)*
+`standard_limit_id` PK · `standard_id` FK · `grade varchar(50)` · `attribute_id` FK→`mes_global_attributes` (Y, non-chemistry) · `element_id` FK→`mes_qc_element` (Y, chemistry — exactly one of the two) · `min_value`/`max_value`/`target_value numeric(18,4)` · `uom_unit_id` FK→`mes_units` · **+ audit tail**. *("Fill standards" copies matching rows into `mes_qc_tdc_limit` as `tier=STANDARD`.)*
 
 ### 11.5 `mes_qc_tdc_standard` — standards referenced by a TDC (multiple)
 `tdc_standard_id` PK · `tdc_id` FK · `standard_id` FK · `grade varchar(50)` · `is_primary boolean` · `sequence_no` · **+ audit tail**.
@@ -533,7 +628,7 @@ Validation reads **`APPLIED`** only (snapshotted onto results, D4). Modelled **n
 `tdc_ht_id` PK · `tdc_id` FK · `sequence_no` · `ht_description varchar(255)` · `ht_code varchar(30)` · `reduction_ratio varchar(50)` · **+ audit tail**. *(n steps.)*
 
 ### 11.10 `mes_tdc_attr_range` (existing, wide) — kept as the `APPLIED` projection
-On release, the `APPLIED`-tier limits are projected into the wide `ra_n_min/ra_n_max` columns so the rest of the platform reads TDCs unchanged (mirrors the chemistry hybrid, D4/D7). `mes_qc_tdc_limit` is authoritative; the wide table is a read-optimised view of one tier.
+On release, the `APPLIED`-tier limits are projected into the wide `ra_n_min/ra_n_max` columns so the rest of the platform reads TDCs unchanged (mirrors the chemistry hybrid, D4/D7). `mes_qc_tdc_limit` is authoritative; the wide table is a read-optimised view of one tier. **Chemical rows project via `mes_qc_element.tdc_range_ref`** — the element dictionary maps **directly** onto the `RA_n` columns (§5.10); `mes_global_attributes` plays no part in the chemistry projection. Non-chemistry rows keep projecting via the attribute dictionary's `column_reference`. The platform wide table itself needs no change.
 
 ### 11.11 `mes_tdc_approval` — multi-level approval
 `tdc_approval_id` PK · `tdc_id` FK · `approval_level int` · `approver_role varchar(50)` (PLANNER/QUALITY/PLANT_HEAD) · `approver_id bigint` · `status varchar(20)` · `action_date timestamptz` · `remarks varchar(500)` · **+ audit tail**.
@@ -591,6 +686,8 @@ When a clearance/UD does **not** pass (`HOLD`/`REJECTED`/`CONDITIONAL`, or UD de
 | `closed_by` | bigint | | Y | |
 | `closed_date` | timestamptz | | Y | |
 | `closure_remarks` | varchar(500) | | Y | |
+| `sample_id` | bigint | FK→`mes_qc_sample` | Y | Source for chemistry-only NCRs (actual lives in `mes_qc_heat_chemistry`) |
+| `grade` | varchar(50) | | Y | Denormalized (see §2) |
 | | | | | **+ audit tail** |
 
 ### 12.4 `mes_qc_salvage` — salvage / rework action (disposition + loss)
@@ -617,10 +714,11 @@ When a clearance/UD does **not** pass (`HOLD`/`REJECTED`/`CONDITIONAL`, or UD de
 | `qty_unit_id` | bigint | FK→`mes_units` | Y | |
 | `loss_pct` | numeric(9,4) | | Y | Snapshot = (qty_in−qty_out)/qty_in×100 |
 | `status` | varchar(20) | | N | PROPOSED / APPROVED / IN_PROGRESS / DONE / REJECTED / CANCELLED |
-| `outcome` | varchar(20) | | Y | RECOVERED / PARTIAL / SCRAPPED |
+| `outcome` | varchar(20) | | Y | RECOVERED / PARTIAL / SCRAPPED / RETURNED / ACCEPTED |
 | `material_status_id` | bigint | FK→`mes_qc_material_status` | Y | Resulting status (default from `salvage_type`, overridable) |
 | `proposed_by` / `approved_by` / `completed_by` | bigint | | Y | |
 | `proposed_date` / `approved_date` / `completed_date` | timestamptz | | Y | |
+| `grade` | varchar(50) | | Y | Denormalized source/from grade (downgrade rematch input) |
 | `remarks` | varchar(500) | | Y | |
 | | | | | **+ audit tail** |
 
@@ -644,7 +742,7 @@ When a clearance/UD does **not** pass (`HOLD`/`REJECTED`/`CONDITIONAL`, or UD de
 | Field | Type | Key | Null | Description |
 |-------|------|-----|------|-------------|
 | `attachment_id` | bigint | PK | N | |
-| `entity_type` | varchar(40) | | N | NCR / SALVAGE / INSPECTION / TEST_RECORD / SAMPLE / DEFECT / UD / TDC |
+| `entity_type` | varchar(40) | | N | NCR / SALVAGE / INSPECTION / TEST_RECORD / SAMPLE / DEFECT / UD / TDC / CERTIFICATE / RM_RECEIPT / CALIBRATION |
 | `entity_id` | bigint | | N | Row in that entity |
 | `doc_type` | varchar(30) | | Y | PHOTO / REPORT / CERT / DRAWING |
 | `file_name` | varchar(255) | | N | |
@@ -652,8 +750,10 @@ When a clearance/UD does **not** pass (`HOLD`/`REJECTED`/`CONDITIONAL`, or UD de
 | `mime_type` | varchar(100) | | Y | |
 | `file_size` | bigint | | Y | bytes |
 | `caption` | varchar(255) | | Y | |
+| `instrument_id` | bigint | FK→`mes_qc_instrument` | Y | Capturing device — e.g. a **camera registered as an instrument** (`instrument_type` = CAMERA) for defect captures |
+| `captured_at` | timestamptz | | Y | Capture timestamp (camera / scanner integration) |
 | | | | | **+ audit tail** |
-*One attachment table serves every QA entity (NCR photos, test reports, MTC PDFs) — no per-entity blob columns; product-agnostic by construction.*
+*One attachment table serves every QA entity (NCR photos, test reports, MTC PDFs) — no per-entity blob columns; product-agnostic by construction. Camera integration for defect capture = attachments with `entity_type=DEFECT`, `doc_type=PHOTO`, `instrument_id`=the camera, `captured_at` set by the device feed.*
 
 ### 12.7 Flow
 clearance/UD not-pass → **raise NCR** (severity · category · source) → **disposition via Salvage** (pick `salvage_type`; if `requires_target_operation`, set destination op / downgrade grade; capture `qty_in`/`qty_out` → loss & loss%) → material routed per `routes_to` (resample→Sampling §7.5, reinspect→Inspection §6, rework/re-HT/reroute→Production op, return→RM §13, scrap→terminal) → re-clearance on the routed material → **CAPA** actions tracked & verified → **NCR closed**. Salvage loss feeds the loss/yield report (§17).
@@ -689,8 +789,22 @@ When a quality problem surfaces **after dispatch** (chemistry deviation, retest 
 | `is_returned` | boolean | | N | Physically returned |
 | `is_quarantined` | boolean | | N | Quarantined on return (sets material_status QUARANTINE) |
 | `disposition` | varchar(30) | | Y | Re-inspect / rework / downgrade / scrap outcome |
+| `batch_id` | bigint | FK→`mes_batches` | Y | Per-unit heat/lot (recall may span heats) |
+| `heat_number` | varchar(100) | | Y | Denormalized |
+| `qty` | numeric(18,4) | | Y | Recalled weight |
+| `qty_unit_id` | bigint | FK→`mes_units` | Y | |
 | | | | | **+ audit tail** |
 *Recall reuses the existing NCR / Salvage / attachment machinery; returned units re-enter QA (re-inspection §6, re-clearance §9) and quarantine uses `material_status` QUARANTINE (§5.1).*
+
+### 12.10 `mes_qc_salvage_type_ncr_category` — disposition applicability mapping
+| Field | Type | Key | Null | Description |
+|-------|------|-----|------|-------------|
+| `id` | bigint | PK | N | |
+| `salvage_type_id` | bigint | FK→`mes_qc_salvage_type` | N | |
+| `ncr_category_id` | bigint | FK→`mes_qc_ncr_category` | N | |
+| `priority` | integer | | Y | |
+| | | | | **+ audit tail** |
+*Makes suitable-disposition suggestions data-driven (replaces the UI-hardcoded category→disposition map) per D6.*
 
 ---
 
@@ -721,7 +835,7 @@ Raw material (billets / blooms / bars / coil from suppliers) is inspected at **i
 | `qty_unit_id` | bigint | FK→`mes_units` | Y | |
 | `received_date` | timestamptz | | N | |
 | `batch_id` | bigint | FK→`mes_batches` | Y | Internal batch created on acceptance |
-| `status` | varchar(20) | | N | RECEIVED / UNDER_INSPECTION / ACCEPTED / RETEST / REJECTED / RETURNED / PARTIAL |
+| `status` | varchar(20) | | N | RECEIVED / UNDER_INSPECTION / **TESTING** / ACCEPTED / RETEST / REJECTED / RETURNED / PARTIAL |
 | | | | | **+ audit tail** |
 
 ### 13.3 `mes_qc_rm_inspection` — inward inspection + decision
@@ -742,14 +856,14 @@ Raw material (billets / blooms / bars / coil from suppliers) is inspected at **i
 | | | | | **+ audit tail** |
 
 ### 13.4 `mes_qc_rm_inspection_result` — measured characteristics (attribute-driven, reuses the dictionary)
-`rm_result_id` PK · `rm_inspection_id` FK · `attribute_id` FK→`mes_global_attributes` (chemistry / dimensional / surface) · `min_spec`/`max_spec`/`target_spec numeric(18,4)` (snapshot from RM TDC/standard, D4) · `result_value numeric(18,4)` · `text_value varchar(255)` · `uom_unit_id` FK→`mes_units` · `is_ok boolean` · `remarks varchar(255)` · **+ audit tail**.
+`rm_result_id` PK · `rm_inspection_id` FK · `attribute_id` FK→`mes_global_attributes` (Y — dimensional / surface / document) · `element_id` FK→`mes_qc_element` (Y — chemistry spot-checks; exactly one of the two) · `min_spec`/`max_spec`/`target_spec numeric(18,4)` (snapshot from RM TDC/standard, D4) · `result_value numeric(18,4)` · `text_value varchar(255)` · `uom_unit_id` FK→`mes_units` · `is_ok boolean` · `spec_source varchar(30)` (TDC / STANDARD / FIXED, mirrors §6.2 / §7.3) · `remarks varchar(255)` · **+ audit tail**.
 *(RM chemistry may alternatively populate §7.4 `mes_qc_heat_chemistry` via a Chemical sample drawn at inward — same wide table, supplier heat; these rows cover spot-checks.)*
 
 ### 13.5 `mes_qc_supplier_feedback` — feedback on rejected RM (SCAR)
 `feedback_id` PK · `supplier_id` FK · `rm_receipt_id` FK (Y) · `ncr_id` FK→`mes_qc_ncr` (Y) · `feedback_text varchar(1000)` · `scar_number varchar(100)` (supplier corrective-action request) · `rating_impact varchar(20)` (NONE/MINOR/MAJOR) · `sent_date timestamptz` · `acknowledged boolean` · `response_text varchar(1000)` · **+ audit tail**.
 
-### 13.6 Flow
-RMPO → **RM received** (`rm_receipt` — supplier heat + TC) → **inward inspection** (`rm_inspection` + `rm_inspection_result` vs RM spec: visual · dimensional · chemistry · TC-verify) → decide: **Accept** (RMA no.; status ACCEPTED; internal `batch` created → Production for heat formation) · **Retest** (re-draw / re-test) · **Return** (supplier NCR §12 + `supplier_feedback`/SCAR; status RETURNED). QA's RM responsibility ends at acceptance.
+### 13.6 Flow — Inspection → Testing → UD (reuses the core machinery)
+RMPO → **RM received** (`rm_receipt` — supplier heat + TC) → **1. Inward inspection** (`rm_inspection` + `rm_inspection_result` vs RM spec: visual · dimensional · surface · TC-verify; `decision` here = the inspection-stage recommendation) → **2. Testing** (status **TESTING**: samples drawn against the RM lot via `mes_qc_sample.rm_receipt_id` §7.1 → the standard Sampling §7.5 / Test Entry §7.2–7.3 / Heat-Chemistry §7.4 screens — **no RM-local test tables**) → **3. RM Usage Decision** (`mes_qc_usage_decision.rm_receipt_id` §10.1, evidence = the RM inspection + test results): **Accept** (RMA no.; status ACCEPTED; internal `batch` created → Production for heat formation) · **Retest** (re-draw / re-test; status RETEST) · **Return** (supplier NCR §12 + `supplier_feedback`/SCAR; status RETURNED). QA's RM responsibility ends at acceptance.
 
 ---
 
@@ -884,10 +998,13 @@ The **MTC** (Mill Test Certificate — EN 10204 2.1 / 2.2 / 3.1 / 3.2) is QA's *
 | `qty` / `pieces` | numeric(18,4) | | Y | |
 | `status` | varchar(20) | | N | DRAFT / ISSUED / SIGNED / SENT / CANCELLED |
 | `prepared_by` / `approved_by` / `signed_by` | bigint | | Y | |
+| `schedule_material_child_id` | bigint | FK→`mes_schedule_material_childs` | Y | Certified piece (bar/bundle) |
+| `uid` | varchar(100) | | Y | Denormalized piece id |
+| `overall_result` | varchar(20) | | Y | Frozen printed verdict (ACCEPTED/…) |
 | | | | | **+ audit tail** |
 
 ### 16.2 `mes_qc_certificate_line` — printed characteristic (spec vs actual)
-`cert_line_id` PK · `certificate_id` FK · `attribute_id` FK→`mes_global_attributes` · `section varchar(20)` (CHEMICAL / MECHANICAL / DIMENSIONAL / OTHER) · `min_spec`/`max_spec`/`actual_value numeric(18,4)` · `text_value varchar(255)` · `uom_unit_id` FK→`mes_units` · `is_ok boolean` · `sequence_no` · **+ audit tail**. *(Snapshot of APPLIED TDC limits (§11.2, `print_flag=true`) + the heat/test actual.)*
+`cert_line_id` PK · `certificate_id` FK · `attribute_id` FK→`mes_global_attributes` (Y, non-chemistry sections) · `element_id` FK→`mes_qc_element` (Y, CHEMICAL-section lines — exactly one of the two) · `section varchar(20)` (CHEMICAL / MECHANICAL / DIMENSIONAL / OTHER) · `min_spec`/`max_spec`/`actual_value numeric(18,4)` · `text_value varchar(255)` · `uom_unit_id` FK→`mes_units` · `is_ok boolean` · `sequence_no` · **+ audit tail**. *(Snapshot of APPLIED TDC limits (§11.2, `print_flag=true`) + the heat/test actual.)*
 
 ### 16.3 `mes_qc_certificate_heat` — multi-heat coverage (optional)
 `cert_heat_id` PK · `certificate_id` FK · `batch_id` FK · `heat_number varchar(100)` · `qty`/`pieces numeric(18,4)` · **+ audit tail**. *(A dispatch certificate may cover several heats — one row each.)*
@@ -902,7 +1019,8 @@ Select heat/lot (or dispatch set) → pull APPLIED TDC limits where `print_flag=
 - **`v_qc_test_result`** — flat join of `test_result + test_record + sample + attribute + batch + tdc` (min/max snapshotted → no TDC re-join).
 - **`v_qc_inspection`** — flat join of `inspection_result + inspection + attribute + operation`.
 - **`mes_qc_heat_chemistry`** is already wide → reports read it directly.
-- **`v_qc_defect`** — defects with resolved location for the defect-map screen.
+- **`v_qc_defect`** — defects with resolved location for the defect-map screen; exposes piece geometry (length/width/diameter from `mes_schedule_material_childs`) so the defect map can scale.
+- **`v_qc_worklist`** — UNION of `mes_qc_inspection` + `mes_qc_test_record` projecting a unified pending-QC worklist: `kind` (INSPECTION/TEST), `qc_no`, `confirmation_id`, `stage`, `heat_number`, `grade`, `overall_result`, and `status` = COALESCE(`mes_qc_clearance.result`, record.status) — one queue across both transaction families.
 
 ---
 
@@ -915,7 +1033,11 @@ erDiagram
   mes_qc_inspection_type ||--o{ mes_qc_stage_qc_map : ""
   mes_qc_test ||--o{ mes_qc_stage_qc_map : ""
   mes_qc_test ||--o{ mes_qc_test_attribute : "measures"
-  mes_global_attributes ||--o{ mes_qc_test_attribute : "property"
+  mes_global_attributes ||--o{ mes_qc_test_attribute : "property (non-chem)"
+  mes_qc_element ||--o{ mes_qc_test_attribute : "element (chem tests)"
+  mes_qc_element ||--o{ mes_qc_grade_chemistry : "works spec"
+  mes_qc_element ||--o{ mes_qc_certificate_line : "chemical line"
+  mes_qc_element ||--o{ mes_qc_test_result : "element reading"
   mes_production_confirmation ||--o{ mes_qc_inspection : "anchor"
   mes_qc_inspection ||--o{ mes_qc_inspection_result : "has"
   mes_qc_sample ||--o{ mes_qc_test_record : "tested"
@@ -933,7 +1055,8 @@ erDiagram
   mes_qc_material_status ||--o{ mes_qc_usage_decision : "sets"
   mes_qc_standard ||--o{ mes_qc_standard_limit : "publishes"
   mes_tdc_input ||--o{ mes_qc_tdc_limit : "spec (3 tiers)"
-  mes_global_attributes ||--o{ mes_qc_tdc_limit : "characteristic"
+  mes_global_attributes ||--o{ mes_qc_tdc_limit : "characteristic (non-chem)"
+  mes_qc_element ||--o{ mes_qc_tdc_limit : "chemical characteristic"
   mes_tdc_input ||--o{ mes_qc_tdc_standard : "references"
   mes_tdc_input ||--o{ mes_qc_tdc_test_standard : "per-test std"
   mes_tdc_input ||--o{ mes_qc_tdc_customer_grade : "cust grades"
@@ -971,23 +1094,23 @@ erDiagram
 
 | Group | Tables |
 |-------|--------|
-| **Masters (10 lookups)** | `inspection_type`, `test_type`, `chemistry_type`, `defect_type`, `defect_reason`, `sample_status`, `material_status`, `ud_type`, `ud_reason`, `ud_action` |
-| **Masters (config)** | `test`, `test_attribute`, `defect`, `stage_qc_map`, `corrective_action`, `grade_downgrade` |
+| **Masters (11 lookups)** | `inspection_type`, `test_type`, `chemistry_type`, `defect_type`, `defect_reason`, `sample_status`, `material_status`, `ud_type`, `ud_reason`, `ud_action`, `size_basis` |
+| **Masters (config)** | `test`, `test_attribute`, `defect`, `stage_qc_map`, `corrective_action`, `corrective_action_applied`, `grade_downgrade`, `grade_chemistry`, **`element`** (chemistry dictionary §5.10) |
 | **Inspection** | `inspection`, `inspection_result` |
 | **Testing** | `sample`, `test_record`, `test_result`, `heat_chemistry` (wide) |
-| **Sampling** | `sample_type`, `sampling_rule`, `sampling_rule_test`, `sample_prep_checklist` + `_step` + `_record`, `agency` (+ `sample` extended) |
+| **Sampling** | `sample_type`, `sampling_rule`, `sampling_rule_test`, `sample_test`, `sample_prep_checklist` + `_step` + `_record`, `agency` (+ `sample` extended) |
 | **Defects** | `defect_record` (unified + location model) |
 | **Clearance** | `clearance` |
 | **Usage Decision** | `usage_decision`, `usage_decision_line`, `approval` (generic multi-level) |
-| **Salvage / NCR / CAPA** | `salvage_type`, `salvage`, `ncr_category`, `ncr`, `capa`, `attachment` (generic), `fg_recall` + `fg_recall_unit` |
+| **Salvage / NCR / CAPA** | `salvage_type`, `salvage_type_ncr_category`, `salvage`, `ncr_category`, `ncr`, `capa`, `attachment` (generic), `fg_recall` + `fg_recall_unit` |
 | **RM Quality** | `supplier`, `rm_receipt`, `rm_inspection`, `rm_inspection_result`, `supplier_feedback` |
 | **Instruments** | `instrument_type`, `instrument`, `calibration`, `calibration_point`, `instrument_verification` |
 | **Roll Shop** | `roll_type`, `roll`, `roll_inspection`, `roll_grinding` |
 | **Certificates / MTC** | `certificate`, `certificate_line`, `certificate_heat` |
 | **TDC** | `mes_tdc_input` (extend), **`tdc_limit`** (3-tier core), `standard`, `standard_limit`, `tdc_standard`, `tdc_test_standard`, `tdc_customer_grade`, `tdc_remark` + `tdc_remark_target`, `tdc_ht`, `tdc_approval` |
-| **Reporting** | `v_qc_test_result`, `v_qc_inspection`, `v_qc_defect` (views) |
+| **Reporting** | `v_qc_test_result`, `v_qc_inspection`, `v_qc_defect`, `v_qc_worklist` (views) |
 
-≈ **68 new tables + 1 extended (`mes_tdc_input`) + 3 views.** *(+5 for the Track A back-ports: `corrective_action`, `grade_downgrade`, `approval`, `fg_recall`, `fg_recall_unit`.)*
+≈ **74 new tables + 1 extended (`mes_tdc_input`) + 4 views.** *(+5 for the Track A back-ports: `corrective_action`, `grade_downgrade`, `approval`, `fg_recall`, `fg_recall_unit`; +3 for the traceability pass: `sample_test`, `corrective_action_applied`, `salvage_type_ncr_category`; +2 for the 2026-07-16 scope points: `size_basis`, `grade_chemistry`; +1 chemistry separation: `element`.)*
 
 ---
 
@@ -995,3 +1118,19 @@ erDiagram
 - **Heat formation** (combining UIDs into heats) — **Production module, out-of-scope for QA.** QA touchpoints only: heat-chemistry validation (§7.4 / Heat Chemistry), a thin Quality approval gate, and Usage Decision.
 - Number-generation rules (`inspection_number`, `test_record_number`, `sample_number`, `ud_number`, `ncr_number`, `salvage_number`, `recall_number`).
 - Confirm the wide `mes_qc_heat_chemistry` column set mirrors the deployment's configured chemistry attribute family (D0 / G6) — not a fixed/company-specific list.
+
+**Gap-closure decisions (2026-07-14, UI↔model reconciliation):**
+- **Per-element chemistry pass/fail is DERIVED** (actuals vs TDC `APPLIED`) — not persisted as a wide pass/fail snapshot; if an audit trail is needed, persist it via the OOS NCR / `mes_qc_corrective_action_applied` (§5.8) link.
+- **Notification sent / ack events** are a **platform-level `mes_qc_notification` service** — out of QA-module scope (this model adds no notification table).
+- **TDC `print_flag`** is **authoritative on the `tier=APPLIED` row** (§11.2) — no separate print-control flag/table.
+- **Per-stage "release to next stage"** is recorded as a `clearance_type=FINAL` clearance row (§9.1) — no separate release flag.
+- **Instrument in-use verification** stays a `check_summary` roll-up (§14.5) — no per-item child table.
+
+**Scope additions (2026-07-16, stakeholder points):**
+- **TDC Copy** creates a NEW independent TDC (`copied_from_tdc_id` provenance) deep-copying children — distinct from the `parent_tdc_id` revision chain.
+- **TDC-scoped sampling rules** (`sampling_rule.tdc_id`, most-specific wins) back "TDC + sample-type"-driven sample generation; generic rules remain the fallback.
+- **RM inward is a 3-stage flow** (Inspection → Testing → UD) reusing the core sample/test/UD machinery via `rm_receipt_id` links — no RM-local test/UD tables (§13.6).
+- **Lab-equipment mapping is plan-vs-actual**: planned per test at Sample Issue (`sample_test.instrument_id`), actual at Testing (`test_record.instrument_id` + per-reading `test_result.instrument_id`).
+- **Cameras are instruments** (`instrument_type=CAMERA`); defect captures = `attachment`(DEFECT/PHOTO) rows carrying `instrument_id` + `captured_at`.
+- **Re-UD** = supersession chain (`usage_decision.supersedes_ud_id`); **Bulk UD** = one `mass_ud_ref` per run. Grade-chemistry master (§5.9) provides the works spec tier between TDC and report-only.
+- **Chemistry is a separate model (2026-07-16):** the element dictionary `mes_qc_element` (§5.10) is THE chemistry reference everywhere — grade_chemistry, TDC/standard chemical limits, stage-QC map, corrective actions, RM results, certificate chemical lines, and the wide heat-chemistry column set — while `mes_global_attributes` now serves **non-chemistry** characteristics only. Shared spec tables carry `attribute_id` **xor** `element_id` (one limits/fill/approval engine, two dictionaries). The element dictionary owns **both wide mappings directly** — `column_reference` → `mes_qc_heat_chemistry` columns, `tdc_range_ref` → `mes_tdc_attr_range` `RA_n` — with no attribute-dictionary involvement; the legacy `mes_global_attributes` chemistry rows (ids 1–33) are one-time migration seeds, then retired.

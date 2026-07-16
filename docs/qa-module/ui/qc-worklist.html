@@ -127,6 +127,9 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .b-rej{background:rgba(244,67,54,.12);color:#d32f2f;}
 .b-insp{background:rgba(37,169,224,.12);color:#1E8FBF;}
 .b-test{background:rgba(103,58,183,.12);color:#673ab7;}
+.b-mode-on{background:rgba(76,175,80,.12);color:#388e3c;}
+.b-mode-off{background:rgba(158,158,158,.14);color:#757575;}
+.b-mode-on i,.b-mode-off i{font-size:9px;margin-right:3px;}
 
 /* ===== Pagination ===== */
 .pager{display:flex;align-items:center;gap:var(--sp2);padding:var(--sp3) var(--sp4);border-top:1px solid var(--color-border-light);font-size:var(--fs-sm);color:var(--color-text-muted);}
@@ -175,6 +178,11 @@ table.rm-grid{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .srctag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:9px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;vertical-align:middle;}
 .srctag.t-tdc{background:rgba(37,169,224,.14);color:#1E8FBF;}
 .srctag.t-def{background:rgba(158,158,158,.16);color:#757575;}
+.autohint{font-size:10px;color:#1E8FBF;margin-top:2px;white-space:nowrap;}
+.autohint i{font-size:9px;margin-right:3px;}
+.rm-ctx .chip b.mode-on{color:#388e3c;}
+.rm-ctx .chip b.mode-off{color:#757575;}
+.rm-ctx .chip b i{font-size:9px;margin-right:2px;}
 .rm-defects{padding:var(--sp3) var(--sp5);border-top:1px solid var(--color-border-light);}
 .rmd-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
 .rmd-head b{font-size:var(--fs-base);} .rmd-head .btn{margin-left:auto;}
@@ -271,9 +279,11 @@ table.rmd-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="master-defect-reason.html"><i class="fa-solid fa-magnifying-glass"></i> Defect Reason</a>
         <a href="master-defect.html"><i class="fa-solid fa-triangle-exclamation"></i> Defect Catalogue</a>
         <a href="master-characteristic.html"><i class="fa-solid fa-list-ol"></i> Characteristic</a>
+        <a href="master-element.html"><i class="fa-solid fa-atom"></i> Element (Chemistry)</a>
         <a href="master-stage-qc-map.html"><i class="fa-solid fa-sitemap"></i> Stage-QC Map</a>
         <a href="master-sample-type.html"><i class="fa-solid fa-vials"></i> Sample Type</a>
         <a href="master-sampling-rule.html"><i class="fa-solid fa-diagram-project"></i> Sampling Rule</a>
+        <a href="master-size-basis.html"><i class="fa-solid fa-ruler-combined"></i> Size Basis</a>
         <a href="master-prep-checklist.html"><i class="fa-solid fa-list-check"></i> Prep Checklist</a>
         <a href="master-sample-status.html"><i class="fa-solid fa-vials"></i> Sample Status</a>
         <a href="master-material-status.html"><i class="fa-solid fa-flag"></i> Material Status</a>
@@ -284,6 +294,7 @@ table.rmd-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="master-ncr-category.html"><i class="fa-solid fa-file-circle-exclamation"></i> NCR Category</a>
         <a href="master-standard.html"><i class="fa-solid fa-book"></i> Standard</a>
         <a href="master-standard-limit.html"><i class="fa-solid fa-ruler-horizontal"></i> Standard Limit</a>
+        <a href="master-grade-chemistry.html"><i class="fa-solid fa-flask-vial"></i> Grade Chemistry</a>
         <a href="master-instrument-type.html"><i class="fa-solid fa-ruler-combined"></i> Instrument Type</a>
         <a href="master-agency.html"><i class="fa-solid fa-building"></i> Agency</a>
         <a href="master-supplier.html"><i class="fa-solid fa-truck-field"></i> Supplier</a>
@@ -365,7 +376,8 @@ table.rmd-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
       <div class="helper"><i class="fa-solid fa-circle-info"></i><span>Most QC items are created automatically when a lot is confirmed at a QC-required operation. Use this only for an ad-hoc inspection or a re-inspection after rework.</span></div>
       <div class="modal-body" style="padding:0;">
         <div class="fld"><label>Production Confirmation (lot)</label><select><option>PC-2526-04417 · OP_CASTING · Heat 2526-16496</option><option>PC-2526-04420 · OP_ROLLING · Heat 2526-16798</option></select></div>
-        <div class="fld"><label>QC item</label><select><option>Inspection · Dimensional</option><option>Inspection · Visual</option><option>Inspection · UT</option><option>Test · Mechanical</option><option>Test · Chemical</option></select></div>
+        <div class="fld"><label>QC item</label><select id="raiseQc" onchange="syncRaiseMode()"><option>Inspection · Dimensional</option><option>Inspection · Visual</option><option>Inspection · UT</option><option>Test · Mechanical</option><option>Test · Chemical</option></select></div>
+        <div class="fld"><label>Inspection Mode</label><select id="raiseMode"><option>OFFLINE</option><option>ONLINE</option></select><div style="font-size:11px;color:#888;margin-top:3px;">Default from Stage-QC Map — ONLINE = in-line (L2 / gauge), OFFLINE = bench</div></div>
         <div class="fld full"><label>Reason</label><input placeholder="e.g. re-inspection after straightening rework" /></div>
       </div>
     </div>
@@ -389,42 +401,44 @@ table.rmd-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 <script>
 /* ===== Columns ===== */
 const COLS=[
-  {key:'no',label:'QC No'},{key:'pc',label:'Confirmation'},{key:'kind',label:'Kind'},{key:'type',label:'Type'},{key:'seq',label:'Seq'},{key:'stage',label:'Stage'},
+  {key:'no',label:'QC No'},{key:'pc',label:'Confirmation'},{key:'kind',label:'Kind'},{key:'type',label:'Type'},{key:'mode',label:'Mode'},{key:'seq',label:'Seq'},{key:'stage',label:'Stage'},
   {key:'heat',label:'Heat No'},{key:'uid',label:'Material / UID'},{key:'grade',label:'Grade'},{key:'form',label:'Form'},
   {key:'result',label:'Result'},{key:'status',label:'Status'},{key:'date',label:'Date'},{key:'by',label:'Inspector'},
   {key:'actions',label:'',noFilter:true}
 ];
 let visible=COLS.map(c=>c.key);
 
-/* ===== Mock data ===== */
+/* ===== Mock data =====
+   Last field = mes_qc_inspection.inspection_mode (defaulted from stage_qc_map.default_inspection_mode):
+   ONLINE = captured in-line during production via L2 / gauge (OES chemistry, UT line), OFFLINE = bench inspection */
 const RAW=[
- ['INS-2526-0012','Inspection','Dimensional','OP_ROLLING','2526-16496','B030268','17-4PH','Round Bar','PASS','COMPLETED','24-Jun 09:14','R. Sahoo'],
- ['TST-2526-0034','Test','Mechanical','OP_HEAT TREATMENT','2526-16496','B030268','17-4PH','Round Bar','PENDING','IN PROGRESS','24-Jun 09:40','Lab-A'],
- ['CHM-2526-0188','Test','Chemical','OP_CASTING','2526-16783','A002668','316L','Hex','PASS','CLEARED','24-Jun 06:02','L2 / OES'],
- ['INS-2526-0013','Inspection','Visual','OP_CENTERLESS GRINDING','2526-16794','A002669','316L','Hex','FAIL','REJECTED','24-Jun 10:21','M. Iyer'],
- ['UT-2526-0071','Inspection','UT','OP_PEELING','2526-16828','E120381','316L','Hex','PASS','COMPLETED','24-Jun 08:55','S. Khan'],
- ['CHM-2526-0189','Test','Chemical','OP_CASTING','2526-16776','E121717','304L','Hex','FAIL','HOLD','24-Jun 06:18','L2 / OES'],
- ['TST-2526-0035','Test','Mechanical','OP_HEAT TREATMENT','2526-16781','E121718','304L','Hex','PASS','CLEARED','23-Jun 17:30','Lab-B'],
- ['INS-2526-0014','Inspection','Dimensional','OP_DRAWING2','2526-16798','E122319','304L','Round Bar','PENDING','DRAFT','24-Jun 11:02','—'],
- ['UT-2526-0072','Inspection','UT','OP_ROLLING','2526-16837','E122644','304L','Round Bar','COND','COMPLETED','24-Jun 07:46','S. Khan'],
- ['CHM-2526-0190','Test','Chemical','OP_CASTING','2526-16795','E122810','304L','Hex','PASS','CLEARED','24-Jun 05:50','L2 / OES'],
- ['INS-2526-0015','Inspection','Visual','OP_BELT_POLISH2','2526-16796','E122792','304L','Round Bar','PASS','COMPLETED','24-Jun 11:33','M. Iyer'],
- ['TST-2526-0036','Test','Mechanical','OP_HEAT TREATMENT','2526-16482','B030840','416','Round Bar','FAIL','HOLD','23-Jun 19:05','Lab-A'],
- ['CHM-2526-0191','Test','Chemical','OP_CASTING','2526-16426','E120808','416','Round Bar','PASS','CLEARED','23-Jun 22:40','L2 / OES'],
- ['INS-2526-0016','Inspection','Dimensional','OP_STRAIGHTENING','2526-16495','E120636','416','Round Bar','PENDING','IN PROGRESS','24-Jun 12:01','R. Sahoo'],
- ['UT-2526-0073','Inspection','UT','OP_PEELING','2526-16493','B030068','416','Round Bar','PASS','COMPLETED','24-Jun 09:58','S. Khan'],
- ['CHM-2526-0192','Test','Chemical','OP_CASTING','2626-00028','STK','X46Cr13','Round Bar','COND','IN PROGRESS','24-Jun 06:35','L2 / OES'],
- ['INS-2526-0017','Inspection','Visual','OP_PICKLING3','2526-16852','B030767','316L','Hex','PASS','COMPLETED','24-Jun 12:20','M. Iyer'],
- ['TST-2526-0037','Test','Mechanical','OP_HEAT TREATMENT','2526-16819','E122789','316L','Hex','PENDING','DRAFT','24-Jun 12:44','—'],
- ['INS-2526-0018','Inspection','Dimensional','OP_ROLLING','2526-16030','E122956','304L','Flat Bar','PASS','COMPLETED','24-Jun 08:11','R. Sahoo'],
- ['UT-2526-0074','Inspection','UT','OP_ROLLING','2526-16866','E121724','316L','Hex','FAIL','REJECTED','24-Jun 10:49','S. Khan'],
- ['CHM-2526-0193','Test','Chemical','OP_CASTING','2526-16857','B030227','304L','Hex','PASS','CLEARED','24-Jun 05:20','L2 / OES'],
- ['INS-2526-0019','Inspection','Visual','OP_CHAMFERING','2526-16858','E120390','304L','Round Bar','PASS','COMPLETED','24-Jun 13:02','M. Iyer'],
- ['INS-2526-0020','Inspection','Dimensional','OP_FINISHING','2526-16798','E122319','304L','Round Bar','PASS','COMPLETED','24-Jun 13:30','R. Sahoo'],
- ['INS-2526-0021','Inspection','Visual','OP_FINISHING','2526-16798','E122319','304L','Round Bar','FAIL','REJECTED','24-Jun 13:35','M. Iyer'],
- ['UT-2526-0075','Inspection','UT','OP_FINISHING','2526-16798','E122319','304L','Round Bar','PENDING','IN PROGRESS','24-Jun 13:40','S. Khan'],
+ ['INS-2526-0012','Inspection','Dimensional','OP_ROLLING','2526-16496','B030268','17-4PH','Round Bar','PASS','COMPLETED','24-Jun 09:14','R. Sahoo','OFFLINE'],
+ ['TST-2526-0034','Test','Mechanical','OP_HEAT TREATMENT','2526-16496','B030268','17-4PH','Round Bar','PENDING','IN PROGRESS','24-Jun 09:40','Lab-A','OFFLINE'],
+ ['CHM-2526-0188','Test','Chemical','OP_CASTING','2526-16783','A002668','316L','Hex','PASS','CLEARED','24-Jun 06:02','L2 / OES','ONLINE'],
+ ['INS-2526-0013','Inspection','Visual','OP_CENTERLESS GRINDING','2526-16794','A002669','316L','Hex','FAIL','REJECTED','24-Jun 10:21','M. Iyer','OFFLINE'],
+ ['UT-2526-0071','Inspection','UT','OP_PEELING','2526-16828','E120381','316L','Hex','PASS','COMPLETED','24-Jun 08:55','S. Khan','ONLINE'],
+ ['CHM-2526-0189','Test','Chemical','OP_CASTING','2526-16776','E121717','304L','Hex','FAIL','HOLD','24-Jun 06:18','L2 / OES','ONLINE'],
+ ['TST-2526-0035','Test','Mechanical','OP_HEAT TREATMENT','2526-16781','E121718','304L','Hex','PASS','CLEARED','23-Jun 17:30','Lab-B','OFFLINE'],
+ ['INS-2526-0014','Inspection','Dimensional','OP_DRAWING2','2526-16798','E122319','304L','Round Bar','PENDING','DRAFT','24-Jun 11:02','—','OFFLINE'],
+ ['UT-2526-0072','Inspection','UT','OP_ROLLING','2526-16837','E122644','304L','Round Bar','COND','COMPLETED','24-Jun 07:46','S. Khan','ONLINE'],
+ ['CHM-2526-0190','Test','Chemical','OP_CASTING','2526-16795','E122810','304L','Hex','PASS','CLEARED','24-Jun 05:50','L2 / OES','ONLINE'],
+ ['INS-2526-0015','Inspection','Visual','OP_BELT_POLISH2','2526-16796','E122792','304L','Round Bar','PASS','COMPLETED','24-Jun 11:33','M. Iyer','OFFLINE'],
+ ['TST-2526-0036','Test','Mechanical','OP_HEAT TREATMENT','2526-16482','B030840','416','Round Bar','FAIL','HOLD','23-Jun 19:05','Lab-A','OFFLINE'],
+ ['CHM-2526-0191','Test','Chemical','OP_CASTING','2526-16426','E120808','416','Round Bar','PASS','CLEARED','23-Jun 22:40','L2 / OES','ONLINE'],
+ ['INS-2526-0016','Inspection','Dimensional','OP_STRAIGHTENING','2526-16495','E120636','416','Round Bar','PENDING','IN PROGRESS','24-Jun 12:01','R. Sahoo','OFFLINE'],
+ ['UT-2526-0073','Inspection','UT','OP_PEELING','2526-16493','B030068','416','Round Bar','PASS','COMPLETED','24-Jun 09:58','S. Khan','ONLINE'],
+ ['CHM-2526-0192','Test','Chemical','OP_CASTING','2626-00028','STK','X46Cr13','Round Bar','COND','IN PROGRESS','24-Jun 06:35','L2 / OES','ONLINE'],
+ ['INS-2526-0017','Inspection','Visual','OP_PICKLING3','2526-16852','B030767','316L','Hex','PASS','COMPLETED','24-Jun 12:20','M. Iyer','OFFLINE'],
+ ['TST-2526-0037','Test','Mechanical','OP_HEAT TREATMENT','2526-16819','E122789','316L','Hex','PENDING','DRAFT','24-Jun 12:44','—','OFFLINE'],
+ ['INS-2526-0018','Inspection','Dimensional','OP_ROLLING','2526-16030','E122956','304L','Flat Bar','PASS','COMPLETED','24-Jun 08:11','R. Sahoo','OFFLINE'],
+ ['UT-2526-0074','Inspection','UT','OP_ROLLING','2526-16866','E121724','316L','Hex','FAIL','REJECTED','24-Jun 10:49','S. Khan','ONLINE'],
+ ['CHM-2526-0193','Test','Chemical','OP_CASTING','2526-16857','B030227','304L','Hex','PASS','CLEARED','24-Jun 05:20','L2 / OES','ONLINE'],
+ ['INS-2526-0019','Inspection','Visual','OP_CHAMFERING','2526-16858','E120390','304L','Round Bar','PASS','COMPLETED','24-Jun 13:02','M. Iyer','OFFLINE'],
+ ['INS-2526-0020','Inspection','Dimensional','OP_FINISHING','2526-16798','E122319','304L','Round Bar','PASS','COMPLETED','24-Jun 13:30','R. Sahoo','OFFLINE'],
+ ['INS-2526-0021','Inspection','Visual','OP_FINISHING','2526-16798','E122319','304L','Round Bar','FAIL','REJECTED','24-Jun 13:35','M. Iyer','OFFLINE'],
+ ['UT-2526-0075','Inspection','UT','OP_FINISHING','2526-16798','E122319','304L','Round Bar','PENDING','IN PROGRESS','24-Jun 13:40','S. Khan','ONLINE'],
 ];
-const DATA=RAW.map(r=>({no:r[0],kind:r[1],type:r[2],stage:r[3],heat:r[4],uid:r[5],grade:r[6],form:r[7],result:r[8],status:r[9],date:r[10],by:r[11]}));
+const DATA=RAW.map(r=>({no:r[0],kind:r[1],type:r[2],stage:r[3],heat:r[4],uid:r[5],grade:r[6],form:r[7],result:r[8],status:r[9],date:r[10],by:r[11],mode:r[12]}));
 /* === Inspection group = Production Confirmation (PC): inspections sharing heat + operation, ordered by seq === */
 let _pc=4416; const PCG={};
 DATA.forEach(r=>{const k=r.heat+'|'+r.stage; if(!PCG[k]){_pc++;PCG[k]={pc:'PC-2526-0'+_pc,n:0};} PCG[k].n++; r.pc=PCG[k].pc; r.seq=PCG[k].n;});
@@ -486,6 +500,9 @@ const STATUS_B={'COMPLETED':'b-done','IN PROGRESS':'b-prog','DRAFT':'b-draft','C
 function cell(c,row){
   const v=row[c.key];
   if(c.key==='kind') return `<span class="badge ${v==='Test'?'b-test':'b-insp'}">${v}</span>`;
+  if(c.key==='mode') return v==='ONLINE'
+    ?`<span class="badge b-mode-on" title="In-line during production — auto capture via L2 / gauge"><i class="fa-solid fa-wifi"></i>ONLINE</span>`
+    :`<span class="badge b-mode-off" title="Bench inspection — manual capture"><i class="fa-solid fa-clipboard"></i>OFFLINE</span>`;
   if(c.key==='result') return `<span class="badge ${RESULT_B[v]||'b-draft'}">${v}</span>`;
   if(c.key==='status') return `<span class="badge ${STATUS_B[v]||'b-draft'}">${v}</span>`;
   if(c.key==='actions') return `<button class="btn-icon" title="Inspection group" onclick="openGroup('${row.pc}')"><i class="fa-solid fa-layer-group"></i></button><button class="btn-icon" title="View (read-only)" onclick="openRecord('${row.no}','view')"><i class="fa-solid fa-eye"></i></button><button class="btn-icon" title="${row.result==='PENDING'?'Record result':'Edit result'}" onclick="openRecord('${row.no}','edit')"><i class="fa-solid fa-pen"></i></button><button class="btn-icon" title="Raise Salvage / NCR" onclick="raiseSalvage({uid:'${row.uid}',heat:'${row.heat}',grade:'${row.grade}',stage:'${row.stage}',ref:'${row.no}',src:'Inspection'})"><i class="fa-solid fa-screwdriver-wrench"></i></button>`;
@@ -535,14 +552,15 @@ function renderBody(){
   const tb=document.getElementById('tbody');
   if(!slice.length){tb.innerHTML=`<tr class="empty-row"><td colspan="${cols.length}">No records match the current filters.</td></tr>`;}
   else{tb.innerHTML=slice.map(r=>`<tr>${cols.map(c=>`<td class="${c.key==='actions'?'actions':''}">${cell(c,r)}</td>`).join('')}</tr>`).join('');}
-  document.getElementById('rowMeta').textContent=`${rows.length} of ${DATA.length} records`;
+  const onlineN=rows.filter(r=>r.mode==='ONLINE').length;
+  document.getElementById('rowMeta').textContent=`${rows.length} of ${DATA.length} records · ${onlineN} online · ${rows.length-onlineN} offline`;
   document.getElementById('pgInfo').textContent=`Page ${page} / ${pages}`;
   document.getElementById('pgFirst').disabled=document.getElementById('pgPrev').disabled=page<=1;
   document.getElementById('pgNext').disabled=document.getElementById('pgLast').disabled=page>=pages;
 }
 /* ===== Exclusive (multi-select) filters ===== */
 const PICKERS=[
-  {key:'kind',label:'Kind'},{key:'type',label:'Type'},{key:'stage',label:'Stage'},
+  {key:'kind',label:'Kind'},{key:'type',label:'Type'},{key:'mode',label:'Mode'},{key:'stage',label:'Stage'},
   {key:'result',label:'Result'},{key:'status',label:'Status'},{key:'heat',label:'Heat No',search:true}
 ];
 const distinct=k=>[...new Set(DATA.map(r=>r[k]))].sort(cmp);
@@ -628,13 +646,17 @@ function attrsFor(row){
   return base.map(a=>{const o=ov[a.n]; return o?{...a,min:o[0],max:o[1],src:'TDC'}:{...a,src:'DEFAULT'};});
 }
 function srcTag(s){return ` <span class="srctag ${s==='TDC'?'t-tdc':'t-def'}" title="${s==='TDC'?'From the TDC':'Attribute-master / fixed default'}">${s}</span>`;}
+/* Mode chip (mes_qc_inspection.inspection_mode): ONLINE = in-line via L2/gauge, OFFLINE = bench */
+function modeChipHtml(m){const on=m==='ONLINE';return `<span class="chip">Mode<b class="${on?'mode-on':'mode-off'}"><i class="fa-solid ${on?'fa-wifi':'fa-clipboard'}"></i>${m}</b></span>`;}
 let rmRow=null;
 function openRecord(no,mode){
   mode=mode||'edit';
   rmRow=DATA.find(r=>r.no===no); if(!rmRow)return;
   const ro=mode==='view', recorded=rmRow.result!=='PENDING', willFail=rmRow.result==='FAIL';
   document.getElementById('rmTitle').textContent=(ro?'View Result — ':(recorded?'Edit Result — ':'Record Result — '))+rmRow.no;
-  document.getElementById('rmCtx').innerHTML=[['Kind',rmRow.kind],['Type',rmRow.type],['Stage',rmRow.stage],['Heat',rmRow.heat],['Material',rmRow.uid],['Grade',rmRow.grade],['Form',rmRow.form],['TDC',tdcOf(rmRow.grade)]].map(p=>`<span class="chip">${p[0]}<b>${p[1]}</b></span>`).join('');
+  const ctxChips=[['Kind',rmRow.kind],['Type',rmRow.type],['Stage',rmRow.stage],['Heat',rmRow.heat],['Material',rmRow.uid],['Grade',rmRow.grade],['Form',rmRow.form],['TDC',tdcOf(rmRow.grade)]].map(p=>`<span class="chip">${p[0]}<b>${p[1]}</b></span>`);
+  ctxChips.splice(2,0,modeChipHtml(rmRow.mode));   /* Mode chip right after Kind/Type */
+  document.getElementById('rmCtx').innerHTML=ctxChips.join('');
   const attrs=attrsFor(rmRow);
   let hh=0; for(const ch of rmRow.no) hh=(hh*33+ch.charCodeAt(0))>>>0; const failIdx=attrs.length?hh%attrs.length:-1;
   const head='<tr><th>Characteristic</th><th>Unit</th><th>Spec Min</th><th>Spec Max</th><th>Actual</th><th>Meas. source</th><th>Result</th></tr>';
@@ -643,7 +665,8 @@ function openRecord(no,mode){
     const actual=a.text
       ?`<select data-i="${i}" ${ro?'disabled':''} onchange="evalRm()"><option value=""></option><option ${val==='OK'?'selected':''}>OK</option><option ${val==='NOT OK'?'selected':''}>NOT OK</option></select>`
       :`<input data-i="${i}" type="number" step="any" value="${val}" placeholder="enter…" ${ro?'disabled':''} oninput="evalRm()"/>`;
-    return `<tr><td>${a.n}${srcTag(a.src)}</td><td>${a.u||'—'}</td><td class="spec">${a.min??'—'}</td><td class="spec">${a.max??'—'}</td><td>${actual}</td><td><select ${ro?'disabled':''}><option>L2</option><option>Manual</option><option>Instrument</option></select></td><td><span class="badge b-pend" id="rmr-${i}">—</span></td></tr>`;
+    const hint=rmRow.mode==='ONLINE'?'<div class="autohint" title="ONLINE inspection — reading auto-captured in-line via L2 / gauge"><i class="fa-solid fa-wifi"></i>auto (L2)</div>':'';
+    return `<tr><td>${a.n}${srcTag(a.src)}</td><td>${a.u||'—'}</td><td class="spec">${a.min??'—'}</td><td class="spec">${a.max??'—'}</td><td>${actual}${hint}</td><td><select ${ro?'disabled':''}><option>L2</option><option>Manual</option><option>Instrument</option></select></td><td><span class="badge b-pend" id="rmr-${i}">—</span></td></tr>`;
   }).join(''):`<tr><td colspan="7" style="color:#888;font-style:italic;padding:14px;">No measured characteristics for a ${rmRow.type} inspection — record defects only (next iteration).</td></tr>`;
   document.getElementById('rmGrid').innerHTML=head+body;
   rmRO=ro; rmDefects=seedDefects(rmRow); renderDefects();
@@ -683,7 +706,10 @@ function evalRm(){
   else { ov=defFail?'FAIL':'PASS'; oc=defFail?'b-fail':'b-pass'; }
   o.textContent=ov;o.className='badge '+oc;
 }
-newBtn.onclick=()=>raiseOverlay.classList.add('open');
+/* Raise-Inspection mode default: TEST / UT items are captured in-line (ONLINE), the rest bench (OFFLINE).
+   In the real system this comes from stage_qc_map.default_inspection_mode for the chosen operation. */
+function syncRaiseMode(){const q=document.getElementById('raiseQc'),m=document.getElementById('raiseMode');if(!q||!m)return;m.value=(q.value.indexOf('Test')===0||q.value.indexOf('UT')>=0)?'ONLINE':'OFFLINE';}
+newBtn.onclick=()=>{syncRaiseMode();raiseOverlay.classList.add('open');};
 modalX.onclick=modalCancel.onclick=()=>overlay.classList.remove('open'); modalSave.onclick=saveResult;
 overlay.onclick=e=>{if(e.target===overlay)overlay.classList.remove('open');};
 raiseX.onclick=raiseCancel.onclick=raiseSave.onclick=()=>raiseOverlay.classList.remove('open');
@@ -696,7 +722,7 @@ buildHead();buildPicker();buildFilterBar();renderBody();
 function msToggle(e){e.preventDefault();e.stopPropagation();var g=document.getElementById('msGroup');if(g)g.classList.toggle('open');}
 (function(){var f=(location.pathname.split('/').pop()||'').toLowerCase();var g=document.getElementById('msGroup');if(!g)return;var inM=false;g.querySelectorAll('.submenu a').forEach(function(a){if((a.getAttribute('href')||'').toLowerCase()===f){a.classList.add('active');inM=true;}});if(inM||f==='masters.html'){g.classList.add('open');var p=g.querySelector('.ms-parent');if(p)p.classList.add('active');}})();
 </script>
-<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
+<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-element.html": {"t": "Element (Chemistry)", "i": "fa-atom"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-size-basis.html": {"t": "Size Basis", "i": "fa-ruler-combined"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-grade-chemistry.html": {"t": "Grade Chemistry", "i": "fa-flask-vial"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
 var here=(location.pathname.split('/').pop()||'dashboard.html').toLowerCase();
 function ld(){try{return JSON.parse(sessionStorage.getItem(KEY))||[];}catch(e){return [];}}
 function sv(a){try{sessionStorage.setItem(KEY,JSON.stringify(a));}catch(e){}}

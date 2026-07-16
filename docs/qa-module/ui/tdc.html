@@ -140,6 +140,18 @@ button{font-family:inherit;cursor:pointer;}
 .sidebar .navgrp>.s-group .gchev{margin-left:auto;font-size:9px;width:auto;transition:transform .15s;}
 .sidebar .navgrp.collapsed>.s-group .gchev{transform:rotate(-90deg);}
 .sidebar .navgrp.collapsed .grp-items{display:none;}
+
+.cpy-overlay{position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:4000;display:none;align-items:center;justify-content:center;}
+.cpy-overlay.open{display:flex;}
+.cpy-modal{background:#fff;border-radius:var(--r-lg);box-shadow:0 12px 40px rgba(0,0,0,.28);width:380px;max-width:calc(100vw - 32px);overflow:hidden;}
+.cpy-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--color-border-light);font-weight:600;font-size:var(--fs-base);}
+.cpy-head .cpy-ttl i{color:var(--color-primary);margin-right:6px;}
+.cpy-x{border:none;background:none;color:var(--color-text-hint);font-size:14px;padding:4px 6px;border-radius:4px;}
+.cpy-x:hover{background:var(--color-bg);color:var(--color-text-primary);}
+.cpy-body{padding:14px 16px;display:flex;flex-direction:column;gap:12px;}
+.cpy-src{font-size:var(--fs-sm);color:var(--color-text-muted);background:var(--color-bg-alt);border:1px solid var(--color-border-light);border-radius:var(--r-sm);padding:8px 10px;}
+.cpy-src b{color:var(--color-text-primary);}
+.cpy-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--color-border-light);background:var(--color-bg-alt);}
 </style>
 </head>
 <body>
@@ -186,9 +198,11 @@ button{font-family:inherit;cursor:pointer;}
         <a href="master-defect-reason.html"><i class="fa-solid fa-magnifying-glass"></i> Defect Reason</a>
         <a href="master-defect.html"><i class="fa-solid fa-triangle-exclamation"></i> Defect Catalogue</a>
         <a href="master-characteristic.html"><i class="fa-solid fa-list-ol"></i> Characteristic</a>
+        <a href="master-element.html"><i class="fa-solid fa-atom"></i> Element (Chemistry)</a>
         <a href="master-stage-qc-map.html"><i class="fa-solid fa-sitemap"></i> Stage-QC Map</a>
         <a href="master-sample-type.html"><i class="fa-solid fa-vials"></i> Sample Type</a>
         <a href="master-sampling-rule.html"><i class="fa-solid fa-diagram-project"></i> Sampling Rule</a>
+        <a href="master-size-basis.html"><i class="fa-solid fa-ruler-combined"></i> Size Basis</a>
         <a href="master-prep-checklist.html"><i class="fa-solid fa-list-check"></i> Prep Checklist</a>
         <a href="master-sample-status.html"><i class="fa-solid fa-vials"></i> Sample Status</a>
         <a href="master-material-status.html"><i class="fa-solid fa-flag"></i> Material Status</a>
@@ -199,6 +213,7 @@ button{font-family:inherit;cursor:pointer;}
         <a href="master-ncr-category.html"><i class="fa-solid fa-file-circle-exclamation"></i> NCR Category</a>
         <a href="master-standard.html"><i class="fa-solid fa-book"></i> Standard</a>
         <a href="master-standard-limit.html"><i class="fa-solid fa-ruler-horizontal"></i> Standard Limit</a>
+        <a href="master-grade-chemistry.html"><i class="fa-solid fa-flask-vial"></i> Grade Chemistry</a>
         <a href="master-instrument-type.html"><i class="fa-solid fa-ruler-combined"></i> Instrument Type</a>
         <a href="master-agency.html"><i class="fa-solid fa-building"></i> Agency</a>
         <a href="master-supplier.html"><i class="fa-solid fa-truck-field"></i> Supplier</a>
@@ -221,6 +236,22 @@ button{font-family:inherit;cursor:pointer;}
     </div>
   </main>
 </div>
+<div class="cpy-overlay" id="cpyOverlay" onclick="if(event.target===this)closeCopyModal()">
+  <div class="cpy-modal" role="dialog" aria-modal="true" aria-labelledby="cpyTitle">
+    <div class="cpy-head"><span class="cpy-ttl" id="cpyTitle"><i class="fa-solid fa-copy"></i> Copy TDC</span>
+      <button class="cpy-x" onclick="closeCopyModal()" title="Close"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="cpy-body">
+      <div class="cpy-src">Copies limits, standards, tests, remarks &amp; customer grades from <b id="cpySrc"></b> into a new independent DRAFT TDC.</div>
+      <div class="fld"><label>New TDC No.</label><input id="cpyNo"/></div>
+      <div class="fld"><label>Customer</label><select id="cpyCust"></select></div>
+      <div class="fld"><label>Grade</label><input id="cpyGrade"/></div>
+    </div>
+    <div class="cpy-foot">
+      <button class="btn btn-ghost btn-sm" onclick="closeCopyModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmCopy()"><i class="fa-solid fa-copy"></i> Create copy</button>
+    </div>
+  </div>
+</div>
 <script>
 /* ===== Standard specs (drive Fill-from-standard). [name, uom, min, max] ===== */
 const STD_CHEM={
@@ -236,6 +267,7 @@ const STD_MECH={
  '416':[['YS 0.2%','MPa',275,null],['UTS','MPa',515,null],['Elongation','%',20,null],['Hardness','HRC',20,30]]
 };
 const TESTS_DEFAULT=[['Tensile','ASTM A 370',true],['Hardness','ASTM A 370',true],['Impact (CVN)','ASTM A 370',false],['Ultrasonic','ASTM A 388',false],['Macro etch','ASTM E 381',false],['IGC','ASTM A 262',false],['Grain size','ASTM E 112',false]];
+const REMARKS_DEFAULT=[['Test certificate as per EN 10204 3.1',[1,0,0,0,1]],['Material to be supplied in solution-annealed condition',[0,1,1,0,1]],['Positive material identification required at dispatch',[1,1,0,1,1]]];
 const TDCS=[
  {no:'TDC-004275',customer:'Ambica Steels',shortCode:'ASL',custTdcNo:'For Stock',grade:'17-4PH',series:'600',group:'17-4PH',shape:'RO',exec:'P.S.Q.',htc:'HT-23 Quenched',std:'ASTM A 564:2025',status:'RELEASED',rev:2,custGrades:[['GR075','17-4PH'],['630','SS 17-4']]},
  {no:'TDC-006132',customer:'Ganesh Metal Works',shortCode:'GMW',custTdcNo:'For Stock',grade:'304L',series:'300',group:'304L',shape:'RO',exec:'Cold Drawn, Ground & Polished',htc:'HT-16 Solution Annealed',std:'ASTM A 276:2025',status:'APPROVED',rev:1,custGrades:[['GR028','304 L']]},
@@ -255,7 +287,9 @@ const cur=()=>TDCS[curIdx];
 function buildRows(spec,no,kind){return (spec||[]).map((s,i)=>{const[name,uom,mn,mx]=s;const c=cusOverlay(no,kind,i,mn,mx);
   const r={name,uom,stdMin:mn,stdMax:mx,cusMin:c.min??null,cusMax:c.max??null,print:(mn!=null||mx!=null)};
   r.appMin=r.cusMin??r.stdMin; r.appMax=r.cusMax??r.stdMax; return r;});}
-function initWork(){const t=cur();work.chem=buildRows(STD_CHEM[t.grade],t.no,'chem');work.mech=buildRows(STD_MECH[t.grade],t.no,'mech');}
+function initWork(){const t=cur();
+  if(t.limits){work.chem=deepClone(t.limits.chem);work.mech=deepClone(t.limits.mech);return;}
+  work.chem=buildRows(STD_CHEM[t.grade],t.no,'chem');work.mech=buildRows(STD_MECH[t.grade],t.no,'mech');}
 
 function renderList(){
   const q=(document.getElementById('search').value||'').toLowerCase();
@@ -274,11 +308,12 @@ function renderDetail(){
   const actions=`
     <button class="btn btn-ghost btn-sm"><i class="fa-solid fa-pen"></i> Edit</button>
     <button class="btn btn-ghost btn-sm"><i class="fa-solid fa-code-branch"></i> New revision</button>
+    <button class="btn btn-ghost btn-sm" onclick="openCopyModal()" title="Create a new independent TDC as a deep copy of this one"><i class="fa-solid fa-copy"></i> Copy</button>
     ${t.status==='BLOCKED'?'<button class="btn btn-ghost btn-sm"><i class="fa-solid fa-unlock"></i> Unblock</button>':'<button class="btn btn-ghost btn-sm"><i class="fa-solid fa-ban"></i> Block</button>'}
     <button class="btn btn-ghost btn-sm" onclick="alert('Cust TDC Report — prints characteristics where Print=on + remarks targeted to TEST_CERT. (demo)')"><i class="fa-solid fa-print"></i> Print</button>`;
   document.getElementById('detail').innerHTML=`
     <div class="dhead">
-      <div><div class="dh-title">${t.no} <span class="badge ${SBADGE[t.status]}">${t.status}</span> <span class="badge b-info">Rev ${t.rev}</span></div>
+      <div><div class="dh-title">${t.no} <span class="badge ${SBADGE[t.status]}">${t.status}</span> <span class="badge b-info">Rev ${t.rev}</span>${t.copiedFrom?` <span class="badge b-info" title="Independent TDC created as a copy (copied_from_tdc_id = ${t.copiedFrom})"><i class="fa-solid fa-copy"></i> Copied from ${t.copiedFrom}</span>`:''}</div>
         <div class="dh-sub">${t.customer} · ${t.grade} · ${t.shape} · ${t.exec}</div></div>
       <div class="dactions">${actions}</div>
     </div>
@@ -297,7 +332,7 @@ function renderDetail(){
 
 function tabHtml(){
   switch(curTab){
-    case 'Chemical': return tierGrid('chem','Element');
+    case 'Chemical': return tierGrid('chem','Element')+'<p style="font-size:11px;color:#999;margin-top:8px"><i class="fa-solid fa-circle-info"></i> Chemical rows reference the Element master (mes_qc_element); mechanical/dimensional rows reference the characteristic dictionary (mes_global_attributes).</p>';
     case 'Mechanical': return tierGrid('mech','Property');
     case 'General': return generalTab();
     case 'Dimensional': return dimensionalTab();
@@ -378,16 +413,17 @@ function dimensionalTab(){
   </div>`;
 }
 function testsTab(){
+  const tests=cur().tests||TESTS_DEFAULT;
   return `<p style="font-size:12px;color:#888;margin:0 0 10px"><i class="fa-solid fa-circle-info"></i> Each test method is governed by its own standard, and may be required or optional for this TDC.</p>
   <table class="mini-table"><thead><tr><th>Test method</th><th>Test standard</th><th class="pc">Required</th><th>Acceptance remark</th></tr></thead>
-  <tbody>${TESTS_DEFAULT.map(r=>`<tr>
+  <tbody>${tests.map(r=>`<tr>
     <td><b>${r[0]}</b></td><td><input value="${r[1]}"/></td>
     <td class="pc"><input type="checkbox" ${r[2]?'checked':''}/></td>
     <td><input placeholder="—"/></td></tr>`).join('')}
   <tr><td colspan="4"><button class="btn btn-ghost btn-sm"><i class="fa-solid fa-plus"></i> Add test</button></td></tr></tbody></table>`;
 }
 function remarksTab(){
-  const remarks=[['Test certificate as per EN 10204 3.1',[1,0,0,0,1]],['Material to be supplied in solution-annealed condition',[0,1,1,0,1]],['Positive material identification required at dispatch',[1,1,0,1,1]]];
+  const remarks=cur().remarks||REMARKS_DEFAULT;
   return `<p style="font-size:12px;color:#888;margin:0 0 10px"><i class="fa-solid fa-circle-info"></i> A remark prints on whichever documents it is targeted to.</p>
   <table class="mini-table"><thead><tr><th style="width:46%">Remark</th><th class="pc">SO</th><th class="pc">WO</th><th class="pc">HT</th><th class="pc">BC</th><th class="pc">TC</th></tr></thead>
   <tbody>${remarks.map(r=>`<tr><td><input value="${r[0]}"/></td>${r[1].map(v=>`<td class="pc"><input type="checkbox" ${v?'checked':''}/></td>`).join('')}</tr>`).join('')}
@@ -409,6 +445,46 @@ function approvalTab(){
   <div style="margin-top:14px">${action}</div>`;
 }
 
+function mesToast(m,k){var h=document.getElementById('mesToastHost');if(!h){h=document.createElement('div');h.id='mesToastHost';h.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px';document.body.appendChild(h);}var t=document.createElement('div');t.textContent=m;t.style.cssText='padding:10px 14px;border-radius:8px;font:13px Roboto,sans-serif;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;background:'+({ok:'#2e7d32',warn:'#ed6c02',err:'#c62828'}[k]||'#333');h.appendChild(t);requestAnimationFrame(function(){t.style.opacity='1';});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},250);},2600);}
+
+/* ===== Copy TDC (mes_tdc_input.copied_from_tdc_id) — a copy is a NEW independent DRAFT TDC,
+   deep-cloning the source's limits/standards/tests/remarks/customer grades.
+   Distinct from "New revision", which chains revisions via parent_tdc_id. ===== */
+function deepClone(o){return JSON.parse(JSON.stringify(o));}
+function nextTdcNo(){let mx=0;TDCS.forEach(t=>{const m=/^TDC-(\d+)$/.exec(t.no);if(m)mx=Math.max(mx,+m[1]);});return 'TDC-'+String(mx+1).padStart(6,'0');}
+function openCopyModal(){
+  const t=cur();
+  document.getElementById('cpySrc').textContent=t.no+' (Rev '+t.rev+' · '+t.customer+' · '+t.grade+')';
+  document.getElementById('cpyNo').value=nextTdcNo();
+  const custs=[...new Set(TDCS.map(x=>x.customer))];
+  document.getElementById('cpyCust').innerHTML=custs.map(c=>`<option ${c===t.customer?'selected':''}>${c}</option>`).join('');
+  document.getElementById('cpyGrade').value=t.grade;
+  document.getElementById('cpyOverlay').classList.add('open');
+  document.getElementById('cpyNo').focus();
+}
+function closeCopyModal(){document.getElementById('cpyOverlay').classList.remove('open');}
+function confirmCopy(){
+  const src=cur();
+  const no=document.getElementById('cpyNo').value.trim();
+  const customer=document.getElementById('cpyCust').value;
+  const grade=document.getElementById('cpyGrade').value.trim();
+  if(!no){mesToast('New TDC No. is required','err');return;}
+  if(TDCS.some(t=>t.no===no)){mesToast('TDC No. '+no+' already exists','err');return;}
+  if(!grade){mesToast('Grade is required','err');return;}
+  const rec=deepClone(src);                       // general fields + std + customer grades
+  rec.no=no; rec.customer=customer; rec.grade=grade;
+  rec.shortCode=(TDCS.find(t=>t.customer===customer)||src).shortCode;
+  rec.status='DRAFT'; rec.rev=1; rec.copiedFrom=src.no;
+  rec.limits={chem:deepClone(work.chem),mech:deepClone(work.mech)};  // source's current chem/mech limit rows
+  rec.tests=deepClone(src.tests||TESTS_DEFAULT);
+  rec.remarks=deepClone(src.remarks||REMARKS_DEFAULT);
+  TDCS.push(rec);
+  closeCopyModal();
+  sel(TDCS.length-1);
+  mesToast('TDC '+no+' created as a copy of '+src.no+' — DRAFT','ok');
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeCopyModal();});
+
 document.getElementById('search').oninput=renderList;
 initWork(); renderList(); renderDetail();
 </script>
@@ -416,7 +492,7 @@ initWork(); renderList(); renderDetail();
 function msToggle(e){e.preventDefault();e.stopPropagation();var g=document.getElementById('msGroup');if(g)g.classList.toggle('open');}
 (function(){var f=(location.pathname.split('/').pop()||'').toLowerCase();var g=document.getElementById('msGroup');if(!g)return;var inM=false;g.querySelectorAll('.submenu a').forEach(function(a){if((a.getAttribute('href')||'').toLowerCase()===f){a.classList.add('active');inM=true;}});if(inM||f==='masters.html'){g.classList.add('open');var p=g.querySelector('.ms-parent');if(p)p.classList.add('active');}})();
 </script>
-<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
+<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-element.html": {"t": "Element (Chemistry)", "i": "fa-atom"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-size-basis.html": {"t": "Size Basis", "i": "fa-ruler-combined"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-grade-chemistry.html": {"t": "Grade Chemistry", "i": "fa-flask-vial"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
 var here=(location.pathname.split('/').pop()||'dashboard.html').toLowerCase();
 function ld(){try{return JSON.parse(sessionStorage.getItem(KEY))||[];}catch(e){return [];}}
 function sv(a){try{sessionStorage.setItem(KEY,JSON.stringify(a));}catch(e){}}

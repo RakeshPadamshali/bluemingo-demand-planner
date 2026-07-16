@@ -166,6 +166,19 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .plan-strip .pl-total{margin-left:auto;font-size:12px;color:var(--color-text-muted);}
 .plan-strip .pl-total b{color:var(--color-text-primary);font-size:14px;}
 .b-plan{background:rgba(158,158,158,.14);color:#757575;border:1px dashed #bdbdbd;}
+/* draw position (head / mid / tail) */
+.pos-tag{display:inline-block;padding:1px 7px;border-radius:9px;font-size:10px;font-weight:700;letter-spacing:.4px;}
+.pos-head{background:rgba(103,58,183,.12);color:#673ab7;}
+.pos-mid{background:rgba(33,150,243,.12);color:#1e88e5;}
+.pos-tail{background:rgba(245,124,0,.14);color:#ef6c00;}
+/* rule-scope chip (TDC-scoped vs generic sampling rule) */
+.rulechip{display:inline-block;padding:0 7px;border-radius:9px;font-size:10px;font-weight:700;letter-spacing:.3px;margin-right:4px;}
+.rulechip.rc-tdc{background:rgba(37,169,224,.14);color:#1e8fbf;border:1px solid rgba(37,169,224,.35);}
+.rulechip.rc-gen{background:rgba(158,158,158,.14);color:#757575;border:1px solid #ddd;}
+/* planned lab equipment per test */
+.tq-item{display:inline-flex;align-items:center;gap:6px;}
+.eqpsel{padding:2px 4px;font-size:11px;border:1px solid #ddd;border-radius:4px;background:#fff;color:#555;max-width:180px;}
+.eqp-hint{margin-top:5px;font-size:11px;color:var(--color-text-hint);}
 </style>
 </head>
 <body>
@@ -212,9 +225,11 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="master-defect-reason.html"><i class="fa-solid fa-magnifying-glass"></i> Defect Reason</a>
         <a href="master-defect.html"><i class="fa-solid fa-triangle-exclamation"></i> Defect Catalogue</a>
         <a href="master-characteristic.html"><i class="fa-solid fa-list-ol"></i> Characteristic</a>
+        <a href="master-element.html"><i class="fa-solid fa-atom"></i> Element (Chemistry)</a>
         <a href="master-stage-qc-map.html"><i class="fa-solid fa-sitemap"></i> Stage-QC Map</a>
         <a href="master-sample-type.html"><i class="fa-solid fa-vials"></i> Sample Type</a>
         <a href="master-sampling-rule.html"><i class="fa-solid fa-diagram-project"></i> Sampling Rule</a>
+        <a href="master-size-basis.html"><i class="fa-solid fa-ruler-combined"></i> Size Basis</a>
         <a href="master-prep-checklist.html"><i class="fa-solid fa-list-check"></i> Prep Checklist</a>
         <a href="master-sample-status.html"><i class="fa-solid fa-vials"></i> Sample Status</a>
         <a href="master-material-status.html"><i class="fa-solid fa-flag"></i> Material Status</a>
@@ -225,6 +240,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="master-ncr-category.html"><i class="fa-solid fa-file-circle-exclamation"></i> NCR Category</a>
         <a href="master-standard.html"><i class="fa-solid fa-book"></i> Standard</a>
         <a href="master-standard-limit.html"><i class="fa-solid fa-ruler-horizontal"></i> Standard Limit</a>
+        <a href="master-grade-chemistry.html"><i class="fa-solid fa-flask-vial"></i> Grade Chemistry</a>
         <a href="master-instrument-type.html"><i class="fa-solid fa-ruler-combined"></i> Instrument Type</a>
         <a href="master-agency.html"><i class="fa-solid fa-building"></i> Agency</a>
         <a href="master-supplier.html"><i class="fa-solid fa-truck-field"></i> Supplier</a>
@@ -269,12 +285,14 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <div class="fld"><label>Ht Card No.</label><input id="iHtCard"/></div>
         <div class="fld"><label>Issue date</label><input id="iIssue" value="24-Jun 13:20"/></div>
         <div class="fld"><label>Draw location <span style="color:var(--color-text-hint);font-weight:400;font-size:11px">— from sampling rule</span></label><input id="iLoc" readonly/></div>
+        <div class="fld"><label>Position <span style="color:var(--color-text-hint);font-weight:400;font-size:11px">— along bar length</span></label><select id="iPos"><option>HEAD</option><option>MID</option><option>TAIL</option></select></div>
         <div class="fld"><label>Sample length (mm)</label><input id="iLen" type="number" step="any"/></div>
         <div class="fld"><label>Pieces</label><input id="iPcs" type="number"/></div>
         <div class="fld"><label>Sample weight (MT)</label><input id="iWt" type="number" step="any"/></div>
         <div class="fld"><label>Test agency</label><select id="iAgency"></select></div>
         <div class="fld full"><label>Tests to perform <span style="color:var(--color-text-hint);font-weight:400;font-size:11px">— from Sampling Rule + TDC · QA can override</span> <span id="iRuleNote" style="color:#388e3c;font-weight:400;font-size:11px"></span></label>
           <div class="testlist" id="iTestList"></div>
+          <div class="eqp-hint"><i class="fa-solid fa-toolbox"></i> Equipment per test: planned — actual recorded at Testing.</div>
         </div>
         <div class="barcode"><i class="fa-solid fa-barcode" style="font-size:22px;color:var(--color-primary-dark)"></i> Barcode <span class="code" id="iBarcode">—</span> <span style="color:#888;font-size:11px">(auto-generated on issue)</span></div>
       </div>
@@ -318,28 +336,64 @@ const TDC_TESTS={
  '304L':['Spectro (OES)','Tensile','Hardness','Ultrasonic'],
  '416':['Spectro (OES)','Tensile','Hardness','Impact']
 };
-/* Sampling rules (mirror the Sampling Rule master) — tests defined per operation + sample type (+ location). */
+/* TDC no. per grade (mirror of the TDC master) — used to resolve TDC-scoped sampling rules. 416 has no TDC on file → generic rule. */
+const TDC_BY_GRADE={'17-4PH':'TDC-004275','316L':'TDC-004810','304L':'TDC-003922'};
+/* Lab instruments (mirror of the Instrument master) — planned equipment per test, filtered by test category.
+   Planned only — the actual instrument used is recorded at Testing (mes_qc_sample_test.instrument_id). */
+const INSTRUMENTS=[
+ {code:'SPEC-01',name:'Spectrometer OES — Lab 1',cat:'CHEMICAL'},
+ {code:'SPEC-02',name:'Spectrometer OES — Lab 2',cat:'CHEMICAL'},
+ {code:'PMI-01',name:'PMI Gun (XRF)',cat:'CHEMICAL'},
+ {code:'UTM-01',name:'UTM 600 kN',cat:'MECHANICAL'},
+ {code:'UTM-02',name:'UTM 1000 kN',cat:'MECHANICAL'},
+ {code:'HRD-01',name:'Hardness Tester (RC/BHN)',cat:'MECHANICAL'},
+ {code:'IMP-01',name:'Impact Machine (Charpy)',cat:'MECHANICAL'},
+ {code:'MIC-01',name:'Metallurgical Microscope',cat:'METALLURGICAL'},
+ {code:'ETCH-01',name:'Macro Etch Bench',cat:'METALLURGICAL'},
+ {code:'UT-01',name:'UT Flaw Detector',cat:'NDT'},
+ {code:'DP-01',name:'DP Test Kit',cat:'NDT'}
+];
+const DEFAULT_INSTR={'Spectro (OES)':'SPEC-01','PMI':'PMI-01','Tensile':'UTM-01','R.A.':'UTM-01','Bend':'UTM-01','Hardness':'HRD-01','Impact':'IMP-01','Macro etch':'ETCH-01','Grain size (GIL)':'MIC-01','IGC (ASTM A262)':'MIC-01','Ultrasonic':'UT-01','DP test':'DP-01'};
+/* Sampling rules (mirror the Sampling Rule master) — tests defined per operation + sample type (+ location).
+   A rule may be scoped to a TDC (tdc:) — a TDC-scoped rule beats the generic one (most-specific wins). */
 const SAMPLING_RULES=[
  {op:'OP_CASTING', type:'Chemical', tests:['Spectro (OES)'], location:'Caster'},
  {op:'OP_HEAT TREATMENT', type:'Mechanical', tests:['Tensile','Hardness','Impact'], location:'HT exit'},
- {op:'OP_HEAT TREATMENT', type:'Macro', tests:['Macro etch'], location:'HT exit'},
- {op:'OP_ROLLING', type:'UT piece', tests:['Ultrasonic'], location:'Cooling bed'}
+ {op:'OP_HEAT TREATMENT', type:'Mechanical', tdc:'TDC-004275', tests:['Tensile','Hardness','Impact','R.A.'], location:'HT exit — tail end'},
+ {op:'OP_HEAT TREATMENT', type:'Macro', tests:['Macro etch'], location:'HT exit — head end'},
+ {op:'OP_ROLLING', type:'UT piece', tests:['Ultrasonic'], location:'Cooling bed — tail end'}
 ];
-function ruleFor(op,type){return SAMPLING_RULES.find(r=>r.op===op&&r.type===type)||null;}
+function ruleFor(op,type,tdc){const rs=SAMPLING_RULES.filter(r=>r.op===op&&r.type===type);return (tdc?rs.find(r=>r.tdc===tdc):null)||rs.find(r=>!r.tdc)||null;}
 function defaultTests(grade,type,op){
-  const cat=TYPE_CAT[type],req=new Set(TDC_TESTS[grade]||[]),rule=ruleFor(op,type),rt=new Set(rule?rule.tests:[]);
+  const cat=TYPE_CAT[type],req=new Set(TDC_TESTS[grade]||[]),rule=ruleFor(op,type,TDC_BY_GRADE[grade]),rt=new Set(rule?rule.tests:[]);
   return Object.keys(TEST_CAT).filter(t=>TEST_CAT[t]===cat&&(rt.has(t)||req.has(t)));
 }
+/* draw position — defaulted from the rule's draw-location text (head / tail / mid → else MID) */
+function posFromText(t){t=(t||'').toLowerCase();return t.includes('head')?'HEAD':(t.includes('tail')?'TAIL':'MID');}
+/* planned-equipment select per test (filtered by the test's category; default instrument per test kind) */
+function eqpOptions(t,on){
+  const list=INSTRUMENTS.filter(x=>x.cat===TEST_CAT[t]); if(!list.length)return '';
+  const def=DEFAULT_INSTR[t]||list[0].code;
+  return '<select class="eqpsel" data-test="'+t+'" title="Planned lab equipment (actual recorded at Testing)"'+(on?'':' style="display:none"')+'>'+list.map(x=>'<option value="'+x.code+'"'+(x.code===def?' selected':'')+'>'+x.code+' · '+x.name+'</option>').join('')+'</select>';
+}
+function eqpToggle(cb){const w=cb.closest('.tq-item'),s=w?w.querySelector('.eqpsel'):null;if(s)s.style.display=cb.checked?'':'none';}
+function plannedEqp(){const out=[];document.querySelectorAll('#iTestList .tq-item').forEach(w=>{const cb=w.querySelector('input[type=checkbox]'),s=w.querySelector('.eqpsel');if(cb&&cb.checked&&s)out.push(cb.value+' → '+s.value);});return out.join(' · ');}
 function renderTestList(grade,type,op){
-  const cat=TYPE_CAT[type], req=new Set(TDC_TESTS[grade]||[]), rule=ruleFor(op,type), rt=new Set(rule?rule.tests:[]);
+  const cat=TYPE_CAT[type], req=new Set(TDC_TESTS[grade]||[]), rule=ruleFor(op,type,TDC_BY_GRADE[grade]), rt=new Set(rule?rule.tests:[]);
   const tests=Object.keys(TEST_CAT).filter(t=>TEST_CAT[t]===cat);
   const el=document.getElementById('iTestList'); if(!el)return;
   el.innerHTML=tests.length?tests.map(t=>{
-    const inRule=rt.has(t), inTdc=req.has(t);
+    const inRule=rt.has(t), inTdc=req.has(t), on=inRule||inTdc;
     const tags=(inRule?'<span class="srctag t-rule">RULE</span>':'')+(inTdc?'<span class="srctag t-tdc">TDC</span>':'');
-    return `<label class="testchk"><input type="checkbox" value="${t}" ${(inRule||inTdc)?'checked':''}/> ${t} ${tags}</label>`;
+    return `<span class="tq-item"><label class="testchk"><input type="checkbox" value="${t}" ${on?'checked':''} onchange="eqpToggle(this)"/> ${t} ${tags}</label>${eqpOptions(t,on)}</span>`;
   }).join(''):'<span style="color:#888;font-style:italic;font-size:12px">No catalogue tests for this sample type.</span>';
-  const note=document.getElementById('iRuleNote'); if(note)note.textContent=rule?('Rule: '+rule.op+' @ '+rule.location):'(no matching sampling rule — TDC only)';
+  const note=document.getElementById('iRuleNote');
+  if(note){
+    if(rule){
+      const chip=rule.tdc?'<span class="rulechip rc-tdc">TDC rule · '+rule.tdc+'</span>':'<span class="rulechip rc-gen">Generic rule</span>';
+      note.innerHTML=chip+'Rule: '+rule.op+' @ '+rule.location;
+    } else { note.textContent='(no matching sampling rule — TDC only)'; }
+  }
 }
 function checkedTests(){return [...document.querySelectorAll('#iTestList input:checked')].map(c=>c.value);}
 const HEATS=[
@@ -353,24 +407,24 @@ const HEAT_OP=Object.fromEntries(HEATS.map(h=>[h.heat,h.op]));
 function opOf(r){return r.op||HEAT_OP[r.heat]||'—';}
 const SB={'PLANNED':'b-plan','DRAWN':'b-draft','ISSUED':'b-info','IN PREP':'b-pend','TESTED':'b-done','CONSUMED':'b-clr','RETAINED':'b-clr','HOLD':'b-hold'};
 const SAMPLES=[
- {no:'SMP-2526-0451',htCard:'HT-2526-0188',heat:'2526-16496',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'Mechanical',condition:'H1150',issue:'24-Jun 09:10',recv:'24-Jun 10:05',completion:'',len:300,pcs:2,wt:0.02,testReq:'Tensile, Hardness, Impact',agency:'Lab-A',status:'IN PREP',prepDone:2},
- {no:'SMP-2526-0452',htCard:'HT-2526-0188',heat:'2526-16496',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'Macro',condition:'H1150',issue:'24-Jun 09:12',recv:'24-Jun 10:06',completion:'',len:20,pcs:1,wt:0.01,testReq:'Macro etch',agency:'In-house Lab',status:'IN PREP',prepDone:3},
- {no:'CHM-2526-0188',htCard:'HT-2526-0188',heat:'2526-16496',op:'OP_CASTING',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'Chemical',condition:'As cast',issue:'24-Jun 05:35',recv:'24-Jun 05:50',completion:'24-Jun 06:02',len:30,pcs:1,wt:0.005,testReq:'Spectro (OES)',agency:'In-house Lab',status:'TESTED',prepDone:3},
- {no:'SMP-2526-0448',htCard:'HT-2526-0192',heat:'2526-16783',grade:'316L',uid:'A002668',type:'Mechanical',condition:'Sol. Ann.',issue:'23-Jun 16:40',recv:'23-Jun 17:30',completion:'24-Jun 09:00',len:300,pcs:2,wt:0.02,testReq:'Tensile, Hardness',agency:'Lab-B',status:'TESTED',prepDone:4},
- {no:'SMP-2526-0455',htCard:'HT-2526-0191',heat:'2526-16482',grade:'416',uid:'B030840',type:'Mechanical',condition:'Q&T',issue:'23-Jun 19:00',recv:'23-Jun 19:40',completion:'',len:300,pcs:2,wt:0.02,testReq:'Tensile, Hardness, Impact',agency:'Lab-A',status:'HOLD',prepDone:4},
- {no:'UT-2526-0071',htCard:'HT-2526-0186',heat:'2526-16798',grade:'304L',uid:'E122319',type:'UT piece',condition:'Annealed',issue:'24-Jun 08:30',recv:'',completion:'',len:200,pcs:1,wt:0.05,testReq:'Ultrasonic',agency:'TPI-Bureau Veritas',status:'ISSUED',prepDone:0},
- {no:'SMP-2526-0460',htCard:'HT-2526-0193',heat:'2526-16819',grade:'316L',uid:'E122789',type:'Mechanical',condition:'Sol. Ann.',issue:'',recv:'',completion:'',len:300,pcs:2,wt:0.02,testReq:'Tensile, Hardness',agency:'',status:'DRAWN',prepDone:0},
- {no:'SMP-2526-0462',htCard:'HT-2526-0192',heat:'2526-16783',grade:'316L',uid:'A002668',type:'Macro',condition:'Sol. Ann.',issue:'23-Jun 16:42',recv:'23-Jun 17:35',completion:'24-Jun 08:10',len:20,pcs:1,wt:0.01,testReq:'Macro etch',agency:'In-house Lab',status:'RETAINED',prepDone:6},
+ {no:'SMP-2526-0451',htCard:'HT-2526-0188',heat:'2526-16496',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'Mechanical',condition:'H1150',pos:'TAIL',issue:'24-Jun 09:10',recv:'24-Jun 10:05',completion:'',len:300,pcs:2,wt:0.02,testReq:'Tensile, Hardness, Impact',eqp:'Tensile → UTM-01 · Hardness → HRD-01 · Impact → IMP-01',agency:'Lab-A',status:'IN PREP',prepDone:2},
+ {no:'SMP-2526-0452',htCard:'HT-2526-0188',heat:'2526-16496',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'Macro',condition:'H1150',pos:'HEAD',issue:'24-Jun 09:12',recv:'24-Jun 10:06',completion:'',len:20,pcs:1,wt:0.01,testReq:'Macro etch',eqp:'Macro etch → ETCH-01',agency:'In-house Lab',status:'IN PREP',prepDone:3},
+ {no:'CHM-2526-0188',htCard:'HT-2526-0188',heat:'2526-16496',op:'OP_CASTING',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'Chemical',condition:'As cast',pos:'MID',issue:'24-Jun 05:35',recv:'24-Jun 05:50',completion:'24-Jun 06:02',len:30,pcs:1,wt:0.005,testReq:'Spectro (OES)',eqp:'Spectro (OES) → SPEC-01',agency:'In-house Lab',status:'TESTED',prepDone:3},
+ {no:'SMP-2526-0448',htCard:'HT-2526-0192',heat:'2526-16783',grade:'316L',uid:'A002668',type:'Mechanical',condition:'Sol. Ann.',pos:'MID',issue:'23-Jun 16:40',recv:'23-Jun 17:30',completion:'24-Jun 09:00',len:300,pcs:2,wt:0.02,testReq:'Tensile, Hardness',eqp:'Tensile → UTM-02 · Hardness → HRD-01',agency:'Lab-B',status:'TESTED',prepDone:4},
+ {no:'SMP-2526-0455',htCard:'HT-2526-0191',heat:'2526-16482',grade:'416',uid:'B030840',type:'Mechanical',condition:'Q&T',pos:'MID',issue:'23-Jun 19:00',recv:'23-Jun 19:40',completion:'',len:300,pcs:2,wt:0.02,testReq:'Tensile, Hardness, Impact',eqp:'Tensile → UTM-01 · Hardness → HRD-01 · Impact → IMP-01',agency:'Lab-A',status:'HOLD',prepDone:4},
+ {no:'UT-2526-0071',htCard:'HT-2526-0186',heat:'2526-16798',grade:'304L',uid:'E122319',type:'UT piece',condition:'Annealed',pos:'TAIL',issue:'24-Jun 08:30',recv:'',completion:'',len:200,pcs:1,wt:0.05,testReq:'Ultrasonic',eqp:'Ultrasonic → UT-01',agency:'TPI-Bureau Veritas',status:'ISSUED',prepDone:0},
+ {no:'SMP-2526-0460',htCard:'HT-2526-0193',heat:'2526-16819',grade:'316L',uid:'E122789',type:'Mechanical',condition:'Sol. Ann.',pos:'MID',issue:'',recv:'',completion:'',len:300,pcs:2,wt:0.02,testReq:'Tensile, Hardness',agency:'',status:'DRAWN',prepDone:0},
+ {no:'SMP-2526-0462',htCard:'HT-2526-0192',heat:'2526-16783',grade:'316L',uid:'A002668',type:'Macro',condition:'Sol. Ann.',pos:'HEAD',issue:'23-Jun 16:42',recv:'23-Jun 17:35',completion:'24-Jun 08:10',len:20,pcs:1,wt:0.01,testReq:'Macro etch',eqp:'Macro etch → ETCH-01',agency:'In-house Lab',status:'RETAINED',prepDone:6},
  /* PLANNED (undrawn) samples — coverage for heat 2526-16496's remaining route; barcodes assigned on "Generate sample IDs" */
- {no:'',htCard:'HT-2526-0188',heat:'2526-16496',op:'OP_ROLLING',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'UT piece',condition:'As rolled',issue:'',recv:'',completion:'',len:200,pcs:1,wt:0.05,testReq:'Ultrasonic',agency:'',status:'PLANNED',prepDone:0},
- {no:'',htCard:'HT-2526-0188',heat:'2526-16496',op:'OP_FINISHING',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'Mechanical',condition:'As bright',issue:'',recv:'',completion:'',len:300,pcs:2,wt:0.02,testReq:'Tensile, Hardness',agency:'',status:'PLANNED',prepDone:0},
- {no:'',htCard:'HT-2526-0188',heat:'2526-16496',op:'OP_INSPECTION',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'Chemical',condition:'Final',issue:'',recv:'',completion:'',len:30,pcs:1,wt:0.005,testReq:'PMI',agency:'',status:'PLANNED',prepDone:0}
+ {no:'',htCard:'HT-2526-0188',heat:'2526-16496',op:'OP_ROLLING',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'UT piece',condition:'As rolled',pos:'TAIL',issue:'',recv:'',completion:'',len:200,pcs:1,wt:0.05,testReq:'Ultrasonic',agency:'',status:'PLANNED',prepDone:0},
+ {no:'',htCard:'HT-2526-0188',heat:'2526-16496',op:'OP_FINISHING',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'Mechanical',condition:'As bright',pos:'MID',issue:'',recv:'',completion:'',len:300,pcs:2,wt:0.02,testReq:'Tensile, Hardness',agency:'',status:'PLANNED',prepDone:0},
+ {no:'',htCard:'HT-2526-0188',heat:'2526-16496',op:'OP_INSPECTION',grade:'17-4PH',rmSize:'68 Dia',uid:'B030268',type:'Chemical',condition:'Final',pos:'MID',issue:'',recv:'',completion:'',len:30,pcs:1,wt:0.005,testReq:'PMI',agency:'',status:'PLANNED',prepDone:0}
 ];
 
 const COLS=[
  {k:'no',label:'Sample No',cls:'mono'},{k:'htCard',label:'Ht Card'},{k:'heat',label:'Heat No',cls:'mono'},{k:'op',label:'Operation'},
  {k:'grade',label:'Grade'},{k:'rmSize',label:'RM Size'},{k:'uid',label:'UID',cls:'mono'},
- {k:'type',label:'Type'},{k:'condition',label:'Condition'},{k:'issue',label:'Issue'},{k:'recv',label:'Recv'},
+ {k:'type',label:'Type'},{k:'condition',label:'Condition'},{k:'pos',label:'Pos'},{k:'issue',label:'Issue'},{k:'recv',label:'Recv'},
  {k:'completion',label:'Completion'},{k:'len',label:'Len',cls:'num'},{k:'pcs',label:'Pcs',cls:'num'},
  {k:'wt',label:'Wt(MT)',cls:'num'},{k:'testReq',label:'Testing Req'},{k:'agency',label:'Agency'},
  {k:'status',label:'Status',badge:true},{k:'actions',label:'',actions:true}
@@ -379,9 +433,10 @@ let sortKey=null,sortDir=1,curPrep=null;
 
 function fill(sel,arr,all){document.getElementById(sel).insertAdjacentHTML('beforeend',arr.map(o=>`<option>${o}</option>`).join(''));}
 function cell(c,r,i){
-  if(c.actions) return `<button class="btn-icon" title="Prep checklist" onclick="openPrep(${i})"><i class="fa-solid fa-list-check"></i></button><button class="btn-icon" title="View" onclick="openViewEl(this)"><i class="fa-solid fa-eye"></i></button>`;
+  if(c.actions) return `<button class="btn-icon" title="Prep checklist" onclick="openPrep(${i})"><i class="fa-solid fa-list-check"></i></button><button class="btn-icon" title="View" onclick="openSampleView(this,${i})"><i class="fa-solid fa-eye"></i></button>`;
   if(c.badge) return `<span class="badge ${SB[r.status]}">${r.status}</span>`;
   if(c.k==='op') return opOf(r);
+  if(c.k==='pos') return r.pos?`<span class="pos-tag pos-${r.pos.toLowerCase()}">${r.pos}</span>`:'—';
   if(c.k==='testReq') return (r.testReq||'—')+(r.testsEdited?' <span class="t-edit" title="QA edited the TDC test list">edited</span>':'');
   let v=r[c.k]; if(c.k==='wt')v=v.toFixed(3); if((v===''||v==null))v='—';
   return v;
@@ -448,8 +503,9 @@ function generateIds(){
   else mesToast('All samples already have IDs & barcodes','warn');
 }
 
-/* draw location for the Issue modal — auto-filled (readonly) from the matching sampling rule */
-function setIssueLoc(){const lv=document.getElementById('iLot'),el=document.getElementById('iLoc');if(!el)return;const h=lv?HEATS[+lv.value]:null,type=document.getElementById('iType').value,rule=h?ruleFor(h.op,type):null;el.value=rule?rule.location:(h?opLabel(h.op):'');}
+/* draw location for the Issue modal — auto-filled (readonly) from the matching sampling rule (TDC-scoped wins);
+   Position (HEAD/MID/TAIL) defaulted from the rule's location text */
+function setIssueLoc(){const lv=document.getElementById('iLot'),el=document.getElementById('iLoc');if(!el)return;const h=lv?HEATS[+lv.value]:null,type=document.getElementById('iType').value,rule=h?ruleFor(h.op,type,TDC_BY_GRADE[h.grade]):null;el.value=rule?rule.location:(h?opLabel(h.op):'');const pe=document.getElementById('iPos');if(pe)pe.value=posFromText(rule?rule.location:'');}
 
 /* ===== Issue modal ===== */
 function openIssue(){
@@ -468,9 +524,15 @@ function saveIssue(){
   const sel=checkedTests(), def=defaultTests(h.grade,type,h.op);
   const edited=sel.slice().sort().join('|')!==def.slice().sort().join('|');
   const newNo=document.getElementById('iBarcode').textContent;
-  SAMPLES.unshift({no:newNo,htCard:document.getElementById('iHtCard').value,heat:h.heat,op:h.op,grade:h.grade,rmSize:h.rmSize,uid:h.uid,type,condition:document.getElementById('iCond').value,issue:document.getElementById('iIssue').value,recv:'',completion:'',len:+document.getElementById('iLen').value,pcs:+document.getElementById('iPcs').value,wt:+document.getElementById('iWt').value,testReq:sel.join(', '),testsEdited:edited,agency:document.getElementById('iAgency').value,status:'ISSUED',prepDone:0});
+  SAMPLES.unshift({no:newNo,htCard:document.getElementById('iHtCard').value,heat:h.heat,op:h.op,grade:h.grade,rmSize:h.rmSize,uid:h.uid,type,condition:document.getElementById('iCond').value,pos:document.getElementById('iPos').value,issue:document.getElementById('iIssue').value,recv:'',completion:'',len:+document.getElementById('iLen').value,pcs:+document.getElementById('iPcs').value,wt:+document.getElementById('iWt').value,testReq:sel.join(', '),testsEdited:edited,eqp:plannedEqp(),agency:document.getElementById('iAgency').value,status:'ISSUED',prepDone:0});
   closeIssue(); render();
   mesToast('Sample '+newNo+' issued — barcode printed','ok');
+}
+/* row View — generic detail plus the sample's planned equipment (actual instrument recorded at Testing) */
+function openSampleView(btn,i){
+  openViewEl(btn);
+  var r=SAMPLES[i];
+  if(r&&r.eqp)document.getElementById('viewBody').insertAdjacentHTML('beforeend','<div class="vrow"><span class="vk">Planned equipment</span><span class="vv">'+r.eqp+'</span></div>');
 }
 
 /* ===== Prep checklist modal ===== */
@@ -499,7 +561,7 @@ buildHead(); render();
 function msToggle(e){e.preventDefault();e.stopPropagation();var g=document.getElementById('msGroup');if(g)g.classList.toggle('open');}
 (function(){var f=(location.pathname.split('/').pop()||'').toLowerCase();var g=document.getElementById('msGroup');if(!g)return;var inM=false;g.querySelectorAll('.submenu a').forEach(function(a){if((a.getAttribute('href')||'').toLowerCase()===f){a.classList.add('active');inM=true;}});if(inM||f==='masters.html'){g.classList.add('open');var p=g.querySelector('.ms-parent');if(p)p.classList.add('active');}})();
 </script>
-<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
+<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-element.html": {"t": "Element (Chemistry)", "i": "fa-atom"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-size-basis.html": {"t": "Size Basis", "i": "fa-ruler-combined"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-grade-chemistry.html": {"t": "Grade Chemistry", "i": "fa-flask-vial"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
 var here=(location.pathname.split('/').pop()||'dashboard.html').toLowerCase();
 function ld(){try{return JSON.parse(sessionStorage.getItem(KEY))||[];}catch(e){return [];}}
 function sv(a){try{sessionStorage.setItem(KEY,JSON.stringify(a));}catch(e){}}

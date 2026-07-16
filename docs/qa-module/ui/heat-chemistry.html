@@ -106,7 +106,10 @@ table.hc-grid{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .hc-grid .spec{color:var(--color-text-muted);font-variant-numeric:tabular-nums;}
 .srctag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:9px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;vertical-align:middle;}
 .srctag.t-tdc{background:rgba(37,169,224,.14);color:#1E8FBF;}
+.srctag.t-grd{background:rgba(123,31,162,.13);color:#7b1fa2;}
 .srctag.t-rep{background:rgba(158,158,158,.16);color:#757575;}
+.hc-legend{padding:8px 0 12px;font-size:var(--fs-xs);color:var(--color-text-muted);display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+.hc-legend .srctag{margin-left:0;}
 .badge.b-rep,.b-rep{background:rgba(158,158,158,.16);color:#757575;}
 .hc-grid input{width:110px;padding:5px 8px;border:1px solid #ddd;border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;font-variant-numeric:tabular-nums;text-align:right;}
 .hc-grid input:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px rgba(var(--color-primary-rgb),.15);}
@@ -225,9 +228,11 @@ table.hc-grid{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="master-defect-reason.html"><i class="fa-solid fa-magnifying-glass"></i> Defect Reason</a>
         <a href="master-defect.html"><i class="fa-solid fa-triangle-exclamation"></i> Defect Catalogue</a>
         <a href="master-characteristic.html"><i class="fa-solid fa-list-ol"></i> Characteristic</a>
+        <a href="master-element.html"><i class="fa-solid fa-atom"></i> Element (Chemistry)</a>
         <a href="master-stage-qc-map.html"><i class="fa-solid fa-sitemap"></i> Stage-QC Map</a>
         <a href="master-sample-type.html"><i class="fa-solid fa-vials"></i> Sample Type</a>
         <a href="master-sampling-rule.html"><i class="fa-solid fa-diagram-project"></i> Sampling Rule</a>
+        <a href="master-size-basis.html"><i class="fa-solid fa-ruler-combined"></i> Size Basis</a>
         <a href="master-prep-checklist.html"><i class="fa-solid fa-list-check"></i> Prep Checklist</a>
         <a href="master-sample-status.html"><i class="fa-solid fa-vials"></i> Sample Status</a>
         <a href="master-material-status.html"><i class="fa-solid fa-flag"></i> Material Status</a>
@@ -238,6 +243,7 @@ table.hc-grid{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="master-ncr-category.html"><i class="fa-solid fa-file-circle-exclamation"></i> NCR Category</a>
         <a href="master-standard.html"><i class="fa-solid fa-book"></i> Standard</a>
         <a href="master-standard-limit.html"><i class="fa-solid fa-ruler-horizontal"></i> Standard Limit</a>
+        <a href="master-grade-chemistry.html"><i class="fa-solid fa-flask-vial"></i> Grade Chemistry</a>
         <a href="master-instrument-type.html"><i class="fa-solid fa-ruler-combined"></i> Instrument Type</a>
         <a href="master-agency.html"><i class="fa-solid fa-building"></i> Agency</a>
         <a href="master-supplier.html"><i class="fa-solid fa-truck-field"></i> Supplier</a>
@@ -250,7 +256,7 @@ table.hc-grid{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
     <div class="page-head">
       <div>
         <h1>Heat Chemistry</h1>
-        <div class="sub">Heat-level chemical composition — actual (L2 / manual) validated against the heat's TDC element limits; non-TDC elements are report-only</div>
+        <div class="sub">Heat-level chemical composition — actual (L2 / manual) validated against the heat's TDC element limits, else the works grade spec (§5.9); unmatched elements are report-only</div>
       </div>
     </div>
 
@@ -272,10 +278,11 @@ table.hc-grid{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 
 <script>
 /* ===== Chemistry sourcing =====
-   CHEM_FAMILY = the dictionary chemistry family (mes_global_attributes) — the wide column set, same for every heat.
+   CHEM_FAMILY = Element dictionary (mes_qc_element §5.10) — wide columns via column_reference; same set for every heat.
    TDC_CHEM    = each heat's TDC element limits (mes_qc_tdc_limit / wide mes_tdc_attr_range §11.10) keyed by TDC no.
+   GRADE_CHEM  = works/internal chemistry spec per grade (mes_qc_grade_chemistry §5.9).
    specFor(heat) -> one row per family element: [code, unit, min, max, src].
-   Limits come from the heat's TDC; elements with no TDC limit are measured but REPORT-only (no pass/fail). */
+   Limit resolution per element: TDC APPLIED → else GRADE (works spec) → else measured but REPORT-only (no pass/fail). */
 const CHEM_FAMILY=[
  ['C','%'],['Mn','%'],['Si','%'],['S','%'],['P','%'],['Cr','%'],['Ni','%'],['Mo','%'],
  ['Cu','%'],['N','%'],['Nb','%'],['Co','%'],['Ti','%'],['V','%']
@@ -286,14 +293,32 @@ const TDC_CHEM={
  'TDC-004810':{C:[null,0.030],Mn:[null,2.00],Si:[null,0.75],S:[null,0.030],P:[null,0.045],Cr:[18.0,20.0],Ni:[8.0,12.0],Mo:[null,0.50],N:[null,0.10],Cu:[null,0.50]},
  'TDC-003922':{C:[null,0.15],Mn:[null,1.25],Si:[null,1.00],S:[0.15,0.35],P:[null,0.060],Cr:[12.0,14.0],Ni:[null,0.50],Mo:[null,0.60]}
 };
+/* GRADE_CHEM — works/internal chemistry spec per grade (mes_qc_grade_chemistry §5.9).
+   Fills elements the customer TDC does not limit. 17-4PH Cu is deliberately present AND wider
+   (2.5–5.5) than its TDC row (3.0–5.0) to demonstrate that an APPLIED TDC limit always wins. */
+const GRADE_CHEM={
+ '17-4PH':{N:[null,0.05],Co:[null,0.15],V:[null,0.05],Cu:[2.5,5.5]},
+ '316L':{Ti:[null,0.05],V:[null,0.10]},
+ '304L':{Co:[null,0.25],V:[null,0.10]},
+ '416':{Cu:[null,0.60],N:[null,0.08],V:[null,0.15]}
+};
 function specFor(h){
-  const lim=TDC_CHEM[h.tdc]||{};
+  const lim=TDC_CHEM[h.tdc]||{}, glim=GRADE_CHEM[h.grade]||{};
   return CHEM_FAMILY.map(([code,unit])=>{
-    const l=lim[code];
-    return [code, unit, l?l[0]:null, l?l[1]:null, l?'TDC':'REPORT'];
+    const t=lim[code];
+    if(t) return [code, unit, t[0], t[1], 'TDC'];       /* customer TDC applied — wins over grade row */
+    const g=glim[code];
+    if(g) return [code, unit, g[0], g[1], 'GRADE'];     /* works grade spec fallback (§5.9) */
+    return [code, unit, null, null, 'REPORT'];          /* measured, report-only */
   });
 }
-function srcTag(s){return ` <span class="srctag ${s==='TDC'?'t-tdc':'t-rep'}" title="${s==='TDC'?'Limit from the heat TDC':'Measured but no TDC limit — report-only'}">${s}</span>`;}
+function srcTag(s){
+  const cls=s==='TDC'?'t-tdc':s==='GRADE'?'t-grd':'t-rep';
+  const tip=s==='TDC'?'Limit from the heat TDC (customer spec — overrides any grade row)'
+          :s==='GRADE'?'No TDC limit — works grade spec applied (mes_qc_grade_chemistry §5.9)'
+          :'Measured but no TDC or grade limit — report-only';
+  return ` <span class="srctag ${cls}" title="${tip}">${s}</span>`;
+}
 const TYPES=['Ladle','Product','Check'];
 const HEATS=[
  {heat:'2526-16496',grade:'17-4PH',tdc:'TDC-004275',sample:'CHM-2526-0188',cast:'24-Jun 05:40',furnace:'Furnace-20T',lab:'Central Lab',state:'PASS'},
@@ -333,7 +358,7 @@ HEATS.forEach(h=>{
 let cur=0, curType='Ladle';
 
 /* ===== eval ===== */
-function elResult(e,v){ if(e[2]==null&&e[3]==null) return 'NA';   /* no TDC limit -> report-only */
+function elResult(e,v){ if(e[2]==null&&e[3]==null) return 'NA';   /* no TDC or GRADE limit -> report-only */
   if(v===''||v==null||isNaN(parseFloat(v))) return ''; const n=parseFloat(v);
   if(e[2]!=null&&n<e[2])return'FAIL'; if(e[3]!=null&&n>e[3])return'FAIL'; return'PASS'; }
 function overall(){ const h=HEATS[cur],spec=specFor(h),vals=store[h.heat][curType];
@@ -385,9 +410,10 @@ function renderDetail(){
     <div class="hc-tabs">${tabs}</div>
     <div class="hc-grid-wrap">
       <table class="hc-grid">
-        <thead><tr><th>Element</th><th>Unit</th><th>TDC Spec</th><th style="text-align:right">Actual</th><th>Result</th></tr></thead>
+        <thead><tr><th>Element</th><th>Unit</th><th>Spec Limit</th><th style="text-align:right">Actual</th><th>Result</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
+      <div class="hc-legend">Limit source: <span class="srctag t-tdc">TDC</span> (customer spec) › <span class="srctag t-grd">GRADE</span> (works spec §5.9) › <span class="srctag t-rep">REPORT</span> report-only · elements from the Element master</div>
     </div>
     <div class="hc-foot">
       <div class="ov">Overall chemistry: <span class="badge big ${ov==='PASS'?'b-pass':ov==='FAIL'?'b-fail':'b-pend'}" id="ovBadge">${ov}</span> <span class="hc-note" id="hcNote"></span></div>
@@ -407,7 +433,7 @@ function onEdit(inp){
   /* update source chip */
   const chip=document.querySelector('.hc-chips .chip.src b'); if(chip)chip.textContent='Manual';
   /* auto-hold on out-of-spec edit — independent of the corrective modal */
-  if(r==='FAIL' && h.state!=='HOLD') autoHold(h,inp.dataset.el);
+  if(r==='FAIL' && h.state!=='HOLD') autoHold(h,inp.dataset.el,e[4]);
 }
 function refreshOverall(){
   const ov=overall(), b=document.getElementById('ovBadge'); if(!b)return;
@@ -427,22 +453,22 @@ function importL2(){
   renderList(); renderDetail();
   const n=document.getElementById('hcNote'); n.textContent='✓ Pulled spectro analysis from '+(h.lab||'L2'); n.className='hc-note ok';
   mesToast('Spectro result imported from L2 — '+(h.lab||'lab'),'ok');
-  if(oos) mesToast('Imported chemistry out of TDC — heat '+h.heat+' auto-held','warn');
+  if(oos) mesToast('Imported chemistry out of spec (TDC / grade) — heat '+h.heat+' auto-held','warn');
 }
 function doClearance(){
   const h=HEATS[cur], ov=overall(); const n=()=>document.getElementById('hcNote');
   if(ov==='PASS'){h.state='CLEARED'; renderList(); renderDetail(); n().textContent='✓ Chemistry cleared — heat released to production'; n().className='hc-note ok'; mesToast('Heat '+h.heat+' chemistry cleared — released to production','ok');}
-  else if(ov==='FAIL'){h.state='HOLD'; renderList(); renderDetail(); n().textContent='⚠ Heat held — chemistry out of TDC; route to disposition / re-test'; n().className='hc-note warn'; mesToast('Heat '+h.heat+' put ON HOLD — chemistry out of TDC','err');}
+  else if(ov==='FAIL'){h.state='HOLD'; renderList(); renderDetail(); n().textContent='⚠ Heat held — chemistry out of spec (TDC / works grade); route to disposition / re-test'; n().className='hc-note warn'; mesToast('Heat '+h.heat+' put ON HOLD — chemistry out of spec','err');}
 }
 
 /* ===== toast (self-contained; matches sibling QA screens) ===== */
 function mesToast(m,k){var h=document.getElementById('mesToastHost');if(!h){h=document.createElement('div');h.id='mesToastHost';h.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px';document.body.appendChild(h);}var t=document.createElement('div');t.textContent=m;t.style.cssText='padding:10px 14px;border-radius:8px;font:13px Roboto,sans-serif;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;background:'+({ok:'#2e7d32',warn:'#ed6c02',err:'#c62828'}[k]||'#333');h.appendChild(t);requestAnimationFrame(function(){t.style.opacity='1';});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},250);},2600);}
 
 /* ===== auto-hold on out-of-spec (independent of the corrective modal) ===== */
-function autoHold(h,el){
+function autoHold(h,el,src){
   h.state='HOLD'; renderList();
   const hb=document.querySelector('.hc-heat .badge'); if(hb){hb.className='badge '+BADGE.HOLD; hb.textContent='HOLD';}
-  mesToast('Heat '+h.heat+' auto-held — '+el+' out of TDC spec','warn');
+  mesToast('Heat '+h.heat+' auto-held — '+el+' out of '+(src==='GRADE'?'works grade spec':'TDC spec'),'warn');
 }
 
 /* ===== corrective-action library — keyed to the FAILING element (product-agnostic; not a fixed route) ===== */
@@ -458,17 +484,17 @@ const CA_PLANS={
     lo:[['lf','Nitrogen alloy','Add nitrided ferro-alloy to raise N toward aim'],['ars','Homogenise','Stir to homogenise']]}
 };
 const FERRO={Cr:'Fe-Cr (LC)',Ni:'Ni cathode / Fe-Ni',Mo:'Fe-Mo',Mn:'Fe-Mn',Si:'Fe-Si 75%',Cu:'Cu shot',Nb:'Fe-Nb',Co:'Co metal',Ti:'Fe-Ti',V:'Fe-V'};
-function correctivePlan(el,dir){
-  const S=CA_STATIONS; let base;
+function correctivePlan(el,dir,src){
+  const S=CA_STATIONS, vs=(src==='GRADE'?'the works grade spec':'TDC'); let base;
   if(CA_PLANS[el]){ base=(dir==='high'?CA_PLANS[el].hi:CA_PLANS[el].lo).map(r=>[S[r[0]],r[1],r[2]]); }
   else if(FERRO[el]){
     base = (dir==='low')
       ? [[S.lf,'Trim addition','Add '+FERRO[el]+' to raise '+el+' toward aim'],[S.ars,'Homogenise','Bottom-stir under argon to dissolve and homogenise']]
       : [[S.eaf,'Dilute','Blend low-'+el+' base metal / scrap to bring '+el+' within range'],[S.lf,'Re-balance','Re-trim companion elements and reslag']];
   } else {
-    base=[[S.ars,'Homogenise','Bottom-stir to homogenise the bath'],[S.lf,'Trim / adjust','Adjust chemistry toward the TDC aim']];
+    base=[[S.ars,'Homogenise','Bottom-stir to homogenise the bath'],[S.lf,'Trim / adjust','Adjust chemistry toward '+(src==='GRADE'?'the works grade':'the TDC')+' aim']];
   }
-  base.push([S.lf,'Re-sample','Fresh spectro sample; re-run chemistry vs TDC']);
+  base.push([S.lf,'Re-sample','Fresh spectro sample; re-run chemistry vs '+vs]);
   return base.map((r,i)=>({s:(i+1)+' · '+r[1], st:r[0], d:r[2]}));
 }
 
@@ -476,20 +502,22 @@ function correctivePlan(el,dir){
 function simulateOOS(){
   const h=HEATS[cur], spec=specFor(h);
   const gi=spec.map((e,i)=>i).filter(i=>spec[i][2]!=null||spec[i][3]!=null);
-  if(!gi.length){ mesToast('This heat has no TDC-limited elements to fail','warn'); return; }
+  if(!gi.length){ mesToast('This heat has no TDC- or grade-limited elements to fail','warn'); return; }
   const e=spec[gi[hashIdx(h.heat,gi.length)]];
   let val,dir;
   if(e[3]!=null){ val=rnd(e[3]*1.06); dir='high'; } else { val=rnd(e[2]*0.90); dir='low'; }
   store[h.heat][curType][e[0]]=val; store[h.heat]._src[curType]='Manual';
   h.state='HOLD';                                  /* auto-hold on OOS */
   renderList(); renderDetail();
-  const n=document.getElementById('hcNote'); if(n){ n.textContent='⚠ Re-sample received — '+e[0]+' '+val+e[1]+' is out of TDC ('+fmtSpec(e)+')'; n.className='hc-note warn'; }
-  mesToast('Out-of-spec at re-sample — '+e[0]+' '+val+e[1]+' (TDC '+fmtSpec(e)+'). Heat auto-held; stakeholders notified.','warn');
+  const lbl=e[4]==='GRADE'?'works grade spec':'TDC';
+  const n=document.getElementById('hcNote'); if(n){ n.textContent='⚠ Re-sample received — '+e[0]+' '+val+e[1]+' is out of '+lbl+' ('+fmtSpec(e)+')'; n.className='hc-note warn'; }
+  mesToast('Out-of-spec at re-sample — '+e[0]+' '+val+e[1]+' ('+lbl+' '+fmtSpec(e)+'). Heat auto-held; stakeholders notified.','warn');
   correctiveModal(h,e,dir,val);
 }
 function correctiveModal(h,e,dir,val){
   const el=e[0], unit=e[1], cmp=(dir==='high'?'exceeds':'is below');
-  const planRows=correctivePlan(el,dir).map(r=>`<tr><td><span class="ca-st">${r.s}</span></td><td>${r.st}</td><td><span class="ca-dt">${r.d}</span></td></tr>`).join('');
+  const srcName=e[4]==='GRADE'?`${h.grade} works grade spec (§5.9)`:`${h.grade} TDC limit`;
+  const planRows=correctivePlan(el,dir,e[4]).map(r=>`<tr><td><span class="ca-st">${r.s}</span></td><td>${r.st}</td><td><span class="ca-dt">${r.d}</span></td></tr>`).join('');
   const notif=[['Shift Manager','fa-user-tie'],['QC Inspector','fa-user-shield'],['Furnace / LF Operator','fa-user-gear'],['QA','fa-clipboard-check']]
     .map(b=>`<span class="notif-badge"><i class="fa-solid ${b[1]}"></i> ${b[0]} <i class="fa-solid fa-check ok"></i></span>`).join('');
   const ov=document.createElement('div'); ov.className='mes-modal-ov';
@@ -498,7 +526,7 @@ function correctiveModal(h,e,dir,val){
       <button class="mm-x" id="caX" aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="mm-body">
       <div class="mm-alert"><i class="fa-solid fa-ban"></i><div><div class="mm-alert-t">Heat auto-placed ON HOLD</div>
-        <div class="mm-alert-d">Re-sample ${el} = ${val}${unit} ${cmp} the ${h.grade} TDC limit (${fmtSpec(e)}). Heat ${h.heat} is blocked from the next operation until corrected and re-cleared.</div></div></div>
+        <div class="mm-alert-d">Re-sample ${el} = ${val}${unit} ${cmp} the ${srcName} (${fmtSpec(e)}). Heat ${h.heat} is blocked from the next operation until corrected and re-cleared.</div></div></div>
       <div class="mm-sec"><i class="fa-solid fa-screwdriver-wrench"></i> Recommended corrective action — ${el} ${dir}</div>
       <table class="ca-tbl"><thead><tr><th>Step</th><th>Station</th><th>Detail</th></tr></thead><tbody>${planRows}</tbody></table>
       <div class="mm-sec"><i class="fa-solid fa-bell"></i> Notifications sent</div>
@@ -522,8 +550,9 @@ function applyCorrective(h,e){
   else v=rnd(0.01);
   store[h.heat][curType][el]=v; store[h.heat]._src[curType]='Manual';
   renderList(); renderDetail();
-  const n=document.getElementById('hcNote'); if(n){ n.textContent='✓ Corrective applied — '+el+' back to '+v+e[1]+' within TDC. Re-sample logged; record clearance to release the hold.'; n.className='hc-note ok'; }
-  mesToast('Corrective action applied — '+el+' back to '+v+e[1]+' within TDC. Re-sample and re-clearance ready.','ok');
+  const vs=e[4]==='GRADE'?'the works grade spec':'TDC';
+  const n=document.getElementById('hcNote'); if(n){ n.textContent='✓ Corrective applied — '+el+' back to '+v+e[1]+' within '+vs+'. Re-sample logged; record clearance to release the hold.'; n.className='hc-note ok'; }
+  mesToast('Corrective action applied — '+el+' back to '+v+e[1]+' within '+vs+'. Re-sample and re-clearance ready.','ok');
 }
 
 document.getElementById('heatSearch').oninput=renderList;
@@ -533,7 +562,7 @@ renderList(); renderDetail();
 function msToggle(e){e.preventDefault();e.stopPropagation();var g=document.getElementById('msGroup');if(g)g.classList.toggle('open');}
 (function(){var f=(location.pathname.split('/').pop()||'').toLowerCase();var g=document.getElementById('msGroup');if(!g)return;var inM=false;g.querySelectorAll('.submenu a').forEach(function(a){if((a.getAttribute('href')||'').toLowerCase()===f){a.classList.add('active');inM=true;}});if(inM||f==='masters.html'){g.classList.add('open');var p=g.querySelector('.ms-parent');if(p)p.classList.add('active');}})();
 </script>
-<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
+<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-element.html": {"t": "Element (Chemistry)", "i": "fa-atom"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-size-basis.html": {"t": "Size Basis", "i": "fa-ruler-combined"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-grade-chemistry.html": {"t": "Grade Chemistry", "i": "fa-flask-vial"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
 var here=(location.pathname.split('/').pop()||'dashboard.html').toLowerCase();
 function ld(){try{return JSON.parse(sessionStorage.getItem(KEY))||[];}catch(e){return [];}}
 function sv(a){try{sessionStorage.setItem(KEY,JSON.stringify(a));}catch(e){}}

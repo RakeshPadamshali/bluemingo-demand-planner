@@ -136,6 +136,13 @@ button{font-family:inherit;cursor:pointer;}
 .shot-cap b{color:var(--color-text-primary);font-size:var(--fs-sm);font-weight:600;}
 .shot-cap span{color:var(--color-text-hint);font-variant-numeric:tabular-nums;}
 
+/* ---- camera capture picker (simulated live frame reuses the shot placeholder look) ---- */
+.cam-live{position:relative;border:1px solid var(--color-border);border-radius:var(--r-md);overflow:hidden;background:#fff;}
+.cam-live .shot-img{height:180px;}
+.live-dot{position:absolute;top:8px;right:8px;display:inline-flex;align-items:center;gap:5px;background:rgba(26,26,46,.82);color:#fff;font-size:9.5px;font-weight:700;letter-spacing:.5px;padding:2px 8px;border-radius:10px;}
+.live-dot::before{content:'';width:7px;height:7px;border-radius:50%;background:#ff5252;animation:camBlink 1.1s ease-in-out infinite;}
+@keyframes camBlink{0%,100%{opacity:1;}50%{opacity:.25;}}
+
 /* ---- modal ---- */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:50;padding:var(--sp4);}
 .overlay.open{display:flex;}
@@ -226,9 +233,11 @@ button{font-family:inherit;cursor:pointer;}
         <a href="master-defect-reason.html"><i class="fa-solid fa-magnifying-glass"></i> Defect Reason</a>
         <a href="master-defect.html"><i class="fa-solid fa-triangle-exclamation"></i> Defect Catalogue</a>
         <a href="master-characteristic.html"><i class="fa-solid fa-list-ol"></i> Characteristic</a>
+        <a href="master-element.html"><i class="fa-solid fa-atom"></i> Element (Chemistry)</a>
         <a href="master-stage-qc-map.html"><i class="fa-solid fa-sitemap"></i> Stage-QC Map</a>
         <a href="master-sample-type.html"><i class="fa-solid fa-vials"></i> Sample Type</a>
         <a href="master-sampling-rule.html"><i class="fa-solid fa-diagram-project"></i> Sampling Rule</a>
+        <a href="master-size-basis.html"><i class="fa-solid fa-ruler-combined"></i> Size Basis</a>
         <a href="master-prep-checklist.html"><i class="fa-solid fa-list-check"></i> Prep Checklist</a>
         <a href="master-sample-status.html"><i class="fa-solid fa-vials"></i> Sample Status</a>
         <a href="master-material-status.html"><i class="fa-solid fa-flag"></i> Material Status</a>
@@ -239,6 +248,7 @@ button{font-family:inherit;cursor:pointer;}
         <a href="master-ncr-category.html"><i class="fa-solid fa-file-circle-exclamation"></i> NCR Category</a>
         <a href="master-standard.html"><i class="fa-solid fa-book"></i> Standard</a>
         <a href="master-standard-limit.html"><i class="fa-solid fa-ruler-horizontal"></i> Standard Limit</a>
+        <a href="master-grade-chemistry.html"><i class="fa-solid fa-flask-vial"></i> Grade Chemistry</a>
         <a href="master-instrument-type.html"><i class="fa-solid fa-ruler-combined"></i> Instrument Type</a>
         <a href="master-agency.html"><i class="fa-solid fa-building"></i> Agency</a>
         <a href="master-supplier.html"><i class="fa-solid fa-truck-field"></i> Supplier</a>
@@ -291,6 +301,20 @@ function locStr(m,d){return locType(m.form)==='LINEAR'?`L ${d.pos1} mm`:`X ${d.p
 function nowHM(){const t=new Date();return String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');}
 /* short detection-source tag for capture thumbnails (product-agnostic) */
 function srcTag(s){s=s||'';if(/insp/i.test(s))return'INSP';if(/gauge/i.test(s))return'GAUGE';if(/camera/i.test(s))return'CAM';if(/ndt/i.test(s))return'NDT';if(/lab/i.test(s))return'LAB';return'CAP';}
+/* ---- camera fleet — cameras are instruments (instrument_type = CAMERA);
+   every capture lands in mes_qc_attachment(DEFECT/PHOTO) with instrument_id + captured_at ---- */
+const CAMERAS=[
+ {code:'CAM-01',  name:'Line Camera — Rolling'},
+ {code:'CAM-02',  name:'Surface Cam — Finishing'},
+ {code:'SCOPE-01',name:'Bench Scope'}
+];
+/* plausible device code for a capture source at this material's stage (camera by stage; line gauge fixed) */
+function deviceFor(m,src){
+  src=src||'';
+  if(/camera/i.test(src))return /bright|finish/i.test(m.stage)?'CAM-02':/roll/i.test(m.stage)?'CAM-01':'SCOPE-01';
+  if(/gauge/i.test(src))return 'GAUGE-04';
+  return null;
+}
 function mesToast(m,k){var h=document.getElementById('mesToastHost');if(!h){h=document.createElement('div');h.id='mesToastHost';h.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px';document.body.appendChild(h);}var t=document.createElement('div');t.textContent=m;t.style.cssText='padding:10px 14px;border-radius:8px;font:13px Roboto,sans-serif;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;background:'+({ok:'#2e7d32',warn:'#ed6c02',err:'#c62828'}[k]||'#333');h.appendChild(t);requestAnimationFrame(function(){t.style.opacity='1';});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},250);},2600);}
 
 /* ============ data — each defect = a mes_qc_defect_record row ============
@@ -399,11 +423,14 @@ function surfaceSVG(m){
 /* ============ defect capture / evidence gallery — pure-CSS placeholders (maps to mes_qc_defect_capture) ============ */
 function shotsFor(m,d){
   const label=srcTag(d.source);
+  const dev=deviceFor(m,d.source);              // device code when the detecting source is a camera / gauge
   const scan=/gauge|ndt/i.test(d.source||'');   // automated sources render a scan line
   const base=[{view:'Overview',zoom:false},{view:'Defect zoom ×8',zoom:true}];
   if(d.severity==='CRITICAL')base.push({view:'Profile scan',zoom:true});
-  const views=base.map((o,i)=>({view:o.view,zoom:o.zoom,tag:label+' · CH-0'+(i+1),scan:scan,ts:d.ts}));
-  (d.shots||[]).forEach((a,i)=>views.push({view:a.view||'Attached capture',zoom:true,tag:srcTag(a.source)+' · UP-0'+(i+1),scan:false,ts:a.ts,attached:true}));
+  const views=base.map((o,i)=>({view:o.view,zoom:o.zoom,tag:label+' · CH-0'+(i+1),scan:scan,ts:d.ts,dev:dev}));
+  (d.shots||[]).forEach((a,i)=>views.push({view:a.view||'Attached capture',zoom:true,
+    tag:a.cam?'CAM · '+a.cam:srcTag(a.source)+' · UP-0'+(i+1),   // camera captures credited CAM · <code>
+    scan:false,ts:a.ts,attached:true,dev:a.cam||deviceFor(m,a.source)}));
   return views;
 }
 function shotHtml(m,d,s){
@@ -421,7 +448,7 @@ function shotHtml(m,d,s){
     </div>
     <div class="shot-cap">
       <b>${d.defect}${s.attached?' · attached':''}</b>
-      <span>${s.view} · ${locStr(m,d)} · ${s.ts}</span>
+      <span>${s.view} · ${locStr(m,d)} · ${s.ts}${s.dev?' · '+s.dev:''}</span>
     </div>
   </div>`;
 }
@@ -460,14 +487,18 @@ function renderDetail(){
 
   // capture gallery keyed to the active (or first) defect
   const gd = m.defects.find(x=>x.id===activeDefect) || m.defects[0];
+  const gdev = gd?deviceFor(m,gd.source):null;  // device code when detected by camera / gauge
   const gallerySec = m.defects.length ? `
       <section>
         <div class="gal-head">
           <div class="sec-title" style="margin:0">Defect capture &amp; evidence${gd?` — <span style="color:var(--color-text-primary);text-transform:none;letter-spacing:0">${gd.defect}</span>`:''}</div>
-          <button class="btn btn-ghost btn-sm" onclick="attachShot()"><i class="fa-solid fa-camera"></i> Attach capture</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="openCamModal()"><i class="fa-solid fa-video"></i> Capture from camera</button>
+            <button class="btn btn-ghost btn-sm" onclick="attachShot()"><i class="fa-solid fa-paperclip"></i> Attach file</button>
+          </div>
         </div>
         <div class="dm-gallery">${gd?shotsFor(m,gd).map(s=>shotHtml(m,gd,s)).join(''):'<div class="empty">Select a defect to review its captures.</div>'}</div>
-        ${gd?`<div class="hint" style="margin-top:8px"><i class="fa-solid fa-circle-info"></i> Detected by <b>${gd.source}</b> at ${gd.ts}. Marker overlaid at the recorded position — select a defect row or marker to switch.</div>`:''}
+        ${gd?`<div class="hint" style="margin-top:8px"><i class="fa-solid fa-circle-info"></i> Detected by <b>${gd.source}${gdev?' · '+gdev:''}</b> at ${gd.ts}. Marker overlaid at the recorded position — select a defect row or marker to switch.</div>`:''}
       </section>` : '';
 
   document.getElementById('detail').innerHTML=`
@@ -543,6 +574,45 @@ function attachShot(){
   mesToast('Capture attached to '+m.uid+' — '+d.defect,'ok');
 }
 
+/* ============ capture from camera — picker with simulated live frame ============
+   camera = instrument (instrument_type=CAMERA); the shot = mes_qc_attachment(DEFECT/PHOTO)
+   carrying instrument_id (cam code) + captured_at (now) */
+function openCamModal(){
+  const m=cur();const d=m.defects.find(x=>x.id===activeDefect)||m.defects[0];
+  if(!d){mesToast('Select a defect first to capture evidence','warn');return;}
+  activeDefect=d.id;
+  const def=deviceFor(m,'Camera'); /* preselect the camera watching this stage */
+  const ov=document.createElement('div');ov.className='overlay open';ov.id='camOverlay';
+  ov.innerHTML=`<div class="modal" style="width:460px">
+    <div class="modal-head"><h3><i class="fa-solid fa-video" style="color:var(--color-primary)"></i> Capture from camera</h3>
+      <button class="x" id="camX">&times;</button></div>
+    <div class="modal-body" style="grid-template-columns:1fr">
+      <div class="fld"><label>Camera (instrument_type = CAMERA)</label>
+        <select id="camSel">${CAMERAS.map(c=>`<option value="${c.code}" ${c.code===def?'selected':''}>${c.code} · ${c.name}</option>`).join('')}</select></div>
+      <div class="cam-live"><div class="shot-img"><span class="grade-sheen"></span><span class="shot-scan"></span>
+        <span class="shot-tag" id="camLiveTag">LIVE · ${def}</span><span class="live-dot">REC</span>
+        <span class="shot-mark" style="left:50%;top:50%;border-color:${SEV_COLOR[d.severity]};"></span></div></div>
+      <div class="hint"><i class="fa-solid fa-circle-info"></i> Simulated live frame — Capture stores the shot with instrument_id + captured_at, marker at ${locStr(m,d)}.</div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost btn-sm" id="camCancel">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="camShoot"><i class="fa-solid fa-camera"></i> Capture</button></div></div>`;
+  document.body.appendChild(ov);
+  const sel=ov.querySelector('#camSel');
+  sel.onchange=function(){ov.querySelector('#camLiveTag').textContent='LIVE · '+sel.value;};
+  function close(){document.removeEventListener('keydown',onKey);ov.remove();}
+  function onKey(e){if(e.key==='Escape')close();}
+  document.addEventListener('keydown',onKey);
+  ov.addEventListener('click',e=>{if(e.target===ov)close();});
+  ov.querySelector('#camX').onclick=close;
+  ov.querySelector('#camCancel').onclick=close;
+  ov.querySelector('#camShoot').onclick=function(){
+    const cam=CAMERAS.find(c=>c.code===sel.value)||CAMERAS[0];
+    (d.shots=d.shots||[]).push({view:'Camera frame',source:'Camera',ts:nowHM(),cam:cam.code}); /* cam = instrument_id; ts = captured_at */
+    close();renderDetail();
+    mesToast('Frame captured from '+cam.name,'ok');
+  };
+}
+
 /* ============ add-defect modal ============ */
 function fopts(list,sel){return list.map(o=>`<option ${o===sel?'selected':''}>${o}</option>`).join('');}
 function openModal(){
@@ -552,7 +622,8 @@ function openModal(){
     <div class="fld full"><label>Defect</label><select id="f_def">${fopts(DEFECT_CATALOG)}</select></div>
     <div class="fld"><label>Severity</label><select id="f_sev">${fopts(SEVERITIES,'MAJOR')}</select></div>
     <div class="fld"><label>Disposition</label><select id="f_disp">${fopts(DISPOSITIONS,'Rework')}</select></div>
-    <div class="fld full"><label>Detected by</label><select id="f_src">${fopts(SOURCES,'Manual — Surface Insp.')}</select></div>
+    <div class="fld full"><label>Detected by</label><select id="f_src">${fopts(SOURCES,'Manual — Surface Insp.')}</select>
+      <div class="hint" id="srcHint" style="display:none"><i class="fa-solid fa-video"></i> Camera-detected — after saving, use “Capture from camera” to attach the detecting frame (suggested device: ${deviceFor(m,'Camera')}).</div></div>
     <div class="fld full"><label>Location type</label><input value="${lt} (auto from form: ${m.form})" disabled /></div>
     <div class="fld"><label>Position 1 — ${plate?'X along length':'length'} (mm)</label>
       <input id="f_p1" type="number" min="0" max="${m.length_mm}" value="${Math.round(m.length_mm/2)}" />
@@ -563,6 +634,10 @@ function openModal(){
     <div class="fld"><label>Face</label><select id="f_face">${fopts(['TOP','BOTTOM'],curFace)}</select></div>`
     :`<div class="fld" style="display:flex;align-items:flex-end"><div class="hint">Position 2 / Face not used for linear material.</div></div>`}
   `;
+  /* detected-by = Camera → suggest attaching a camera capture (hint only; values unchanged) */
+  const srcSel=document.getElementById('f_src');
+  srcSel.onchange=function(){var h=document.getElementById('srcHint');if(h)h.style.display=(srcSel.value==='Camera')?'':'none';};
+  srcSel.onchange();
   document.getElementById('overlay').classList.add('open');
 }
 function closeModal(){document.getElementById('overlay').classList.remove('open');}
@@ -597,7 +672,7 @@ renderList();renderDetail();
 function msToggle(e){e.preventDefault();e.stopPropagation();var g=document.getElementById('msGroup');if(g)g.classList.toggle('open');}
 (function(){var f=(location.pathname.split('/').pop()||'').toLowerCase();var g=document.getElementById('msGroup');if(!g)return;var inM=false;g.querySelectorAll('.submenu a').forEach(function(a){if((a.getAttribute('href')||'').toLowerCase()===f){a.classList.add('active');inM=true;}});if(inM||f==='masters.html'){g.classList.add('open');var p=g.querySelector('.ms-parent');if(p)p.classList.add('active');}})();
 </script>
-<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
+<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-element.html": {"t": "Element (Chemistry)", "i": "fa-atom"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-size-basis.html": {"t": "Size Basis", "i": "fa-ruler-combined"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-grade-chemistry.html": {"t": "Grade Chemistry", "i": "fa-flask-vial"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
 var here=(location.pathname.split('/').pop()||'dashboard.html').toLowerCase();
 function ld(){try{return JSON.parse(sessionStorage.getItem(KEY))||[];}catch(e){return [];}}
 function sv(a){try{sessionStorage.setItem(KEY,JSON.stringify(a));}catch(e){}}
