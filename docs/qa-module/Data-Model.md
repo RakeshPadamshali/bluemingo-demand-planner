@@ -29,6 +29,7 @@
 - **Audit tail** (every table, shown below as **`+ audit tail`**): `active_status varchar(20)` ACTIVE/INACTIVE · `txn_access_code varchar(50)` · `created_by bigint` · `created_date timestamptz` · `updated_by bigint` · `updated_date timestamptz` · `version_id bigint`.
 - Measures `numeric(18,4)`; codes/names `varchar`; timestamps `timestamptz`; enumerations via CHECK.
 - QA transaction tables denormalize `heat_number`, `material_number`, and `grade` (snapshot at row creation) for grid display/filtering; authoritative values live on `mes_batches` / `mes_schedule_material_childs` / `mes_tdc_input`.
+- **Platform mapping (verified vs `bluemingo_mes_ambica`):** QA `heat_number` ≡ **`mes_batches.batch_number`** (heat = batch; the platform has no heat_number column). `mes_batches` carries **no grade** — grade resolves from the extended `mes_tdc_input` / SKU and is snapshotted onto QA rows.
 
 ---
 
@@ -50,18 +51,18 @@
 
 | Existing table | Used as | Link |
 |----------------|---------|------|
-| `mes_global_attributes` | Property dictionary (**non-chemistry** — mechanical/dimensional/NDT/process; chemistry → `mes_qc_element` §5.10) | `*.attribute_id` |
+| `mes_global_attributes` | Property dictionary (**non-chemistry** — mechanical/dimensional/NDT/process; chemistry → `mes_qc_element` §5.10). *Shared product/TDC-matching registry — QA scope = **`use_for_qa` flag** (additive platform extension); QA-side classification lives in `mes_qc_attribute_ext` (§5.11)* | `*.attribute_id` |
 | `mes_tdc_input` / `mes_tdc_attr_range` | Spec targets | `inspection/test.tdc_id`; spec snapshot; chemistry `RA_n` keyed by `mes_qc_element.tdc_range_ref` (§5.10) |
 | `mes_operations` (stage) / `mes_processes` | Stage of inspection/test | `*.operation_id` |
 | `mes_material_forms` | **Product form** (bar/plate/slab/coil) | config `material_form_id` (G1) |
 | `mes_product_category_input` | Product category | config `product_category_id` (G1) |
-| `mes_batches` | Heat/batch/lot | `*.batch_id` |
+| `mes_batches` | Heat/batch/lot (**`batch_number` = the heat no**) | `*.batch_id` |
 | `mes_schedule_material_childs` | Piece (plate/bar/billet) | `*.schedule_material_child_id` |
 | `mes_production_confirmation` | **Primary anchor** (batch/lot per op) | `inspection/test.confirmation_id` |
 | `mes_skus` | Product | config `sku_id` (optional) |
 | `mes_units` | UoM | `*.*_unit_id` |
 | `mes_customers` | TDC customer | `mes_tdc_input.customer_id` |
-| `mes_hold_reasons` / `mes_inventory_holds` | Hold subsystem | UD/defect → hold |
+| `mes_hold_reasons` / `mes_inventory_holds` | Hold subsystem (holds anchor on `inventory_id` — QA auto-holds resolve the batch/piece's inventory row via the platform hold service) | UD/defect → hold |
 
 ---
 
@@ -228,10 +229,23 @@ Chemistry is modelled **separately from attributes** (D1): this dictionary is th
 | `default_uom_unit_id` | bigint | FK→`mes_units` | Y | Usually % by mass |
 | `decimals` | integer | | Y | Display precision (chemistry commonly 3–4 dp) |
 | `column_reference` | varchar(30) | | Y | Wide-column mapping into `mes_qc_heat_chemistry` (§7.4) — e.g. `c_value` |
-| `tdc_range_ref` | varchar(20) | | Y | **Direct `RA_n` mapping** into the wide `mes_tdc_attr_range` (§11.10) — e.g. `RA_1`. The element dictionary owns this mapping; `mes_global_attributes` is not involved for chemistry |
+| `tdc_range_ref` | varchar(20) | | Y | **Direct `RA_n` mapping** into the wide `mes_tdc_attr_range` (§11.10) — e.g. `RA_5` = C in the Ambica deployment. Copied from the deployed registry's chemistry group at migration (**alphabetical** there: As→RA_1 … W→RA_32 — not ladle order); the element dictionary owns the mapping thereafter |
 | `description` | varchar(255) | | Y | |
 | | | | | **+ audit tail** |
-*The element set is deployment configuration (D0): adding an element = a dictionary row (+ a wide-column migration in §7.4, same as today). Spec tables that hold both kinds of characteristic carry `attribute_id` **xor** `element_id` — one limits/fill/approval engine, two dictionaries. **Migration:** the platform's legacy chemistry rows in `mes_global_attributes` (ids 1–33, `column_reference` RA_n) seed this dictionary once (symbol/order/RA_n → `tdc_range_ref`), then retire — chemistry references the attribute dictionary **nowhere**.*
+*The element set is deployment configuration (D0): adding an element = a dictionary row (+ a wide-column migration in §7.4, same as today). Spec tables that hold both kinds of characteristic carry `attribute_id` **xor** `element_id` — one limits/fill/approval engine, two dictionaries.
+
+### 5.11 `mes_qc_attribute_ext` — QA extension of the platform attribute (QA-side classification)
+The shared registry `mes_global_attributes` gains only **`use_for_qa boolean NOT NULL DEFAULT false`** (additive, follows its own `use_for_*` subsystem-flag idiom — decision 2026-07-16). Everything QA-specific about an attribute lives HERE, so the platform table carries no QA-only semantics.
+
+| Field | Type | Key | Null | Description |
+|-------|------|-----|------|-------------|
+| `attribute_id` | bigint | PK, FK→`mes_global_attributes` | N | 1:1 with a QA-scoped attribute (`use_for_qa = true`) |
+| `attribute_category` | varchar(30) | | N | MECHANICAL / DIMENSIONAL / NDT / PROCESS — QA family (drives pickers/filters) |
+| `decimals` | integer | | Y | Display precision |
+| `sequence_no` | integer | | Y | Display order within the category |
+| `remarks` | varchar(255) | | Y | |
+| | | | | **+ audit tail** |
+*QA's characteristic dictionary = `mes_global_attributes WHERE use_for_qa` ⋈ this extension. Existing QA-relevant rows (Hardness HRC, EL %, RA %, Tensile, YS RP 1.0, Auto UT, MPI, Eddy Current…) are flagged + given ext rows at migration; new QA characteristics are added as normal registry rows (RANGE/VALUE) with the flag set. Platform matching/grouping flags are never touched by QA.* **Migration:** the deployed registry's chemistry rows (Ambica: ids 2–33, "Asl *", RA_1–RA_32) seed this dictionary once (symbol + RA_n → `tdc_range_ref`). The legacy rows **stay in `mes_global_attributes`** — they are platform group-attributes used for batch matching/routing (`is_group_attribute`, `use_for_routing`) — but QA references them **nowhere**; chemistry reads only this dictionary.*
 
 ---
 
@@ -1095,7 +1109,7 @@ erDiagram
 | Group | Tables |
 |-------|--------|
 | **Masters (11 lookups)** | `inspection_type`, `test_type`, `chemistry_type`, `defect_type`, `defect_reason`, `sample_status`, `material_status`, `ud_type`, `ud_reason`, `ud_action`, `size_basis` |
-| **Masters (config)** | `test`, `test_attribute`, `defect`, `stage_qc_map`, `corrective_action`, `corrective_action_applied`, `grade_downgrade`, `grade_chemistry`, **`element`** (chemistry dictionary §5.10) |
+| **Masters (config)** | `test`, `test_attribute`, `defect`, `stage_qc_map`, `corrective_action`, `corrective_action_applied`, `grade_downgrade`, `grade_chemistry`, **`element`** (chemistry dictionary §5.10), `attribute_ext` (QA-side attribute classification §5.11) |
 | **Inspection** | `inspection`, `inspection_result` |
 | **Testing** | `sample`, `test_record`, `test_result`, `heat_chemistry` (wide) |
 | **Sampling** | `sample_type`, `sampling_rule`, `sampling_rule_test`, `sample_test`, `sample_prep_checklist` + `_step` + `_record`, `agency` (+ `sample` extended) |
@@ -1110,7 +1124,7 @@ erDiagram
 | **TDC** | `mes_tdc_input` (extend), **`tdc_limit`** (3-tier core), `standard`, `standard_limit`, `tdc_standard`, `tdc_test_standard`, `tdc_customer_grade`, `tdc_remark` + `tdc_remark_target`, `tdc_ht`, `tdc_approval` |
 | **Reporting** | `v_qc_test_result`, `v_qc_inspection`, `v_qc_defect`, `v_qc_worklist` (views) |
 
-≈ **74 new tables + 1 extended (`mes_tdc_input`) + 4 views.** *(+5 for the Track A back-ports: `corrective_action`, `grade_downgrade`, `approval`, `fg_recall`, `fg_recall_unit`; +3 for the traceability pass: `sample_test`, `corrective_action_applied`, `salvage_type_ncr_category`; +2 for the 2026-07-16 scope points: `size_basis`, `grade_chemistry`; +1 chemistry separation: `element`.)*
+≈ **75 new tables + 2 extended (`mes_tdc_input`; `mes_global_attributes` +`use_for_qa` only) + 4 views.** *(+5 for the Track A back-ports: `corrective_action`, `grade_downgrade`, `approval`, `fg_recall`, `fg_recall_unit`; +3 for the traceability pass: `sample_test`, `corrective_action_applied`, `salvage_type_ncr_category`; +2 for the 2026-07-16 scope points: `size_basis`, `grade_chemistry`; +2 chemistry/attribute separation: `element`, `attribute_ext`.)*
 
 ---
 
@@ -1133,4 +1147,9 @@ erDiagram
 - **Lab-equipment mapping is plan-vs-actual**: planned per test at Sample Issue (`sample_test.instrument_id`), actual at Testing (`test_record.instrument_id` + per-reading `test_result.instrument_id`).
 - **Cameras are instruments** (`instrument_type=CAMERA`); defect captures = `attachment`(DEFECT/PHOTO) rows carrying `instrument_id` + `captured_at`.
 - **Re-UD** = supersession chain (`usage_decision.supersedes_ud_id`); **Bulk UD** = one `mass_ud_ref` per run. Grade-chemistry master (§5.9) provides the works spec tier between TDC and report-only.
+**Compatibility check vs `bluemingo_mes_ambica` (2026-07-16, read-only inspection):**
+- **Verified compatible:** all 17 referenced platform tables exist (92 tables total; **zero `mes_qc_*` name collisions**); PKs are `<entity>_id` bigint GENERATED identity, named exactly as our FKs assume (`batch_id`, `confirmation_id`, `operation_id`, `schedule_material_child_id`, `material_form_id`, `product_category_id`, `sku_id`, `unit_id`, `customer_id`, `hold_reason_id`, `hold_id`); the audit tail (7 columns) is present on 91/92 tables with **exactly our declared types** on every table QA integrates with (only the 5 `mes_pln_*` planning tables use an older int4/varchar/timestamp variant — QA does not touch them); `mes_tdc_input` is exactly `{tdc_id, tdc_no, tdc_date}` + audit (678 TDCs loaded) so the §11.1 extension collides with nothing; `mes_tdc_attr_range` = `range_value_id` + `tdc_id` + **RA_1–RA_100 min/max pairs** (678 rows, 1:1 with TDCs) — the §11.10 projection fits as designed; `mes_production_confirmation` carries `is_rework`/`original_confirmation_id` (aligns with salvage re-processing) and `mes_operations.max_rework_count` exists (hook for rework limits).
+- **Attribute-registry decision (2026-07-16, user):** the platform table gains ONLY **`use_for_qa boolean DEFAULT false`** (follows its own `use_for_*` idiom); **no QA category column on the shared registry** — QA classification (`attribute_category` etc.) lives QA-side in `mes_qc_attribute_ext` (§5.11). Existing QA-relevant rows (Hardness HRC, RA %, EL %, Tensile, YS RP1.0, UT/MPI/Eddy) are flagged + extended rather than duplicated.
+- **Open integration items:** (1) `mes_inventory_holds` anchors on `inventory_id`, so QA auto-holds go through the platform hold service to resolve the batch/piece's inventory row; (2) **data-quality flag for the platform team:** the live registry has duplicate/placeholder rows (`HTC Code2`, `Execution2`, `Column1`, typo `HT Condittion`) and one real collision — **RA_34 is mapped by both `HTC Code2` and `Hardness (HRC)`** — to be curated before those rows are trusted as QA characteristics; (3) `column_reference` (RA_n) is context-scoped and reused across attribute groups — QA correctly never resolves it at read time (snapshots instead); only the TDC projection uses it, via `element.tdc_range_ref` for chemistry.
+
 - **Chemistry is a separate model (2026-07-16):** the element dictionary `mes_qc_element` (§5.10) is THE chemistry reference everywhere — grade_chemistry, TDC/standard chemical limits, stage-QC map, corrective actions, RM results, certificate chemical lines, and the wide heat-chemistry column set — while `mes_global_attributes` now serves **non-chemistry** characteristics only. Shared spec tables carry `attribute_id` **xor** `element_id` (one limits/fill/approval engine, two dictionaries). The element dictionary owns **both wide mappings directly** — `column_reference` → `mes_qc_heat_chemistry` columns, `tdc_range_ref` → `mes_tdc_attr_range` `RA_n` — with no attribute-dictionary involvement; the legacy `mes_global_attributes` chemistry rows (ids 1–33) are one-time migration seeds, then retired.

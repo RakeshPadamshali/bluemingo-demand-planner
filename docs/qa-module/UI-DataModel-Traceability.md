@@ -2,12 +2,17 @@
 
 **Purpose.** Reconcile every QA UI screen and workflow against the data model (`Data-Model.md`) so implementation can start with a build-ready map: for each screen, which tables it reads/writes, the columns behind each field, the operation per action, and how each workflow threads the tables. Gaps found during this pass are consolidated in the **Gap Register** (§ end); data-model gaps have been fixed in `Data-Model.md`, UI-only gaps are listed as follow-ups.
 
-**Date:** 2026-07-14 · **Scope:** 15 functional screens + 25 master screens vs 71 `mes_qc_*` tables + 4 views.
+**Date:** 2026-07-14 · **Refreshed:** 2026-07-16 · **Scope:** 15 functional screens + 28 master screens (43 files) vs 74 `mes_qc_*` tables + 4 views.
+
+> **Refresh 2026-07-16.** Two waves landed after the original pass and are folded in below:
+> 1. **12 stakeholder scope points** — TDC Copy (`copied_from_tdc_id`), TDC-scoped sampling rules (`sampling_rule.tdc_id`), sample draw position (`sample.draw_position`), size-basis master (`mes_qc_size_basis`), RM inward 3-stage Inspection→Testing→UD (`sample.rm_receipt_id`, `usage_decision.rm_receipt_id`, RM status `TESTING`), grade-chemistry works spec (`mes_qc_grade_chemistry` §5.9), inspection mode (`inspection.inspection_mode` ONLINE/OFFLINE), plan-vs-actual lab equipment (`sample_test.instrument_id` / `test_record`+`test_result.instrument_id`), camera-as-instrument defect capture (`attachment.instrument_id`+`captured_at`), Bulk UD (`mass_ud_ref`), Re-UD (`supersedes_ud_id`).
+> 2. **Chemistry separation** — chemistry now has its own dictionary **`mes_qc_element` (§5.10)** referenced at every chemistry touchpoint; `mes_global_attributes` serves **non-chemistry** characteristics only. Shared spec tables carry `attribute_id` **xor** `element_id`. The element master owns both wide mappings directly: `column_reference` → `mes_qc_heat_chemistry` columns, `tdc_range_ref` → `mes_tdc_attr_range` RA_n.
 
 ## How to read
 
 - **Op** — `READ` (display/filter), `CREATE` / `UPDATE` / `DELETE` (persist), `DERIVED` (computed at read time, not stored).
 - Tables are `mes_qc_*` unless noted; `§n` cites the `Data-Model.md` section. Core platform tables (`mes_batches`, `mes_schedule_material_childs`, `mes_operations`, `mes_global_attributes`, `mes_tdc_input`, `mes_units`, `mes_customers`) are reused, not re-defined.
+- **Two dictionaries (D1):** every chemistry reference maps to `mes_qc_element` (§5.10); `attribute_id`→`mes_global_attributes` appears only for non-chemistry characteristics. Where a mapping below says `attribute_id` for a chemical row, read `element_id` (the xor rule).
 - **Snapshot** = value copied onto the row at creation (e.g. spec min/max) for fast, immutable reporting; **denormalized** = a convenience copy of a value owned elsewhere (`heat_number`, `material_number`, `grade` — see `Data-Model.md` §2).
 - Gap tags in the register: **[DM-FIXED]** applied to the data model this pass · **[UI]** column exists, screen must expose it (UI follow-up) · **[DECISION]** derivable/platform-level, documented not added.
 
@@ -15,12 +20,12 @@
 
 | Workflow area | Screen(s) | Primary tables |
 |---|---|---|
-| Configuration | `masters.html` + 25 `master-*.html` | §5 lookups + config, §7.5.1/.3/.5/.6, §11.3/.4, §12.1/.2, §13.1, §14.1, §15.1, `mes_global_attributes` |
+| Configuration | `masters.html` + 28 `master-*.html` | §5 lookups + config (incl. §5.9 `grade_chemistry`, §5.10 `element`), §7.5.1/.3/.5/.6, §11.3/.4, §12.1/.2, §13.1, §14.1, §15.1, `mes_global_attributes` (non-chemistry) |
 | TDC | `tdc.html` | §11.1–11.12 (`mes_tdc_input`, `tdc_limit`, `standard*`, `tdc_*`) |
-| RM Quality | `rm-inward.html` | §13 (`rm_receipt`, `rm_inspection`, `rm_inspection_result`, `supplier_feedback`) |
+| RM Quality | `rm-inward.html` | §13 (`rm_receipt`, `rm_inspection`, `rm_inspection_result`, `supplier_feedback`) + §7.1 (`sample.rm_receipt_id`) + §10.1 (`usage_decision.rm_receipt_id`) — 3-stage Inspection→Testing→UD |
 | Sampling | `sample-issue.html` | §7.1 + §7.5 (`sample`, `sampling_rule`, `sampling_rule_test`, `sample_test`, `sample_prep_*`, `agency`) |
 | Testing | `test-entry.html` | §7.2/7.3 (`test_record`, `test_result`) + §5.2/5.3, §9.1, §10.3, §11 |
-| Chemistry | `heat-chemistry.html` | §7.4 (`heat_chemistry`) + §5.6/5.8, §9.1, §11 |
+| Chemistry | `heat-chemistry.html` | §7.4 (`heat_chemistry`, columns via `element.column_reference`) + §5.9 (`grade_chemistry`), §5.10 (`element`), §5.6/5.8, §9.1, §11 |
 | Inspection | `qc-worklist.html` | §6 (`inspection`, `inspection_result`) + §5.5, §8.1, §9.1, `v_qc_worklist` |
 | Defects | `defect-mapping.html` | §8.1 (`defect_record`) + §12.6 (`attachment`) |
 | Clearance | `clearance.html` | §9.1 (`clearance`) + §10.3 (`approval`) |
@@ -55,7 +60,10 @@
 | master-standard | `standard` (§11.3) | standard_code, standard_name, standard_year, standard_type | |
 | master-standard-limit | `standard_limit` (§11.4) | standard_id, grade, attribute_id, min_value, max_value, uom_unit_id, target_value | |
 | master-sample-type | `sample_type` (§7.5.1) | type_code, type_name, category, default_length/pieces/weight/width/thickness, barcode_required | |
-| master-characteristic | `mes_global_attributes` (core) | code, name, family, uom, column_reference (RA_n/VA_n/PP_n) | Shared core dictionary (D1) |
+| master-characteristic | `mes_global_attributes` (core) | code, name, family (MECHANICAL/DIMENSIONAL/NDT/PROCESS), uom, column_reference | Shared core dictionary — **non-chemistry only**; chemistry moved to the Element master (D1) |
+| master-size-basis | `size_basis` (§5.1) | code, name (BY_LENGTH/BY_WEIGHT/BY_PIECES/FULL_SECTION) | Referenced by `sampling_rule.size_basis_id` |
+| master-grade-chemistry | `grade_chemistry` (§5.9) | grade, **element_id**→`mes_qc_element`, min/max/aim_value, uom | Works spec tier: TDC → GRADE → report-only |
+| master-element | **`element` (§5.10 — the chemistry dictionary)** | element_code (symbol), element_name, sequence_no, uom, decimals, **column_reference** (heat-chemistry wide col), **tdc_range_ref** (`mes_tdc_attr_range` RA_n) | THE chemistry reference everywhere; RA_1–RA_14 seeded |
 
 **Config-heavy masters (field-level):**
 
@@ -67,7 +75,7 @@
 
 *master-standard-limit* → `standard_limit` (§11.4): standard_id, grade, attribute_id, min_value/max_value/target_value, uom_unit_id.
 
-*master-sampling-rule* → `sampling_rule` (§7.5.3) + `sampling_rule_test` (§7.5.2): operation_id, material_form_id, grade, sample_type_id, samples_count/qty_basis, location_rule, `sampling_basis` (PER_HEAT/PER_LOT/PER_N_PIECES — expose, UI); tests → child `sampling_rule_test.test_id`.
+*master-sampling-rule* → `sampling_rule` (§7.5.3) + `sampling_rule_test` (§7.5.2): operation_id, material_form_id, grade, **tdc_id (optional TDC scope — TDC-specific rule wins)**, sample_type_id, **sampling_basis select (PER_HEAT/PER_LOT/PER_N_PIECES — exposed 2026-07-16)**, samples_count/qty_basis, **size_basis_id select (master-driven)**, location_rule; tests → child `sampling_rule_test.test_id`.
 
 *master-prep-checklist* → `sample_prep_checklist` + `sample_prep_step` (§7.5.5): the two-level header(code/name/sample_type_id/test_id) + steps(sequence_no/instruction/is_mandatory) model exists; the screen currently stores flat rows — align UI to the 2-level model (UI).
 
@@ -81,17 +89,19 @@
 |---|---|---|---|
 | List search / row (TDC no · customer · grade · status) | `mes_tdc_input.tdc_no/customer_id/grade/status` | READ | |
 | New TDC | `mes_tdc_input` (status=DRAFT) | CREATE | |
+| **Copy** (modal: new no / customer / grade) | `mes_tdc_input.copied_from_tdc_id` + deep-copied children (limits / standards / tests / remarks / customer-grades) | CREATE | New **independent** DRAFT TDC — ≠ the `parent_tdc_id` revision chain; "Copied from" badge |
 | Header: no / status / **Rev** | `.tdc_no`, `.status`, `.revision_no` | READ | |
 | New revision | `mes_tdc_input`(parent_tdc_id, revision_no+1, reason) | CREATE | §11.1 chain |
 | Block / Unblock | `.status` (BLOCKED↔RELEASED) | UPDATE | |
 | std-strip: primary / other chips | `.primary_standard_id`; `mes_qc_tdc_standard` (§11.5) | READ | |
 | **Fill standards** | `mes_qc_standard_limit` (§11.4) → `mes_qc_tdc_limit`(tier=STANDARD) | CREATE | |
-| **Fill Min/Max** | `mes_qc_tdc_limit`(tier=APPLIED) → project `mes_tdc_attr_range` | DERIVED | APPLIED = CUSTOMER else STANDARD |
+| **Fill Min/Max** | `mes_qc_tdc_limit`(tier=APPLIED) → project `mes_tdc_attr_range` | DERIVED | APPLIED = CUSTOMER else STANDARD; chemical rows project to `RA_n` via **`element.tdc_range_ref`** (§11.10) |
 | General: customer/short code/cust TDC no | `.customer_id`, `.customer_short_code`, `.customer_tdc_no` | R/W | |
 | General: item category, grade series/group, shape, execution, htc_code, size_range_text | `mes_tdc_input.*` | R/W | |
 | General: HT chart / IBR / CE flags | `.ht_chart_req`, `.ibr_report`, `.ce_mark` | R/W | |
 | General: customer grades (# / code / name) + add/✕ | `mes_qc_tdc_customer_grade` (§11.7) | R/W/CREATE/DELETE | |
-| Chem/Mech: element/property | `mes_qc_tdc_limit.attribute_id`→`mes_global_attributes` | READ | 1 UI row = 3 tier rows |
+| Chem: element | `mes_qc_tdc_limit.element_id`→**`mes_qc_element`** (§5.10) | READ | 1 UI row = 3 tier rows; chemical rows use the element dictionary |
+| Mech: property | `mes_qc_tdc_limit.attribute_id`→`mes_global_attributes` | READ | non-chemistry characteristics |
 | Chem/Mech: UOM | `.uom_unit_id`→`mes_units` | READ | |
 | Chem/Mech: Standard / Customer min-max | `mes_qc_tdc_limit`(tier=STANDARD/CUSTOMER).min_value/max_value | R/W | |
 | Chem/Mech: Applied (effective) | `mes_qc_tdc_limit`(tier=APPLIED) | DERIVED | validation reads APPLIED only (D2/D4) |
@@ -125,8 +135,13 @@
 | Save decision | `mes_qc_rm_inspection`; `rm_receipt.status` (+batch_id on ACCEPT) | CREATE/UPDATE | |
 | Mill-TC popup / attach | `mes_qc_attachment`(entity_type=**RM_RECEIPT**) | R/CREATE | entity_type extended (DM) |
 | Receive & queue | `mes_qc_rm_receipt`(status=RECEIVED, tdc_id) | CREATE | TDC via required picker |
+| **3-stage stepper** (Inspection → Lab testing → RM UD) | `rm_receipt.status` (RECEIVED/UNDER_INSPECTION → 1; **TESTING** → 2; ACCEPTED/RETEST/RETURNED → 3) | DERIVED | stage from status |
+| Stage 1: **Complete inspection** (recommendation ACCEPT-CANDIDATE / SEND TO TESTING / RETURN) | `rm_inspection.decision` (now the inspection-stage recommendation); SEND TO TESTING → `rm_receipt.status=TESTING` | UPDATE | |
+| Stage 2: **Samples panel** (planned/tested RM samples + Receive lab results) | `mes_qc_sample.rm_receipt_id` (§7.1) → standard Sampling/Test Entry §7 | READ/CREATE | no RM-local test tables |
+| Stage 3: **Record RM Usage Decision** (ACCEPT/RETEST/RETURN + RMA no.) | `mes_qc_usage_decision.rm_receipt_id` (§10.1); `rm_inspection.rma_number` on ACCEPT | CREATE | drives final `rm_receipt.status` |
+| Grid: **UD** column (RMUD no) | `usage_decision` on the RM lot | READ | |
 
-**Workflow.** Receive→`rm_receipt`(RECEIVED) → Inspect→`rm_inspection`+`rm_inspection_result` → ACCEPT(rma_number, status=ACCEPTED, +internal batch_id→heat formation) / RETEST(status=RETEST) / RETURN(status=RETURNED → `ncr`(nc_against=SUPPLIER)+`supplier_feedback` SCAR).
+**Workflow (3-stage, §13.6).** Receive→`rm_receipt`(RECEIVED) → **1. Inspect**→`rm_inspection`+`rm_inspection_result` (recommendation) → **2. Testing** (status=TESTING; samples via `sample.rm_receipt_id` → standard Test Entry / Heat Chemistry) → **3. RM UD** (`usage_decision.rm_receipt_id`): ACCEPT(rma_number, status=ACCEPTED, +internal batch_id→heat formation) / RETEST(status=RETEST) / RETURN(status=RETURNED → `ncr`(nc_against=SUPPLIER)+`supplier_feedback` SCAR).
 
 ---
 
@@ -149,6 +164,9 @@
 | Toolbar: Issue Sample | CREATE `mes_qc_sample` | CREATE | |
 | Issue modal: lot / type / condition / ht card / issue date / length / pieces / weight / agency | `mes_qc_sample.*` (type defaults from `sample_type` §7.5.1) | CREATE | |
 | Issue modal: **Draw location** (readonly) | `mes_qc_sampling_rule.location_rule` via sampling_rule_id | READ | |
+| Issue modal: **Position** select (HEAD/MID/TAIL) + grid **Pos** column | `mes_qc_sample.draw_position` | CREATE/READ | default parsed from the rule's location text |
+| Issue modal: **Equipment per checked test** | `mes_qc_sample_test.instrument_id` (§7.5.7) | CREATE | **planned** equipment, filtered by test kind; actual recorded at Testing |
+| Issue modal: **TDC rule / Generic rule** chip | `mes_qc_sampling_rule.tdc_id` | DERIVED | TDC-scoped rule wins (most-specific), generic rule = fallback |
 | Issue modal: **Tests to perform** (RULE/TDC tags) | `mes_qc_sample_test`(test_id, source, is_selected); defaults from `sampling_rule_test` (§7.5.2) + `tdc_test_standard` (§11.6) | READ/CREATE | structured (DM) |
 | Prep modal: steps / toggle / mark complete | `mes_qc_sample_prep_step` (read); `mes_qc_sample_prep_record` (create/update); `sample.sample_status_id`/`completion_date` | R/CREATE/UPDATE | |
 
@@ -169,7 +187,9 @@
 | Grid: Attribute / Unit | `test_result.attribute_id`→`mes_global_attributes`; `.uom_unit_id`→`mes_units` | READ | set per `test_attribute` (§5.3) |
 | Grid: Valid range (+src tag) | `test_result.min_spec/max_spec/spec_source` (snapshot) | DERIVED→snapshot | TDC APPLIED else `test_attribute.default_min/max` |
 | Grid: Specimen 1..N (spec mode) | `test_result.value_num` (specimen_seq 1..N) | C/UPDATE | N = `test_attribute.no_of_specimens`; unused greyed |
-| Grid: lab columns (lab mode) | `test_result.value_num` + **`agency_id` / `source_label`** | C/UPDATE | multi-lab (DM) |
+| Grid: lab columns (lab mode) | `test_result.value_num` + **`agency_id` / `source_label`** (device code appended) | C/UPDATE | multi-lab (DM) |
+| **Equipment** chip (planned · actual, warn on mismatch) | planned `mes_qc_sample_test.instrument_id`; actual `mes_qc_test_record.instrument_id` + per-reading `mes_qc_test_result.instrument_id` | READ/UPDATE | plan-vs-actual traceability; actual set on import/receive/save |
+| (element-wise readings, e.g. PMI) | `mes_qc_test_result.element_id`→`mes_qc_element` | CREATE | normalized element spot values; bulk heat chemistry stays wide (D4) |
 | Grid: Aggregate / Result | `test_result.aggregate_value` (rule=`test_attribute.aggregate_rule`); `.result` | DERIVED→snapshot | |
 | Toolbar: Import from instrument | `test_record.capture_source=INSTRUMENT, instrument_id`; `test_result.value_num` | U/CREATE | |
 | Toolbar: Receive · <lab> | `test_result` rows for that lab | CREATE | cross-lab agg |
@@ -191,8 +211,9 @@
 | List / state badge | `heat_chemistry.heat_number/batch_id/sample_id`; `.result` + `clearance.result` | READ/DERIVED | |
 | Chips: Grade / **TDC** / Sample / Cast / Furnace / **Lab** / Source | grade (derived); `heat_chemistry.tdc_id`, `.sample_id`, `mes_batches`, **`.agency_id`**, `.capture_source` | READ | tdc_id + agency_id added (DM) |
 | Chemistry-type tabs (Ladle/Product/Check) | `.chemistry_type_id`→`mes_qc_chemistry_type` | READ/CREATE | one row per (heat, chemistry_type) |
-| Grid: Element / Unit | wide `.c_value/mn_value/…`; family from `mes_global_attributes` | READ | |
-| Grid: src tag (TDC/REPORT) | presence of `mes_qc_tdc_limit` row for element | DERIVED | |
+| Grid: Element / Unit | wide `.c_value/mn_value/…`; element set + column names from **`mes_qc_element`** (§5.10, `column_reference`) | READ | |
+| Grid: src tag (**TDC / GRADE / REPORT**) + legend | TDC = `mes_qc_tdc_limit` element row; GRADE = `mes_qc_grade_chemistry` (§5.9); else report-only | DERIVED | resolution: TDC APPLIED → grade-chemistry → report-only |
+| GRADE-limit validation (pass/fail + OOS auto-hold) | `mes_qc_grade_chemistry.element_id` min/max | DERIVED | GRADE rows validate exactly like TDC rows; corrective modal names "works grade spec" |
 | Grid: TDC Spec (min-max) | `mes_qc_tdc_limit`(APPLIED) / `mes_tdc_attr_range` (§11.10) | READ | live (not snapshotted on wide row) |
 | Grid: Actual | `.<element>_value` (+ capture_source=MANUAL on edit) | C/UPDATE | |
 | Grid: Result (per element) | computed vs limit | DERIVED | persisted result is overall only (decision) |
@@ -218,7 +239,8 @@
 | Grid: Kind / Type | `stage_qc_map.qc_kind`; `inspection.inspection_type_id` / `test_record.test_id` | READ/DERIVED | |
 | Grid: Heat / Material / Grade / Form | `.heat_number, material_number/schedule_material_child_id, grade (denorm §2), material_form_id` | READ | |
 | Grid: Result / Status / Date / Inspector | `.overall_result`; `status` ⊕ `clearance.result`; `.inspection_date`; `.inspected_by`/agency | READ/DERIVED | |
-| Toolbar: Raise Inspection | `mes_qc_inspection` | CREATE | ad-hoc/re-inspection |
+| Grid: **Mode** column/badge + filter (ONLINE/OFFLINE) | `mes_qc_inspection.inspection_mode` (default from `stage_qc_map.default_inspection_mode` §5.5) | READ | ONLINE = in-line L2/gauge; OFFLINE = bench; modal shows a Mode chip + "auto (L2)" hint when ONLINE |
+| Toolbar: Raise Inspection (incl. **Mode** select) | `mes_qc_inspection` (+`inspection_mode`) | CREATE | ad-hoc/re-inspection; mode defaulted by QC-item kind |
 | Row: Inspection group / View / Record / Edit | group by `confirmation_id`; `inspection`(+result/defects) | READ/UPDATE | |
 | Row: **Raise Salvage / NCR** | `mes_qc_ncr`(source inspection_id) via deep-link | CREATE | writes on salvage screen |
 | Record modal: characteristic / unit / spec min-max (+src) | `inspection_result.attribute_id, uom_unit_id, min_spec/max_spec, spec_source` | READ | snapshot from TDC APPLIED else default |
@@ -241,7 +263,8 @@
 | Map: markers (X/Y, colour) | `.position_1, position_2, position_ref, severity` | READ | |
 | Map: meta (length/width/Ø) | piece geometry via `mes_schedule_material_childs` (through `v_qc_defect`) | READ | decision: exposed via view |
 | Table: Defect / Severity / Location / **Detected by** / Disposition / Delete | `.defect_id→name, severity, position_*, **detection_source**, disposition` | READ/DELETE | detection_source (MANUAL/ONLINE_GAUGE/CAMERA/NDT/LAB) |
-| Gallery: thumbnails / view / caption / **Attach capture** | `mes_qc_attachment`(entity_type=DEFECT, doc_type=PHOTO, caption) (§12.6) | READ/CREATE | marker overlay from `defect_record.position_*` |
+| Gallery: thumbnails / view / caption / **Attach file** | `mes_qc_attachment`(entity_type=DEFECT, doc_type=PHOTO, caption) (§12.6) | READ/CREATE | marker overlay from `defect_record.position_*` |
+| Gallery: **Capture from camera** (device pick + live frame + Capture) | `mes_qc_attachment.instrument_id` (camera = `mes_qc_instrument`, type CAMERA) + `captured_at`; caption carries the device code | CREATE | camera integration; detected-by=Camera hints suggest a capture |
 | Add-defect modal: defect/severity/disposition/detected-by | `defect_record.defect_id, severity, disposition, detection_source` | CREATE | |
 | Add-defect modal: location type (auto)/position 1/position 2/face | `.location_type, position_1, position_2, position_ref, location_uom_unit_id` | CREATE | form-adaptive (linear hides Y/face) |
 | Save defect | `mes_qc_defect_record` (auto detected_at) | CREATE | standalone log anchors on batch/child |
@@ -279,7 +302,8 @@
 | UI element / action | Table.column(s) | Op | Notes |
 |---|---|---|---|
 | Lot list / readiness badge | `usage_decision.heat_number`; rollup `clearance.result` | READ/DERIVED | |
-| Mass UD | batch `usage_decision` (poss. is_auto) | CREATE | |
+| **Bulk / Mass UD** modal (filters: grade/stage/READY-only → preview + select lots → one shared decision) | one `usage_decision` per lot, all stamped with a shared `mass_ud_ref` (MUD-…) | CREATE | decided lots excluded; CONDITIONAL-in-bulk requires a deviation ref; "BULK · MUD-…" tag on summaries |
+| **Re-UD** action + **Decision history** (CURRENT / SUPERSEDED chain) | new `usage_decision` row with `supersedes_ud_id` → prior UD; latest in chain = current; approval re-applies | CREATE/READ | replaces the old reset-style Revise; lot status follows the newest UD |
 | Detail: **Type** (Heat/Slab/Coil/Bar) | `mes_material_forms.name` via batch/child | DERIVED | kind-aware (§10.1) |
 | Detail: Grade/TDC/UID/Qty/**Order**/material status | `tdc.grade/tdc_no`; `schedule_material_child_id`; `usage_decision.sales_order_no/work_order_no` (DM); `.material_status_id` | READ | WO/SO denorm added (DM) |
 | Action: AUD / Raise Salvage-NCR | AUD modal; deep-link `mes_raise_ncr` | —/READ | |
@@ -349,7 +373,7 @@
 | Filter / meta | `certificate.tc_number/heat_number/material_number/customer_id/grade/work_order_no/status` | READ | |
 | Grid: TC/date/type/heat/**UID**/grade/customer/WO/standard/size/qty/status/prepared-by | `certificate.*` (+ **schedule_material_child_id/uid**) | READ | piece link added (DM) |
 | MTC meta: customer/SO/WO/grade/spec/**TDC**/heat/size/qty/condition/marking/**result** | `certificate.customer_id, sales_order_no, work_order_no, grade, standard_code, tdc_id→tdc_no, heat_number, size_text, qty, ht_condition`; marking from `tdc_limit.text_value`; **overall_result** | READ | overall_result added (DM) |
-| MTC chemical/mechanical lines (spec vs found + bad flag) | `certificate_line`(section, attribute_id, min_spec/max_spec, actual_value, is_ok, uom_unit_id) (§16.2) | READ | actual from `heat_chemistry`/`test_result` |
+| MTC chemical/mechanical lines (spec vs found + bad flag) | `certificate_line`(section, **element_id for CHEMICAL lines** / attribute_id for others, min_spec/max_spec, actual_value, is_ok, uom_unit_id) (§16.2) | READ | actual from `heat_chemistry`/`test_result`; chem section labelled "elements (mes_qc_element)" |
 | MTC remarks / signatures | `tdc_remark`(TEST_CERT); `certificate.prepared_by/approved_by/signed_by` | READ | |
 | Issue & sign | `certificate.status, signed_by, approved_by`; PDF → `attachment`(entity_type=**CERTIFICATE**) | UPDATE/CREATE | |
 | Generate MTC (heat/type/customer → build) | `certificate`(DRAFT) + `certificate_line` rows; multi-heat via `certificate_heat` (§16.3) | CREATE | |
@@ -400,14 +424,14 @@ Consolidated from all five reader batches. **[DM-FIXED]** applied to `Data-Model
 | # | Sev | Screen | Follow-up |
 |---|---|---|---|
 | U1 | IMP | clearance | Add a **Hold-reason** field (→`clearance.hold_reason`) shown when Result=HOLD |
-| U2 | IMP | usage-decision | Add a **Deviation/concession ref** input (→`usage_decision.deviation_ref`) for CONDITIONAL/AUD |
+| U2 | IMP | usage-decision | Add a **Deviation/concession ref** input (→`usage_decision.deviation_ref`) for CONDITIONAL/AUD — *partially done 2026-07-16: the Bulk-UD modal requires it for CONDITIONAL; the single-lot AUD modal still captures justification only* |
 | U3 | IMP | master-defect | Expose `auto_hold`, `use_for_inspection/test/ud`, and the location-model select |
 | U4 | IMP | master-prep-checklist | Rework UI to the 2-level `checklist`+`step` model (code/name, per-step mandatory) |
 | U5 | MIN | salvage-ncr | Recall modal: expose `notify_customer` + optional `ncr_id` link |
 | U6 | MIN | master-inspection-type / -test-type | Expose `category`/`result_basis`/`default_capture_source` |
-| U7 | MIN | master-sampling-rule | Expose `sampling_basis` select; map size to numeric columns |
+| U7 | MIN | master-sampling-rule | ~~Expose `sampling_basis` select; map size to numeric columns~~ — **DONE 2026-07-16** (`sampling_basis` select + master-driven `size_basis_id` + optional `tdc_id` scope all exposed) |
 | U8 | MIN | master-salvage-type / -standard-limit / -stage-qc-map / -sample-type | Expose the remaining existing columns (`is_rework`, `target_value`, `product_category_id`/`sku_id`/`capture_source`, width/thickness/barcode_required) |
-| U9 | IMP | masters landing | Add CRUD screens for **`corrective_action` (§5.6), `grade_downgrade` (§5.7), `salvage_type_ncr_category` (§12.10)** — config used only transactionally today; re-tile orphan `roll-type` |
+| U9 | IMP | masters landing | Add CRUD screens for **`corrective_action` (§5.6), `grade_downgrade` (§5.7), `salvage_type_ncr_category` (§12.10)** — still open; re-tile orphan `roll-type`. *Partially done 2026-07-16: `size_basis`, `grade_chemistry` and `element` masters were added and wired (28 masters).* |
 | U10 | MIN | defect-mapping | Bind evidence captures to `mes_qc_attachment`(DEFECT/PHOTO) (code comment references a non-existent `defect_capture` table) |
 
 ### Design decisions — documented, no schema change (`Data-Model.md` §20)
@@ -425,10 +449,11 @@ Consolidated from all five reader batches. **[DM-FIXED]** applied to `Data-Model
 
 | Table(s) | Status |
 |---|---|
-| `corrective_action` (§5.6), `grade_downgrade` (§5.7), `salvage_type_ncr_category` (§12.10) | Config **used transactionally** (chemistry / salvage) but **no dedicated master CRUD screen** → **U9** |
+| `corrective_action` (§5.6), `grade_downgrade` (§5.7), `salvage_type_ncr_category` (§12.10) | Config **used transactionally** (chemistry / salvage) but **no dedicated master CRUD screen** → **U9** (still open) |
+| `size_basis` (§5.1), `grade_chemistry` (§5.9), **`element` (§5.10)** | **Master screens added 2026-07-16** (`master-size-basis.html`, `master-grade-chemistry.html`, `master-element.html`) and wired into all screens |
 | `certificate_heat` (§16.3) | Multi-heat MTC modeled; UI demo is single-heat (add when multi-heat certs are needed) |
 | `roll_type`, `roll`, `roll_inspection`, `roll_grinding` (§15) | `roll-shop.html`/`master-roll-type.html` exist but **parked** (removed from nav) — re-add to surface |
-| `corrective_action_applied` (§5.8), `sample_test` (§7.5.7), `approval` (§10.3) | New this pass; surfaced **embedded** in Chemistry / Sampling / (Clearance+UD AUD) — no standalone screen needed |
+| `corrective_action_applied` (§5.8), `sample_test` (§7.5.7), `approval` (§10.3), `fg_recall`+`_unit` (§12.8/9) | Surfaced **embedded** in Chemistry / Sample Issue (tests + planned equipment) / Clearance+UD AUD chains / Salvage FG-Recall — no standalone screens needed |
 | Views `v_qc_inspection`, `v_qc_test_result`, `v_qc_defect`, `v_qc_worklist` (§17) | Back the Dashboard/MIS (`dashboard.html`) |
 
 Everything else in the 71-table model maps to at least one screen.
@@ -437,6 +462,6 @@ Everything else in the 71-table model maps to at least one screen.
 
 # Ready-to-code summary
 
-- **Every functional screen and workflow is now backed by the data model.** 28 data-model gaps were closed this pass (`Data-Model.md`: 71 tables + 4 views); the remaining items are **UI follow-ups** (expose existing columns / add 3–4 config screens) and documented **decisions** — none block starting the build.
-- **Recommended build order** (dependency-first): (1) masters + `mes_global_attributes` dictionary → (2) TDC authoring (`tdc_input`, `tdc_limit` 3-tier, `standard*`) → (3) Sampling + Testing + Chemistry capture → (4) Inspection + Defects → (5) Clearance → Usage Decision → (6) Salvage/NCR/CAPA + FG Recall → (7) RM Quality, Instruments, Certificate/MTC → (8) Dashboards over the §17 views.
-- **Next optional deliverables** (deferred from this pass): **DDL** (`CREATE TABLE` for the 71 tables) and a **per-screen API/DTO contract** — both were parked; say the word to generate either.
+- **Every functional screen and workflow is now backed by the data model.** 28 data-model gaps were closed in the original pass, and the 2026-07-16 refresh folds in the 12 stakeholder scope points plus the chemistry separation (`Data-Model.md`: **74 tables + 4 views**). The remaining items are the open **UI follow-ups** above (U1–U6, U8, U10, and the U9 remainder) and documented **decisions** — none block starting the build.
+- **Recommended build order** (dependency-first): (1) masters + the two dictionaries (**`mes_qc_element`** for chemistry, `mes_global_attributes` for characteristics) → (2) TDC authoring (`tdc_input`, `tdc_limit` 3-tier with attribute/element xor, `standard*`) → (3) Sampling + Testing + Chemistry capture → (4) Inspection + Defects → (5) Clearance → Usage Decision → (6) Salvage/NCR/CAPA + FG Recall → (7) RM Quality, Instruments, Certificate/MTC → (8) Dashboards over the §17 views.
+- **Next optional deliverables** (still parked): **DDL** (`CREATE TABLE` for the 74 tables) and a **per-screen API/DTO contract**.
