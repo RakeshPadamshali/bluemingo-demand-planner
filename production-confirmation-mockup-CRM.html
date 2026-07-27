@@ -447,6 +447,7 @@
   .eq-footer { padding:6px 12px; border-top:1px solid var(--color-border-light); background:var(--color-bg-alt); font-size:10px; color:var(--color-text-hint); border-radius:0 0 6px 6px; display:flex; gap:5px; align-items:center; }
   .eq-footer i { color:var(--color-info); }
 </style>
+<script src="crm-embed.js"></script>
 </head>
 
 <body class="industry-steel">
@@ -471,9 +472,13 @@
   <aside class="bm-sidebar">
     <div class="nav-label">Production</div>
     <a class="active"><i class="fa-solid fa-circle-check"></i>Confirmation</a>
+    <a href="crm-schedule.html"><i class="fa-solid fa-calendar-days"></i>Line Schedule</a>
     <a><i class="fa-solid fa-list-check"></i>Op Queue</a>
     <a><i class="fa-solid fa-pause"></i>Holds &amp; Rework</a>
     <a><i class="fa-solid fa-rotate-left"></i>Reversals</a>
+    <div class="nav-label">Reports</div>
+    <a href="crm-gantt.html"><i class="fa-solid fa-chart-gantt"></i>Line Gantt</a>
+    <a href="crm-slitting.html"><i class="fa-solid fa-ruler-combined"></i>Slitting Patterns</a>
     <div class="nav-label">Orders</div>
     <a><i class="fa-solid fa-clipboard-list"></i>Open Orders</a>
     <a><i class="fa-solid fa-chart-line"></i>Status</a>
@@ -704,6 +709,51 @@
           </div>
         </div>
 
+        <!-- SLITTING PATTERN (slitting op only) -->
+        <style>
+          .slit-card .master-line { display:flex; gap:8px 20px; flex-wrap:wrap; margin-bottom:12px; }
+          .slit-card .master-line .m-item { display:flex; flex-direction:column; }
+          .slit-card .m-k { font-size:10px; text-transform:uppercase; letter-spacing:.3px; color:var(--color-text-muted); font-weight:600; }
+          .slit-card .m-v { font-size:13px; font-weight:600; }
+          .slit-layout { display:flex; height:54px; border-radius:6px; overflow:hidden; border:1px solid var(--color-border); }
+          .slit-seg { display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:600; border-right:1px solid rgba(255,255,255,.55); overflow:hidden; }
+          .slit-seg:last-child { border-right:none; }
+          .slit-seg.strip { background:linear-gradient(180deg,#3fb6ea,#25A9E0); }
+          .slit-seg.trim { background:repeating-linear-gradient(45deg,#cfd8dc,#cfd8dc 5px,#eceff1 5px,#eceff1 10px); color:#607d8b; font-size:9px; }
+          .slit-seg .sw { font-size:9px; opacity:.9; font-weight:500; }
+          .slit-axis { display:flex; font-size:9.5px; color:var(--color-text-hint); margin:4px 0 14px; }
+          .slit-axis .a-mid { flex:1; text-align:center; }
+          .slit-cols { display:grid; grid-template-columns:1.2fr 1fr; gap:16px; }
+          @media (max-width:760px){ .slit-cols { grid-template-columns:1fr; } }
+          .slit-sub { font:600 10px 'Roboto'; text-transform:uppercase; letter-spacing:.3px; color:var(--color-text-muted); margin-bottom:8px; }
+          .slit-bar-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:11.5px; }
+          .slit-bar-row .lbl { width:44px; color:var(--color-text-secondary); }
+          .slit-bar-row .track { flex:1; height:14px; background:var(--color-bg); border-radius:7px; overflow:hidden; }
+          .slit-bar-row .fill { height:100%; background:linear-gradient(90deg,#3fb6ea,#25A9E0); border-radius:7px; }
+          .slit-bar-row .val { width:52px; text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }
+          .slit-yield .big { font-size:26px; font-weight:700; color:var(--color-success); font-variant-numeric:tabular-nums; }
+          .slit-yield .y-bar { height:16px; border-radius:8px; display:flex; overflow:hidden; margin:6px 0 8px; border:1px solid var(--color-border); }
+          .slit-yield .y-used { background:linear-gradient(90deg,#43a047,#66bb6a); } .slit-yield .y-trim { background:#cfd8dc; }
+          .slit-yield .y-legend { display:flex; justify-content:space-between; font-size:11.5px; }
+          .slit-yield .y-sw { width:11px; height:11px; border-radius:2px; display:inline-block; vertical-align:-1px; margin-right:4px; }
+        </style>
+        <div class="bm-card full slit-card" id="slitting-pattern-card" style="display:none">
+          <div class="bm-card-header">
+            <span class="step-badge">5</span>
+            <i class="fa-solid fa-ruler-combined"></i> Slitting Pattern
+            <span class="right"><span class="badge badge-info"><i class="fa-solid fa-code-fork"></i> <span id="slit-split"></span></span> <span style="margin-left:4px">cut plan · side-trim booked as scrap</span></span>
+          </div>
+          <div class="bm-card-body">
+            <div class="master-line" id="slit-master"></div>
+            <div class="slit-layout" id="slit-layout"></div>
+            <div class="slit-axis" id="slit-axis"></div>
+            <div class="slit-cols">
+              <div><div class="slit-sub">Slit strip widths</div><div id="slit-strips"></div></div>
+              <div><div class="slit-sub">Material yield</div><div class="slit-yield" id="slit-yield"></div></div>
+            </div>
+          </div>
+        </div>
+
         <!-- SHIFT LOG (process only) -->
         <div class="bm-card full process-only">
           <div class="bm-card-header"><i class="fa-solid fa-people-arrows"></i> Shift Handover Log <span class="right">PC5b · multi-shift batch</span></div>
@@ -838,6 +888,7 @@
   </div>
 </div>
 
+<script src="crm-schedule-data.js"></script>
 <script>
 const factoryConfig = {
   allowFreeProduction: true,  // toggle: when true, queue empty-state offers a "+ Free Production" CTA
@@ -2252,6 +2303,52 @@ function applyQtyType(qtyType) {
     inp.classList.toggle('qt-int', isInt);
     inp.classList.toggle('qt-dec', !isInt);
   });
+
+  renderSlittingPattern();   // slitting op only — cut pattern + strip widths + yield
+}
+
+// Slitting pattern — SPLIT cut plan for the Slitting op (master coil -> N slit coils + side-trim).
+function renderSlittingPattern() {
+  const card = document.getElementById('slitting-pattern-card');
+  if (!card) return;
+  const show = (crmActiveOp === 'slitting') && document.body.classList.contains('industry-steel');
+  if (!show) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  // Pull the slitting job from the shared line schedule (crm-schedule-data.js) so this pattern
+  // stays in sync with the Schedule + Gantt pages. Falls back to CRC-A-2274 if not loaded.
+  const SCH = window.CRM_SCHEDULE;
+  const job = (SCH && SCH.jobs.filter(j => j.finish === 'Slitting' && j.slit)[0]) ||
+    { coil: 'CRC-A-2274', grade: 'DC01', crcThk: 0.80, width: 1250, slit: { edge: 25, strips: [400, 400, 400] } };
+  const masterCoil = job.coil, grade = job.grade, thk = job.crcThk, master = job.width, edge = job.slit.edge;
+  const strips = job.slit.strips.map((w, i) => ({ id: 'S' + (i + 1), w: w }));
+  const used = strips.reduce((a, s) => a + s.w, 0), trim = master - used, y = used / master * 100;
+  const pct = mm => (mm / master * 100).toFixed(3) + '%';
+  const uniform = strips.every(s => s.w === strips[0].w);
+  const stripLabel = uniform ? (strips.length + ' x ' + strips[0].w + ' mm') : (strips.length + ' strips');
+
+  document.getElementById('slit-split').textContent = '1 master -> ' + strips.length + ' mult coils';
+  document.getElementById('slit-master').innerHTML =
+    [['Master coil', masterCoil], ['Grade', grade], ['Master width', master + ' mm'], ['Thickness', thk.toFixed(2) + ' mm'],
+     ['Edge trim', edge + ' mm x 2'], ['Slit coils', stripLabel]]
+    .map(x => `<div class="m-item"><span class="m-k">${x[0]}</span><span class="m-v">${x[1]}</span></div>`).join('');
+
+  let lay = `<div class="slit-seg trim" style="flex:0 0 ${pct(edge)}">trim<span class="sw">${edge}</span></div>`;
+  strips.forEach(s => { lay += `<div class="slit-seg strip" style="flex:0 0 ${pct(s.w)}">${s.id}<span class="sw">${s.w} mm</span></div>`; });
+  lay += `<div class="slit-seg trim" style="flex:0 0 ${pct(edge)}">trim<span class="sw">${edge}</span></div>`;
+  document.getElementById('slit-layout').innerHTML = lay;
+  document.getElementById('slit-axis').innerHTML = `<span>0</span><span class="a-mid">&#9664; master width ${master} mm &#9654;</span><span>${master}</span>`;
+
+  const maxW = Math.max(...strips.map(s => s.w));
+  document.getElementById('slit-strips').innerHTML = strips.map(s =>
+    `<div class="slit-bar-row"><span class="lbl">${s.id}</span><span class="track"><span class="fill" style="width:${(s.w / maxW * 100)}%"></span></span><span class="val">${s.w} mm</span></div>`
+  ).join('') + `<div class="slit-bar-row"><span class="lbl" style="color:#607d8b">Trim</span><span class="track"><span class="fill" style="width:${(trim / maxW * 100)}%;background:#cfd8dc"></span></span><span class="val">${trim} mm</span></div>`;
+
+  document.getElementById('slit-yield').innerHTML =
+    `<div class="big">${y.toFixed(1)}%</div>` +
+    `<div style="font-size:11px;color:var(--color-text-hint)">width utilised (${used} of ${master} mm)</div>` +
+    `<div class="y-bar"><div class="y-used" style="width:${y}%"></div><div class="y-trim" style="width:${100 - y}%"></div></div>` +
+    `<div class="y-legend"><span><span class="y-sw" style="background:#66bb6a"></span>Strips ${used} mm &middot; ${y.toFixed(1)}%</span>` +
+    `<span><span class="y-sw" style="background:#cfd8dc"></span>Side-trim ${trim} mm &middot; ${(100 - y).toFixed(1)}%</span></div>`;
 }
 
 // Scheduled-view consumed materials as a single flat data grid (attributes → columns).

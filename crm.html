@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bluemingo MES — CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<style>
+  :root {
+    --color-primary:#25A9E0; --color-primary-dark:#1E8FBF; --color-primary-light:#E1F5FE; --color-primary-rgb:37,169,224;
+    --color-danger:#d32f2f; --color-bg:#f5f5f5; --color-bg-alt:#fafafa; --color-surface:#fff; --color-border:#e0e0e0; --color-border-light:#eeeeee;
+    --color-text-primary:#333; --color-text-secondary:#555; --color-text-muted:#666; --color-text-hint:#888; --header-bg:#1a1a2e; --header-bg-dark:#12121f;
+  }
+  * { box-sizing:border-box; }
+  html,body { height:100%; }
+  body { margin:0; font-family:'Roboto',sans-serif; font-size:13px; color:var(--color-text-primary); background:var(--color-bg); overflow:hidden; }
+  .bm-header { height:44px; background:linear-gradient(90deg,var(--header-bg),var(--header-bg-dark)); color:#fff; display:flex; align-items:center; padding:0 12px; flex-shrink:0; }
+  .bm-header .logo { font-weight:700; font-size:14px; display:flex; align-items:center; gap:6px; }
+  .bm-header .logo i { color:var(--color-primary); }
+  .bm-header .module-name { margin-left:16px; padding-left:16px; border-left:1px solid rgba(255,255,255,.15); font-size:12px; opacity:.85; }
+  .bm-header .spacer { flex:1; }
+  .bm-header .industry-switch { display:flex; gap:2px; background:rgba(255,255,255,.06); padding:2px; border-radius:6px; }
+  .bm-header .industry-switch button { background:transparent; color:rgba(255,255,255,.7); border:none; padding:4px 12px; font:500 11px 'Roboto'; border-radius:4px; cursor:pointer; letter-spacing:.3px; text-transform:uppercase; }
+  .bm-header .industry-switch button.active { background:var(--color-primary); color:#fff; }
+  .bm-header .right { display:flex; align-items:center; gap:12px; margin-left:12px; font-size:12px; }
+  .bm-header .avatar { width:26px; height:26px; border-radius:50%; background:var(--color-primary); display:flex; align-items:center; justify-content:center; font-weight:600; font-size:11px; }
+  .bm-layout { display:flex; height:calc(100vh - 44px); }
+  .bm-sidebar { width:180px; background:linear-gradient(180deg,#1e1e32,#16213e); color:rgba(255,255,255,.65); flex-shrink:0; padding:8px 0; overflow-y:auto; }
+  .bm-sidebar .nav-label { color:#fff; font:700 10px 'Roboto'; letter-spacing:1px; text-transform:uppercase; padding:8px 14px 4px; margin-top:4px; }
+  .bm-sidebar a { display:flex; align-items:center; gap:8px; color:inherit; text-decoration:none; padding:6px 14px; margin:1px 6px; border-radius:6px; font-size:12px; cursor:pointer; }
+  .bm-sidebar a:hover { background:rgba(255,255,255,.08); color:#fff; }
+  .bm-sidebar a.active { background:rgba(var(--color-primary-rgb),.2); color:#E1F5FE; position:relative; }
+  .bm-sidebar a.active::before { content:''; position:absolute; left:0; top:4px; bottom:4px; width:2px; background:var(--color-primary); border-radius:0 2px 2px 0; }
+  .bm-sidebar a i { width:14px; text-align:center; opacity:.85; font-size:11px; }
+  .bm-sidebar a.decor { opacity:.5; }
+  /* tab host */
+  .host-col { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .ws-tabhost { height:35px; background:#e7ebee; border-bottom:1px solid var(--color-border); display:flex; align-items:stretch; flex-shrink:0; }
+  .ws-tabstrip { flex:1; display:flex; align-items:stretch; overflow-x:auto; }
+  .ws-tabstrip::-webkit-scrollbar { height:0; }
+  .ws-tab { display:flex; align-items:center; gap:7px; padding:0 10px 0 12px; font-size:12px; color:var(--color-text-secondary); background:#dfe4e7; border-right:1px solid var(--color-border); cursor:pointer; white-space:nowrap; max-width:230px; user-select:none; }
+  .ws-tab:hover { background:#eaeef0; }
+  .ws-tab.active { background:#fff; color:var(--color-primary-dark); font-weight:600; box-shadow:inset 0 -2px 0 var(--color-primary); }
+  .ws-tab .ws-ic { font-size:11px; opacity:.85; }
+  .ws-tab .ws-close { width:16px; height:16px; border-radius:3px; display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--color-text-hint); }
+  .ws-tab .ws-close:hover { background:rgba(0,0,0,.12); color:var(--color-danger); }
+  .ws-menu-btn { border:none; background:none; cursor:pointer; padding:0 12px; color:var(--color-text-muted); font-size:13px; }
+  .ws-menu-btn:hover { color:var(--color-primary); }
+  .framestack { flex:1; position:relative; background:var(--color-bg); }
+  .bm-frame { position:absolute; inset:0; width:100%; height:100%; border:0; }
+  .ws-empty { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--color-text-hint); gap:8px; }
+  .ws-empty i { font-size:34px; opacity:.4; }
+  .ctxmenu { position:fixed; background:#fff; border:1px solid var(--color-border); border-radius:6px; box-shadow:0 6px 20px rgba(0,0,0,.16); padding:4px; z-index:9999; min-width:180px; }
+  .ctxmenu div { padding:7px 12px; font-size:12px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:8px; color:var(--color-text-secondary); }
+  .ctxmenu div:hover { background:var(--color-primary-light); color:var(--color-primary-dark); }
+  .ctxmenu div.disabled { opacity:.4; pointer-events:none; }
+</style>
+</head>
+<body>
+<header class="bm-header">
+  <div class="logo"><i class="fa-solid fa-industry"></i> Bluemingo MES <span style="opacity:.6;font-weight:500;">v2</span></div>
+  <div class="module-name"><i class="fa-solid fa-circle-check" style="margin-right:4px;color:var(--color-primary);"></i>Production · CRM</div>
+  <div class="spacer"></div>
+  <div class="industry-switch">
+    <button class="active"><i class="fa-solid fa-layer-group" style="margin-right:4px"></i>Steel · CRM</button>
+    <button><i class="fa-solid fa-flask" style="margin-right:4px"></i>Process</button>
+    <button><i class="fa-solid fa-gears" style="margin-right:4px"></i>Discrete</button>
+  </div>
+  <div class="right"><i class="fa-regular fa-bell"></i><div class="avatar">RP</div></div>
+</header>
+<div class="bm-layout">
+  <aside class="bm-sidebar" id="sidebar">
+    <div class="nav-label">Production</div>
+    <a data-page="confirmation"><i class="fa-solid fa-circle-check"></i>Confirmation</a>
+    <a data-page="schedule"><i class="fa-solid fa-calendar-days"></i>Line Schedule</a>
+    <a class="decor"><i class="fa-solid fa-list-check"></i>Op Queue</a>
+    <a class="decor"><i class="fa-solid fa-pause"></i>Holds &amp; Rework</a>
+    <a class="decor"><i class="fa-solid fa-rotate-left"></i>Reversals</a>
+    <div class="nav-label">Reports</div>
+    <a data-page="gantt"><i class="fa-solid fa-chart-gantt"></i>Line Gantt</a>
+    <a data-page="slitting"><i class="fa-solid fa-ruler-combined"></i>Slitting Patterns</a>
+    <a class="decor"><i class="fa-solid fa-chart-line"></i>Yield &amp; Scrap</a>
+    <div class="nav-label">Inventory</div>
+    <a class="decor"><i class="fa-solid fa-boxes-stacked"></i>Stock</a>
+    <a class="decor"><i class="fa-solid fa-link"></i>Genealogy</a>
+    <div class="nav-label">Quality</div>
+    <a class="decor"><i class="fa-solid fa-vial"></i>Inspections</a>
+    <div class="nav-label">Masters</div>
+    <a class="decor"><i class="fa-solid fa-cogs"></i>Setup</a>
+  </aside>
+  <div class="host-col">
+    <div class="ws-tabhost">
+      <div class="ws-tabstrip" id="tabstrip"></div>
+      <button class="ws-menu-btn" id="ws-menu" title="Tab actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+    </div>
+    <div class="framestack" id="stack">
+      <div class="ws-empty" id="empty"><i class="fa-solid fa-window-restore"></i><div>Pick a module from the sidebar to open a tab</div></div>
+    </div>
+  </div>
+</div>
+<script>
+  var PAGES = {
+    confirmation: { label: 'Confirmation',      icon: 'fa-circle-check',    href: 'production-confirmation-mockup-CRM.html' },
+    schedule:     { label: 'Line Schedule',     icon: 'fa-calendar-days',   href: 'crm-schedule.html' },
+    gantt:        { label: 'Line Gantt',        icon: 'fa-chart-gantt',     href: 'crm-gantt.html' },
+    slitting:     { label: 'Slitting Patterns', icon: 'fa-ruler-combined',  href: 'crm-slitting.html' }
+  };
+  var stack = document.getElementById('stack'), strip = document.getElementById('tabstrip'), empty = document.getElementById('empty');
+  var frames = {}, order = [], active = null;
+
+  function ensureFrame(id) {
+    if (frames[id]) return frames[id];
+    var f = document.createElement('iframe');
+    f.className = 'bm-frame'; f.src = PAGES[id].href; f.title = PAGES[id].label; f.style.display = 'none';
+    stack.appendChild(f); frames[id] = f; return f;
+  }
+  function open(id) { if (!PAGES[id]) return; if (order.indexOf(id) < 0) order.push(id); activate(id); }
+  function activate(id) {
+    active = id; ensureFrame(id);
+    Object.keys(frames).forEach(function (k) { frames[k].style.display = (k === active ? 'block' : 'none'); });
+    try { var af = frames[active]; if (af && af.contentWindow) af.contentWindow.dispatchEvent(new Event('crm:activated')); } catch (e) {}
+    empty.style.display = order.length ? 'none' : 'flex';
+    document.title = PAGES[id].label + ' · Bluemingo MES — CRM';
+    render();
+  }
+  function closeTab(id) {
+    var i = order.indexOf(id); if (i < 0) return;
+    if (frames[id]) { frames[id].remove(); delete frames[id]; }
+    order.splice(i, 1);
+    if (active === id) { active = order.length ? order[Math.max(0, i - 1)] : null; if (active) activate(active); else { empty.style.display = 'flex'; document.title = 'Bluemingo MES — CRM'; render(); } }
+    else render();
+  }
+  function closeOthers(id) { order.slice().forEach(function (x) { if (x !== id) closeTab(x); }); }
+  function closeAll() { order.slice().forEach(closeTab); }
+  function render() {
+    strip.innerHTML = order.map(function (id) {
+      var p = PAGES[id];
+      return '<div class="ws-tab' + (id === active ? ' active' : '') + '" data-id="' + id + '">' +
+        '<i class="fa-solid ' + p.icon + ' ws-ic"></i>' + p.label +
+        '<span class="ws-close" data-close="' + id + '" title="Close"><i class="fa-solid fa-xmark"></i></span></div>';
+    }).join('');
+    document.querySelectorAll('#sidebar a[data-page]').forEach(function (a) { a.classList.toggle('active', a.getAttribute('data-page') === active); });
+  }
+
+  // sidebar → open tab
+  document.getElementById('sidebar').addEventListener('click', function (e) {
+    var a = e.target.closest('a[data-page]'); if (a) { e.preventDefault(); open(a.getAttribute('data-page')); }
+  });
+  // tab strip: click = activate, × = close, right-click = menu
+  strip.addEventListener('click', function (e) {
+    var cl = e.target.closest('[data-close]'); if (cl) { closeTab(cl.getAttribute('data-close')); return; }
+    var t = e.target.closest('.ws-tab'); if (t) activate(t.getAttribute('data-id'));
+  });
+  strip.addEventListener('contextmenu', function (e) {
+    var t = e.target.closest('.ws-tab'); if (!t) return; e.preventDefault(); menu(e.clientX, e.clientY, t.getAttribute('data-id'));
+  });
+  document.getElementById('ws-menu').addEventListener('click', function () {
+    var r = this.getBoundingClientRect(); menu(r.right - 190, r.bottom + 2, active);
+  });
+  function closeMenu() { var m = document.querySelector('.ctxmenu'); if (m) m.remove(); }
+  function menu(x, y, id) {
+    closeMenu();
+    var others = order.filter(function (z) { return z !== id; }).length;
+    var m = document.createElement('div'); m.className = 'ctxmenu';
+    var rows = [
+      ['Close tab', 'fa-xmark', id ? function () { closeTab(id); } : null],
+      ['Close others', 'fa-diagram-next', (id && others) ? function () { closeOthers(id); } : null],
+      ['Close all', 'fa-trash-can', order.length ? closeAll : null]
+    ];
+    m.innerHTML = rows.map(function (r, i) { return '<div class="' + (r[2] ? '' : 'disabled') + '" data-mi="' + i + '"><i class="fa-solid ' + r[1] + '"></i>' + r[0] + '</div>'; }).join('');
+    m.style.left = Math.max(6, Math.min(x, window.innerWidth - 196)) + 'px';
+    m.style.top = y + 'px';
+    document.body.appendChild(m);
+    m.addEventListener('click', function (e) { var d = e.target.closest('[data-mi]'); if (!d) return; var fn = rows[+d.getAttribute('data-mi')][2]; closeMenu(); if (fn) fn(); });
+    setTimeout(function () { document.addEventListener('mousedown', function od(e) { if (!m.contains(e.target)) { closeMenu(); document.removeEventListener('mousedown', od, true); } }, true); }, 0);
+  }
+
+  window.CRMHost = { open: open };
+  open('confirmation');   // initial tab
+</script>
+</body>
+</html>

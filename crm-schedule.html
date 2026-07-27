@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CRM Line Schedule · Bluemingo MES v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<style>
+  :root {
+    --color-primary:#25A9E0; --color-primary-dark:#1E8FBF; --color-primary-light:#E1F5FE; --color-primary-rgb:37,169,224;
+    --color-success:#388e3c; --color-success-light:#e8f5e9; --color-warning:#f57c00; --color-warning-light:#fff8e1;
+    --color-danger:#d32f2f; --color-danger-light:#ffebee; --color-info:#2196f3; --color-info-light:#e3f2fd;
+    --color-bg:#f5f5f5; --color-bg-alt:#fafafa; --color-surface:#fff; --color-border:#e0e0e0; --color-border-light:#eeeeee;
+    --color-text-primary:#333; --color-text-secondary:#555; --color-text-muted:#666; --color-text-hint:#888;
+    --header-bg:#1a1a2e; --header-bg-dark:#12121f;
+  }
+  * { box-sizing:border-box; }
+  html,body { height:100%; }
+  body { margin:0; font-family:'Roboto',sans-serif; font-size:13px; color:var(--color-text-primary); background:var(--color-bg); overflow:hidden; }
+  .bm-header { height:44px; background:linear-gradient(90deg,var(--header-bg),var(--header-bg-dark)); color:#fff; display:flex; align-items:center; padding:0 12px; flex-shrink:0; }
+  .bm-header .logo { font-weight:700; font-size:14px; display:flex; align-items:center; gap:6px; }
+  .bm-header .logo i { color:var(--color-primary); }
+  .bm-header .module-name { margin-left:16px; padding-left:16px; border-left:1px solid rgba(255,255,255,.15); font-size:12px; opacity:.85; }
+  .bm-header .spacer { flex:1; }
+  .bm-header .industry-switch { display:flex; gap:2px; background:rgba(255,255,255,.06); padding:2px; border-radius:6px; }
+  .bm-header .industry-switch button { background:transparent; color:rgba(255,255,255,.7); border:none; padding:4px 12px; font:500 11px 'Roboto'; border-radius:4px; cursor:pointer; letter-spacing:.3px; text-transform:uppercase; }
+  .bm-header .industry-switch button.active { background:var(--color-primary); color:#fff; }
+  .bm-header .right { display:flex; align-items:center; gap:12px; margin-left:12px; font-size:12px; }
+  .bm-header .avatar { width:26px; height:26px; border-radius:50%; background:var(--color-primary); display:flex; align-items:center; justify-content:center; font-weight:600; font-size:11px; }
+  .bm-layout { display:flex; height:calc(100vh - 44px); }
+  .bm-sidebar { width:180px; background:linear-gradient(180deg,#1e1e32,#16213e); color:rgba(255,255,255,.65); flex-shrink:0; padding:8px 0; overflow-y:auto; }
+  .bm-sidebar .nav-label { color:#fff; font:700 10px 'Roboto'; letter-spacing:1px; text-transform:uppercase; padding:8px 14px 4px; margin-top:4px; }
+  .bm-sidebar a { display:flex; align-items:center; gap:8px; color:inherit; text-decoration:none; padding:6px 14px; margin:1px 6px; border-radius:6px; font-size:12px; cursor:pointer; }
+  .bm-sidebar a:hover { background:rgba(255,255,255,.08); color:#fff; }
+  .bm-sidebar a.active { background:rgba(var(--color-primary-rgb),.2); color:#E1F5FE; position:relative; }
+  .bm-sidebar a.active::before { content:''; position:absolute; left:0; top:4px; bottom:4px; width:2px; background:var(--color-primary); border-radius:0 2px 2px 0; }
+  .bm-sidebar a i { width:14px; text-align:center; opacity:.85; font-size:11px; }
+  .bm-content { flex:1; overflow-y:auto; display:flex; flex-direction:column; padding:10px 14px 24px; }
+  .page-bar { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+  .page-bar h1 { margin:0; font-size:16px; font-weight:600; }
+  .page-bar .crumb { color:var(--color-text-muted); font-size:11px; }
+  .page-bar .actions { margin-left:auto; display:flex; gap:6px; }
+  .btn { padding:6px 14px; border-radius:4px; border:none; font:500 12px 'Roboto'; cursor:pointer; display:inline-flex; align-items:center; gap:6px; text-decoration:none; }
+  .btn-primary { background:var(--color-primary); color:#fff; } .btn-primary:hover { background:var(--color-primary-dark); }
+  .btn-outline { background:transparent; border:1px solid var(--color-primary); color:var(--color-primary); } .btn-outline:hover { background:var(--color-primary); color:#fff; }
+  /* KPI strip */
+  .kpis { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:12px; }
+  @media (max-width:900px){ .kpis { grid-template-columns:repeat(2,1fr);} }
+  .kpi { background:var(--color-surface); border:1px solid var(--color-border); border-radius:8px; padding:10px 12px; position:relative; overflow:hidden; }
+  .kpi::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--color-primary); }
+  .kpi .k { font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--color-text-muted); font-weight:600; }
+  .kpi .v { font-size:22px; font-weight:700; margin-top:3px; font-variant-numeric:tabular-nums; }
+  .kpi .s { font-size:11px; color:var(--color-text-hint); margin-top:1px; }
+  .kpi.blue::before{background:var(--color-primary);} .kpi.green::before{background:var(--color-success);} .kpi.amber::before{background:var(--color-warning);}
+  /* Card + table */
+  .card { background:var(--color-surface); border:1px solid var(--color-border); border-radius:8px; overflow:hidden; }
+  .card-head { padding:8px 12px; background:var(--color-bg-alt); border-bottom:1px solid var(--color-border-light); font:600 12px 'Roboto'; display:flex; align-items:center; gap:6px; }
+  .card-head i { color:var(--color-primary); }
+  .card-head .right { margin-left:auto; font-weight:400; font-size:11px; color:var(--color-text-muted); }
+  table.tbl { width:100%; border-collapse:collapse; font-size:12px; }
+  table.tbl th { text-align:left; padding:7px 10px; background:#fbfcfd; border-bottom:1px solid var(--color-border); font:600 11px 'Roboto'; color:var(--color-text-muted); text-transform:uppercase; letter-spacing:.3px; white-space:nowrap; position:sticky; top:0; }
+  table.tbl td { padding:7px 10px; border-bottom:1px solid var(--color-border-light); white-space:nowrap; }
+  table.tbl tr:hover td { background:#f2fafe; }
+  .mono { font-variant-numeric:tabular-nums; font-family:'Roboto',monospace; }
+  .strong { font-weight:600; }
+  .hint { color:var(--color-text-hint); }
+  .badge { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:11px; font-size:10.5px; font-weight:600; }
+  .b-conf { background:var(--color-success-light); color:var(--color-success); }
+  .b-proc { background:var(--color-info-light); color:#1565c0; }
+  .b-charge { background:var(--color-warning-light); color:#b25f00; }
+  .b-plan { background:#eceff1; color:#546e7a; }
+  .pill { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:5px; font-size:10.5px; font-weight:600; border:1px solid; }
+  .p-slit { color:#7b1fa2; border-color:#e1bee7; background:#f6ecfa; }
+  .p-ctl  { color:#00695c; border-color:#b2dfdb; background:#e5f5f2; }
+  /* route chips (operation flow) + colours */
+  .route { display:flex; align-items:center; gap:2px; }
+  .route .rc { color:#fff; font-size:9px; font-weight:700; padding:2px 5px; border-radius:3px; letter-spacing:.2px; white-space:nowrap; }
+  .route .ra { color:var(--color-text-disabled); font-size:8px; margin:0 1px; }
+  .g-pkl{background:#26a69a;} .g-tcm{background:#25A9E0;} .g-cal{background:#f57c00;} .g-spm{background:#7e57c2;} .g-slt{background:#ab47bc;} .g-ctl{background:#66bb6a;}
+  /* expand → operation schedule */
+  .exp-btn { background:none; border:none; cursor:pointer; color:var(--color-text-hint); font-size:12px; padding:2px 5px; }
+  .exp-btn.open { color:var(--color-primary); }
+  tr.op-detail > td { background:#f6fafd; padding:0; }
+  .op-wrap { padding:8px 12px 10px; }
+  .op-sub { font:600 10px 'Roboto'; text-transform:uppercase; letter-spacing:.3px; color:var(--color-text-muted); margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+  table.op-tbl { width:100%; border-collapse:collapse; font-size:11px; background:#fff; border:1px solid var(--color-border-light); border-radius:6px; overflow:hidden; }
+  table.op-tbl th { text-align:left; padding:5px 9px; color:var(--color-text-muted); font-weight:600; text-transform:uppercase; font-size:9.5px; background:#fbfcfd; border-bottom:1px solid var(--color-border-light); white-space:nowrap; }
+  table.op-tbl td { padding:5px 9px; border-bottom:1px solid var(--color-border-light); white-space:nowrap; }
+  table.op-tbl tr:last-child td { border-bottom:none; }
+  .op-dot { width:8px; height:8px; border-radius:2px; display:inline-block; margin-right:6px; }
+  .topo-pill { font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; background:#eceff1; color:#546e7a; }
+  .topo-pill.split { background:#f3e5f5; color:#7b1fa2; }
+</style>
+<script src="crm-embed.js"></script>
+</head>
+<body>
+<header class="bm-header">
+  <div class="logo"><i class="fa-solid fa-industry"></i> Bluemingo MES <span style="opacity:.6;font-weight:500;">v2</span></div>
+  <div class="module-name"><i class="fa-solid fa-calendar-days" style="margin-right:4px;color:var(--color-primary);"></i>Line Schedule</div>
+  <div class="spacer"></div>
+  <div class="industry-switch">
+    <button class="active"><i class="fa-solid fa-layer-group" style="margin-right:4px"></i>Steel · CRM</button>
+    <button><i class="fa-solid fa-flask" style="margin-right:4px"></i>Process</button>
+    <button><i class="fa-solid fa-gears" style="margin-right:4px"></i>Discrete</button>
+  </div>
+  <div class="right"><i class="fa-regular fa-bell"></i><div class="avatar">RP</div></div>
+</header>
+<div class="bm-layout">
+  <aside class="bm-sidebar">
+    <div class="nav-label">Production</div>
+    <a href="production-confirmation-mockup-CRM.html"><i class="fa-solid fa-circle-check"></i>Confirmation</a>
+    <a class="active"><i class="fa-solid fa-calendar-days"></i>Line Schedule</a>
+    <a><i class="fa-solid fa-list-check"></i>Op Queue</a>
+    <a><i class="fa-solid fa-pause"></i>Holds &amp; Rework</a>
+    <div class="nav-label">Reports</div>
+    <a href="crm-gantt.html"><i class="fa-solid fa-chart-gantt"></i>Line Gantt</a>
+    <a href="crm-slitting.html"><i class="fa-solid fa-ruler-combined"></i>Slitting Patterns</a>
+    <div class="nav-label">Orders</div>
+    <a><i class="fa-solid fa-clipboard-list"></i>Open Orders</a>
+    <a><i class="fa-solid fa-chart-line"></i>Status</a>
+    <div class="nav-label">Inventory</div>
+    <a><i class="fa-solid fa-boxes-stacked"></i>Stock</a>
+    <a><i class="fa-solid fa-link"></i>Genealogy</a>
+    <div class="nav-label">Quality</div>
+    <a><i class="fa-solid fa-vial"></i>Inspections</a>
+    <div class="nav-label">Masters</div>
+    <a><i class="fa-solid fa-cogs"></i>Setup</a>
+  </aside>
+  <main class="bm-content">
+    <div class="page-bar">
+      <div>
+        <h1>CRM Line Schedule</h1>
+        <div class="crumb">Production › Line Schedule › <span id="crumb-ctx"></span></div>
+      </div>
+      <div class="actions">
+        <a class="btn btn-outline" href="crm-gantt.html"><i class="fa-solid fa-chart-gantt"></i> Open Gantt</a>
+        <button class="btn btn-primary"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-sequence</button>
+      </div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="card">
+      <div class="card-head"><i class="fa-solid fa-calendar-days"></i> Schedule — coils this shift <span class="right" id="tbl-meta"></span></div>
+      <div style="overflow-x:auto"><table class="tbl" id="sched-tbl"></table></div>
+    </div>
+  </main>
+</div>
+<script src="crm-schedule-data.js"></script>
+<script>
+  var S = window.CRM_SCHEDULE, R = window.crmSchedule(), clk = window.crmClock;
+  document.getElementById('crumb-ctx').textContent = S.plant + ' · Shift ' + S.shift + ' · ' + S.date;
+  document.getElementById('tbl-meta').textContent = S.plant + ' · ' + S.shiftTime + ' · ' + S.date;
+
+  // KPIs
+  var jobs = R.jobs;
+  var tot = jobs.reduce(function (a, j) { return a + j.qty; }, 0);
+  var slit = jobs.filter(function (j) { return j.finish === 'Slitting'; }).length;
+  var ctl = jobs.length - slit;
+  var endMax = Math.max.apply(null, jobs.map(function (j) { return j.planEnd; }));
+  var kpi = [
+    ['Coils scheduled', jobs.length, 'this shift', 'blue'],
+    ['Total tonnage', tot.toFixed(1) + ' t', 'input HRC', 'blue'],
+    ['Slitting jobs', slit, 'SPLIT → mult coils', 'amber'],
+    ['Cut-to-Length', ctl, 'SPLIT → sheets', 'green'],
+    ['Shift window', clk(0) + '–' + clk(endMax), 'plan span', 'blue']
+  ];
+  document.getElementById('kpis').innerHTML = kpi.map(function (k) {
+    return '<div class="kpi ' + k[3] + '"><div class="k">' + k[0] + '</div><div class="v">' + k[1] + '</div><div class="s">' + k[2] + '</div></div>';
+  }).join('');
+
+  // Table — each coil expands to its operation schedule (Seq · Operation · Equipment · times)
+  var bcls = { 'Confirmed': 'b-conf', 'In Process': 'b-proc', 'Charged': 'b-charge', 'Planned': 'b-plan' };
+  var ABBR = { 'Pickling': 'PKL', 'Cold Rolling': 'CR', 'Annealing': 'ANN', 'Skin-Pass': 'SP', 'Slitting': 'SLIT', 'Cut-to-Length': 'CTL' };
+  var bars = R.bars;
+  var cols = ['', 'Seq', 'Schedule', 'Coil', 'Order · Customer', 'Grade', 'Gauge (mm)', 'Width', 'Qty', 'Route (operations)', 'Window', 'Status'];
+  var head = '<thead><tr>' + cols.map(function (c) { return '<th>' + c + '</th>'; }).join('') + '</tr></thead>';
+  var body = '<tbody>' + bars.map(function (bar, i) {
+    var j = bar.job, segs = bar.segs;
+    var ps = segs[0].start, pe = segs[segs.length - 1].start + segs[segs.length - 1].dur;
+    var route = segs.map(function (s, k) {
+      return (k ? '<span class="ra"><i class="fa-solid fa-chevron-right"></i></span>' : '') +
+        '<span class="rc ' + s.cls + '" title="' + s.op + ' · ' + s.unit + '">' + (ABBR[s.op] || s.op) + '</span>';
+    }).join('');
+    return '<tr class="coil-row">' +
+      '<td><button class="exp-btn" data-exp="' + i + '" title="Show operation schedule"><i class="fa-solid fa-chevron-right"></i></button></td>' +
+      '<td class="mono hint">' + (i + 1) + '</td>' +
+      '<td class="mono strong">' + j.sched + '</td>' +
+      '<td class="mono">' + j.coil + '</td>' +
+      '<td>' + j.order + ' · <span class="hint">' + j.customer + '</span></td>' +
+      '<td class="strong">' + j.grade + '</td>' +
+      '<td class="mono">' + j.hrcThk.toFixed(2) + ' → <b>' + j.crcThk.toFixed(2) + '</b></td>' +
+      '<td class="mono">' + j.width + ' mm</td>' +
+      '<td class="mono">' + j.qty.toFixed(1) + ' t</td>' +
+      '<td><div class="route">' + route + '</div></td>' +
+      '<td class="mono">' + clk(ps) + '–' + clk(pe) + '</td>' +
+      '<td><span class="badge ' + (bcls[j.status] || 'b-plan') + '">' + j.status + '</span></td>' +
+      '</tr>';
+  }).join('') + '</tbody>';
+  var tbl = document.getElementById('sched-tbl');
+  tbl.innerHTML = head + body;
+
+  // expand a coil → its operation schedule (Seq · Operation · Equipment · Topology · Start · End · Dur)
+  tbl.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('.exp-btn') : null; if (!btn) return;
+    var i = +btn.getAttribute('data-exp'), tr = btn.closest('tr'), ic = btn.querySelector('i');
+    var nx = tr.nextElementSibling;
+    if (nx && nx.classList.contains('op-detail')) { nx.remove(); btn.classList.remove('open'); ic.className = 'fa-solid fa-chevron-right'; return; }
+    var segs = bars[i].segs, j = bars[i].job;
+    var opRows = segs.map(function (s, k) {
+      return '<tr><td class="mono">' + (k + 1) + '</td>' +
+        '<td><span class="op-dot ' + s.cls + '"></span>' + s.op + '</td>' +
+        '<td class="mono">' + s.unit + '</td>' +
+        '<td><span class="topo-pill' + (s.topo === 'SPLIT' ? ' split' : '') + '">' + s.topo + '</span></td>' +
+        '<td class="mono">' + clk(s.start) + '</td>' +
+        '<td class="mono">' + clk(s.start + s.dur) + '</td>' +
+        '<td class="mono">' + s.dur + ' min</td></tr>';
+    }).join('');
+    var det = document.createElement('tr'); det.className = 'op-detail';
+    det.innerHTML = '<td colspan="' + cols.length + '"><div class="op-wrap">' +
+      '<div class="op-sub"><i class="fa-solid fa-diagram-project"></i> Operation schedule — ' + j.coil + ' · ' + segs.length + ' ops · routing derived from BOM/routing (not user-reorderable)</div>' +
+      '<table class="op-tbl"><thead><tr><th>Seq</th><th>Operation</th><th>Equipment</th><th>Topology</th><th>Planned Start</th><th>Planned End</th><th>Duration</th></tr></thead><tbody>' + opRows + '</tbody></table>' +
+      '</div></td>';
+    tr.after(det); btn.classList.add('open'); ic.className = 'fa-solid fa-chevron-down';
+  });
+</script>
+</body>
+</html>
