@@ -55,7 +55,8 @@
   .g-track { position:relative; flex:1; }
   .g-tick { position:absolute; top:0; bottom:0; border-left:1px solid var(--color-border-light); font-size:9px; color:var(--color-text-hint); padding-left:3px; }
   .g-bar { position:absolute; top:5px; height:26px; border-radius:5px; color:#fff; font-size:10px; font-weight:600; display:flex; align-items:center; padding:0 7px; overflow:hidden; white-space:nowrap; box-shadow:0 1px 3px rgba(0,0,0,.18); cursor:default; }
-  .g-pkl{background:#26a69a;} .g-tcm{background:#25A9E0;} .g-cal{background:#f57c00;} .g-spm{background:#7e57c2;} .g-slt{background:#ab47bc;} .g-ctl{background:#66bb6a;}
+  .g-pkl{background:#26a69a;} .g-tcm{background:#25A9E0;} .g-ecl{background:#5c6bc0;} .g-cal{background:#f57c00;} .g-baf{background:#ff7043;} .g-spm{background:#7e57c2;} .g-gal{background:#78909c;} .g-ccl{background:#ec407a;} .g-slt{background:#ab47bc;} .g-ctl{background:#66bb6a;}
+  .g-lane .eqp-b { font:700 8px 'Roboto'; letter-spacing:.3px; color:#e65100; background:#fff3e0; border-radius:3px; padding:1px 4px; margin-left:auto; }
   .g-legend { display:flex; flex-wrap:wrap; gap:14px; margin-top:10px; font-size:11.5px; color:var(--color-text-secondary); }
   .g-legend .lg { display:flex; align-items:center; gap:5px; }
   .g-legend .sw { width:16px; height:12px; border-radius:3px; }
@@ -111,7 +112,7 @@
       <div class="card-body">
         <div class="gantt" id="gantt"></div>
         <div class="g-legend" id="legend"></div>
-        <div class="note"><i class="fa-solid fa-circle-info"></i> Each coil flows Pickling → Tandem Cold Mill → Continuous Anneal → Skin-Pass → finishing (Slitting or Cut-to-Length). Bars are coloured by operation; each unit processes one coil at a time.</div>
+        <div class="note"><i class="fa-solid fa-circle-info"></i> Each coil flows Pickling → Cold Rolling → Electro-Cleaning → Annealing (Continuous CAL or Batch BAF) → Skin-Pass → optional coating (Galvanizing → Colour Coating for GI/PPGI) → finishing (Slitting or Cut-to-Length). Bars are coloured by operation; each unit processes one coil at a time.</div>
       </div>
     </div>
   </main>
@@ -137,20 +138,28 @@
   var html = '<div class="g-row head"><div class="g-lane">Unit</div><div class="g-track" style="min-width:' + trackW + 'px">' + ticksHtml(true) + '</div></div>';
   R.units.forEach(function (u) {
     var segs = byUnit[u], dotCls = (segs[0] && segs[0].cls) || '';
+    var isBatch = segs[0] && segs[0].eqp === 'BATCH';
     var t = ticksHtml(false);
     segs.forEach(function (s) {
       t += '<div class="g-bar ' + s.cls + '" style="left:' + (s.start * px) + 'px;width:' + Math.max(s.dur * px - 2, 20) + 'px" ' +
         'title="' + s.coil + ' · ' + s.op + ' · ' + clk(s.start) + '–' + clk(s.start + s.dur) + '">' + s.coil.replace('CRC-A-', '') + '</div>';
     });
-    html += '<div class="g-row"><div class="g-lane"><span class="dot ' + dotCls + '"></span>' + u + '</div>' +
+    html += '<div class="g-row"><div class="g-lane"><span class="dot ' + dotCls + '"></span>' + u +
+      (isBatch ? '<span class="eqp-b">BATCH</span>' : '') + '</div>' +
       '<div class="g-track" style="min-width:' + trackW + 'px">' + t + '</div></div>';
   });
   document.getElementById('gantt').innerHTML = html;
 
-  // legend (operation colours)
-  var ops = S.route.concat([S.finish['Slitting'], S.finish['Cut-to-Length']]);
-  document.getElementById('legend').innerHTML = ops.map(function (o) {
-    return '<span class="lg"><span class="sw ' + o.cls + '"></span>' + o.op + '</span>';
+  // legend (operation colours) — full production route
+  var legendOps = [
+    { label: 'Pickling', cls: 'g-pkl' }, { label: 'Cold Rolling', cls: 'g-tcm' },
+    { label: 'Electro-Cleaning', cls: 'g-ecl' }, { label: 'Anneal — Continuous (CAL)', cls: 'g-cal' },
+    { label: 'Anneal — Batch (BAF)', cls: 'g-baf' }, { label: 'Skin-Pass', cls: 'g-spm' },
+    { label: 'Galvanizing', cls: 'g-gal' }, { label: 'Colour Coating', cls: 'g-ccl' },
+    { label: 'Slitting', cls: 'g-slt' }, { label: 'Cut-to-Length', cls: 'g-ctl' }
+  ];
+  document.getElementById('legend').innerHTML = legendOps.map(function (o) {
+    return '<span class="lg"><span class="sw ' + o.cls + '"></span>' + o.label + '</span>';
   }).join('');
 </script>
 </body>
