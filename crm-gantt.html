@@ -148,7 +148,10 @@
   R.bars.forEach(function (b) { b.segs.forEach(function (s) { byUnit[s.unit].push(Object.assign({ coil: b.job.coil }, s)); }); });
   var endMax = 0; R.bars.forEach(function (b) { b.segs.forEach(function (s) { endMax = Math.max(endMax, s.start + s.dur); }); });
 
-  var tick = 30, total = Math.ceil((endMax + 8) / tick) * tick, px = 3.4;
+  var tick = 30, total = Math.ceil((endMax + 8) / tick) * tick;
+  // Fit the whole time span into the visible width so more of the plan shows without scrolling.
+  var laneW = 180, gW = document.getElementById('gantt').clientWidth || 1400;
+  var px = Math.max(1.8, Math.min(3.4, (gW - laneW - 40) / total));   // -40 leaves room for the last time label
   function ticksHtml(withLabels) {
     var h = '';
     for (var m = 0; m <= total; m += tick) h += '<div class="g-tick" style="left:' + (m * px) + 'px">' + (withLabels ? clk(m) : '') + '</div>';
