@@ -1,19 +1,19 @@
 /* ============================================================
    CRM (Cold Rolling Mill) — shared dummy line schedule.
-   Consumed by crm-schedule.html (table) and crm-gantt.html (Gantt) so both
-   show the SAME jobs and the SAME computed times.
+   Consumed by crm-schedule.html (table), crm-gantt.html (Gantt) and
+   crm-slitting.html (report) so all show the SAME jobs / computed times.
 
    Full route (production operations only — no QA/inspection steps):
      Pickling -> Cold Rolling -> Electro-Cleaning -> Annealing (CAL | BAF)
-     -> Skin-Pass -> [Galvanizing -> Colour Coating]  -> finish (Slitting | Cut-to-Length)
-   The coating leg is product-driven:
-     CRCA = uncoated, GI = hot-dip galvanized, PPGI = pre-painted galvanized.
-   Annealing is per-coil either Continuous (CAL) or Batch furnace (BAF) — the
-   BAF block is long and marks a BATCH-type unit vs the CONTINUOUS lines.
+     -> Skin-Pass -> [Galvanizing -> Colour Coating] -> finish (Slitting | Cut-to-Length)
+   Coating leg is product-driven: CRCA = uncoated, GI = galvanized, PPGI = pre-painted.
+   Annealing is per coil Continuous (CAL) or Batch furnace (BAF, a long BATCH block).
+
+   The job list is GENERATED to fill a full production day (3 shifts, ~24 h).
    ============================================================ */
 window.CRM_SCHEDULE = {
   plant: 'Integrated Steel Works — Cold Rolling Mill (CRM)',
-  shift: 'A', shiftTime: '06:00 – 14:00', date: '11 May 2026',
+  shift: 'A–C', shiftTime: '06:00 → 06:00 (full day)', date: '11 May 2026',
   baseMin: 6 * 60,                 // 06:00, in minutes-of-day
   buffer: 4,                       // transfer/buffer minutes between ops
 
@@ -41,26 +41,55 @@ window.CRM_SCHEDULE = {
     'Cut-to-Length': { op: 'Cut-to-Length', unit: 'Cut-to-Length CTL-1', min: 24, topo: 'SPLIT', eqp: 'CONTINUOUS', cls: 'g-ctl' }
   },
 
-  // 8 dummy coils moving through the mill this shift.
+  // A full day of coils moving through the mill (deterministic — same on every load).
   //   product = CRCA | GI | PPGI ;  anneal = CAL | BAF
-  jobs: [
-    { sched: 'CRM-SCH-2401', coil: 'CRC-A-2270', order: 'SO-2026-0502-11', customer: 'Continental Motors',      grade: 'DC04', product: 'CRCA', anneal: 'CAL', hrcThk: 2.80, crcThk: 0.70, width: 1250, qty: 26.2, finish: 'Cut-to-Length', status: 'Confirmed' },
-    { sched: 'CRM-SCH-2402', coil: 'CRC-A-2271', order: 'SO-2026-0502-12', customer: 'Zenith Auto',             grade: 'DC01', product: 'GI',   anneal: 'CAL', hrcThk: 2.50, crcThk: 0.80, width: 1250, qty: 24.8, finish: 'Slitting',      status: 'In Process', slit: { edge: 25, strips: [600, 600] } },
-    { sched: 'CRM-SCH-2403', coil: 'CRC-A-2272', order: 'SO-2026-0502-13', customer: 'Apex Heavy Engineering',  grade: 'DC03', product: 'CRCA', anneal: 'BAF', hrcThk: 3.00, crcThk: 1.20, width: 1180, qty: 27.5, finish: 'Cut-to-Length', status: 'In Process' },
-    { sched: 'CRM-SCH-2404', coil: 'CRC-A-2273', order: 'SO-2026-0502-15', customer: 'National Power Equipment', grade: 'DC01', product: 'GI',   anneal: 'CAL', hrcThk: 2.50, crcThk: 0.60, width: 1000, qty: 20.4, finish: 'Slitting',      status: 'Charged', slit: { edge: 20, strips: [480, 480] } },
-    { sched: 'CRM-SCH-2405', coil: 'CRC-A-2274', order: 'SO-2026-0502-14', customer: 'Metro Structural Traders', grade: 'DC01', product: 'PPGI', anneal: 'CAL', hrcThk: 2.50, crcThk: 0.80, width: 1250, qty: 24.0, finish: 'Slitting',      status: 'Charged', slit: { edge: 25, strips: [400, 400, 400] } },
-    { sched: 'CRM-SCH-2406', coil: 'CRC-A-2275', order: 'SO-2026-0502-18', customer: 'Pioneer Appliances',      grade: 'DC06', product: 'PPGI', anneal: 'CAL', hrcThk: 2.20, crcThk: 0.50, width: 1050, qty: 18.9, finish: 'Slitting',      status: 'Charged', slit: { edge: 15, strips: [340, 340, 340] } },
-    { sched: 'CRM-SCH-2407', coil: 'CRC-A-2276', order: 'SO-2026-0502-19', customer: 'Summit Projects',         grade: 'DC04', product: 'GI',   anneal: 'CAL', hrcThk: 2.80, crcThk: 1.00, width: 1250, qty: 26.0, finish: 'Cut-to-Length', status: 'Planned' },
-    { sched: 'CRM-SCH-2408', coil: 'CRC-A-2277', order: 'SO-2026-0502-21', customer: 'Vulcan Forge',            grade: 'DC03', product: 'CRCA', anneal: 'BAF', hrcThk: 3.00, crcThk: 1.50, width: 900,  qty: 22.3, finish: 'Cut-to-Length', status: 'Planned' },
-    { sched: 'CRM-SCH-2409', coil: 'CRC-A-2278', order: 'SO-2026-0503-04', customer: 'Zenith Auto',             grade: 'DC04', product: 'GI',   anneal: 'CAL', hrcThk: 2.80, crcThk: 0.90, width: 1200, qty: 25.5, finish: 'Slitting',      status: 'In Process', slit: { edge: 20, strips: [580, 580] } },
-    { sched: 'CRM-SCH-2410', coil: 'CRC-A-2279', order: 'SO-2026-0503-06', customer: 'Harbor Fabricators',      grade: 'DC01', product: 'CRCA', anneal: 'CAL', hrcThk: 2.50, crcThk: 0.70, width: 1000, qty: 19.8, finish: 'Cut-to-Length', status: 'Charged' },
-    { sched: 'CRM-SCH-2411', coil: 'CRC-A-2280', order: 'SO-2026-0503-09', customer: 'Pioneer Appliances',      grade: 'DC06', product: 'PPGI', anneal: 'CAL', hrcThk: 2.20, crcThk: 0.55, width: 1250, qty: 23.7, finish: 'Slitting',      status: 'Charged', slit: { edge: 25, strips: [380, 420, 400] } },
-    { sched: 'CRM-SCH-2412', coil: 'CRC-A-2281', order: 'SO-2026-0503-10', customer: 'Apex Heavy Engineering',  grade: 'DC03', product: 'GI',   anneal: 'BAF', hrcThk: 3.00, crcThk: 1.10, width: 1180, qty: 26.8, finish: 'Cut-to-Length', status: 'Charged' },
-    { sched: 'CRM-SCH-2413', coil: 'CRC-A-2282', order: 'SO-2026-0503-12', customer: 'National Power Equipment', grade: 'DC01', product: 'GI',   anneal: 'CAL', hrcThk: 2.50, crcThk: 0.65, width: 1050, qty: 20.1, finish: 'Slitting',      status: 'Planned', slit: { edge: 25, strips: [500, 500] } },
-    { sched: 'CRM-SCH-2414', coil: 'CRC-A-2283', order: 'SO-2026-0503-14', customer: 'Summit Projects',         grade: 'DC04', product: 'CRCA', anneal: 'CAL', hrcThk: 2.80, crcThk: 0.95, width: 1250, qty: 25.9, finish: 'Cut-to-Length', status: 'Planned' },
-    { sched: 'CRM-SCH-2415', coil: 'CRC-A-2284', order: 'SO-2026-0503-16', customer: 'Metro Structural Traders', grade: 'DC06', product: 'PPGI', anneal: 'CAL', hrcThk: 2.20, crcThk: 0.50, width: 1080, qty: 18.5, finish: 'Slitting',      status: 'Planned', slit: { edge: 15, strips: [350, 350, 350] } },
-    { sched: 'CRM-SCH-2416', coil: 'CRC-A-2285', order: 'SO-2026-0503-19', customer: 'Vulcan Forge',            grade: 'DC03', product: 'CRCA', anneal: 'BAF', hrcThk: 3.00, crcThk: 1.40, width: 900,  qty: 21.6, finish: 'Cut-to-Length', status: 'Planned' }
-  ]
+  jobs: (function () {
+    var CUSTOMERS = ['Continental Motors', 'Zenith Auto', 'Apex Heavy Engineering', 'National Power Equipment',
+                     'Metro Structural Traders', 'Pioneer Appliances', 'Summit Projects', 'Vulcan Forge',
+                     'Harbor Fabricators', 'Crestline Industries', 'Ironbridge Works', 'Delta Coil Traders'];
+    var GRADES   = ['DC01', 'DC03', 'DC04', 'DC06'];
+    var WIDTHS   = [900, 1000, 1050, 1180, 1250];
+    var GAUGE    = [0.50, 0.60, 0.70, 0.80, 0.90, 1.00, 1.20, 1.50];
+    var HRC      = [2.20, 2.50, 2.80, 3.00];
+    var PRODUCTS = ['CRCA', 'GI', 'PPGI', 'GI', 'CRCA', 'GI', 'PPGI', 'CRCA', 'GI', 'CRCA'];
+    var N = 48, jobs = [];
+    function slitFor(width, i) {
+      var edge = width >= 1200 ? 25 : (width >= 1050 ? 20 : 15);
+      var usable = width - 2 * edge, n = (i % 3 === 0) ? 3 : 2, w = Math.round(usable / n);
+      var strips = [], sum = 0, k;
+      for (k = 0; k < n - 1; k++) { strips.push(w); sum += w; }
+      strips.push(usable - sum);          // last strip takes the remainder -> sum == usable exactly
+      return { edge: edge, strips: strips };
+    }
+    function statusFor(i) {
+      if (i < N * 0.12) return 'Confirmed';
+      if (i < N * 0.28) return 'In Process';
+      if (i < N * 0.55) return 'Charged';
+      return 'Planned';
+    }
+    for (var i = 0; i < N; i++) {
+      var width = WIDTHS[i % WIDTHS.length];
+      var finish = (i % 2 === 0) ? 'Cut-to-Length' : 'Slitting';
+      var job = {
+        sched: 'CRM-SCH-' + (2401 + i),
+        coil: 'CRC-A-' + (2270 + i),
+        order: 'SO-2026-050' + (2 + Math.floor(i / 8)) + '-' + (11 + (i % 8)),
+        customer: CUSTOMERS[i % CUSTOMERS.length],
+        grade: GRADES[i % GRADES.length],
+        product: PRODUCTS[i % PRODUCTS.length],
+        anneal: (i % 6 === 5) ? 'BAF' : 'CAL',
+        hrcThk: HRC[i % HRC.length],
+        crcThk: GAUGE[i % GAUGE.length],
+        width: width,
+        qty: (180 + (i * 37) % 115) / 10,   // 18.0 – 29.4 t, deterministic spread
+        finish: finish,
+        status: statusFor(i)
+      };
+      if (finish === 'Slitting') job.slit = slitFor(width, i);
+      jobs.push(job);
+    }
+    return jobs;
+  })()
 };
 
 /* Build the ordered operation list a given coil runs through. */
@@ -101,7 +130,7 @@ window.crmSchedule = function () {
   return { units: units, bars: bars, jobs: jobs };
 };
 
-/* 06:00-based HH:MM for a minute offset. */
+/* 06:00-based HH:MM for a minute offset (wraps past midnight). */
 window.crmClock = function (mins) {
   var m = (window.CRM_SCHEDULE.baseMin + Math.round(mins)) % 1440;
   return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
