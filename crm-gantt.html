@@ -151,7 +151,7 @@
   var tick = 30, total = Math.ceil((endMax + 8) / tick) * tick;
   // Fit the whole time span into the visible width so more of the plan shows without scrolling.
   var laneW = 180, gW = document.getElementById('gantt').clientWidth || 1400;
-  var px = Math.max(1.8, Math.min(3.4, (gW - laneW - 40) / total));   // -40 leaves room for the last time label
+  var px = Math.max(1.2, Math.min(1.7, (gW - laneW - 40) / total));   // cap 1.7 = half the old 3.4 (30-min column width halved); shrinks further to fit narrow windows
   function ticksHtml(withLabels) {
     var h = '';
     for (var m = 0; m <= total; m += tick) h += '<div class="g-tick" style="left:' + (m * px) + 'px">' + (withLabels ? clk(m) : '') + '</div>';
