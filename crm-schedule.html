@@ -156,6 +156,19 @@
   document.getElementById('crumb-ctx').textContent = S.plant + ' · Shift ' + S.shift + ' · ' + S.date;
   document.getElementById('tbl-meta').textContent = S.plant + ' · ' + S.shiftTime + ' · ' + S.date;
 
+  // Colour per operation class + fallback palette, so any new operation is coloured too.
+  var CLR = {
+    'g-pkl': '#26a69a', 'g-tcm': '#25A9E0', 'g-ecl': '#5c6bc0', 'g-cal': '#f57c00', 'g-baf': '#ff7043',
+    'g-spm': '#7e57c2', 'g-gal': '#78909c', 'g-ccl': '#ec407a', 'g-slt': '#ab47bc', 'g-ctl': '#66bb6a'
+  };
+  var FALLBACK = ['#8d6e63', '#26c6da', '#9ccc65', '#ffa726', '#42a5f5', '#d4e157', '#ba68c8', '#4db6ac', '#a1887f', '#7986cb'];
+  var _fc = {}, _fn = 0;
+  function colorFor(cls) {
+    if (CLR[cls]) return CLR[cls];
+    if (!(cls in _fc)) { _fc[cls] = FALLBACK[_fn % FALLBACK.length]; _fn++; }
+    return _fc[cls];
+  }
+
   // KPIs
   var jobs = R.jobs;
   var tot = jobs.reduce(function (a, j) { return a + j.qty; }, 0);
@@ -185,7 +198,7 @@
     var ps = segs[0].start, pe = segs[segs.length - 1].start + segs[segs.length - 1].dur;
     var route = segs.map(function (s, k) {
       return (k ? '<span class="ra"><i class="fa-solid fa-chevron-right"></i></span>' : '') +
-        '<span class="rc ' + s.cls + '" title="' + s.op + ' · ' + s.unit + '">' + (ABBR[s.op] || s.op) + '</span>';
+        '<span class="rc" style="background:' + colorFor(s.cls) + '" title="' + s.op + ' · ' + s.unit + '">' + (ABBR[s.op] || s.op) + '</span>';
     }).join('');
     return '<tr class="coil-row">' +
       '<td><button class="exp-btn" data-exp="' + i + '" title="Show operation schedule"><i class="fa-solid fa-chevron-right"></i></button></td>' +
@@ -214,7 +227,7 @@
     var segs = bars[i].segs, j = bars[i].job;
     var opRows = segs.map(function (s, k) {
       return '<tr><td class="mono">' + (k + 1) + '</td>' +
-        '<td><span class="op-dot ' + s.cls + '"></span>' + s.op + '</td>' +
+        '<td><span class="op-dot" style="background:' + colorFor(s.cls) + '"></span>' + s.op + '</td>' +
         '<td class="mono">' + s.unit + (s.eqp === 'BATCH' ? '<span class="eqp-batch">batch</span>' : '') + '</td>' +
         '<td><span class="topo-pill' + (s.topo === 'SPLIT' ? ' split' : '') + '">' + s.topo + '</span></td>' +
         '<td class="mono">' + clk(s.start) + '</td>' +

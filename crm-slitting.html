@@ -78,7 +78,8 @@
   .slit-bar-row .lbl { width:44px; color:var(--color-text-secondary); }
   .slit-bar-row .track { flex:1; height:14px; background:var(--color-bg); border-radius:7px; overflow:hidden; }
   .slit-bar-row .fill { height:100%; background:linear-gradient(90deg,#3fb6ea,#25A9E0); border-radius:7px; }
-  .slit-bar-row .val { width:52px; text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }
+  .slit-bar-row .val { width:104px; text-align:right; font-variant-numeric:tabular-nums; font-weight:600; white-space:nowrap; }
+  .slit-bar-row .val .t { color:var(--color-primary-dark); font-weight:700; }
   .slit-yield .big { font-size:26px; font-weight:700; color:var(--color-success); font-variant-numeric:tabular-nums; }
   .slit-yield .y-bar { height:16px; border-radius:8px; display:flex; overflow:hidden; margin:6px 0 8px; border:1px solid var(--color-border); }
   .slit-yield .y-used { background:linear-gradient(90deg,#43a047,#66bb6a); } .slit-yield .y-trim { background:#cfd8dc; }
@@ -138,21 +139,29 @@
   document.getElementById('crumb-ctx').textContent = S.plant + ' · Shift ' + S.shift + ' · ' + S.date;
 
   function calc(j) {
-    var strips = j.slit.strips.map(function (w, i) { return { id: 'S' + (i + 1), w: w }; });
+    var master = j.width, edge = j.slit.edge, wt = j.qty, density = 7850;   // wt = master coil weight (t)
+    // Uniform thickness + length across the coil width, so tonnage splits by width fraction.
+    var strips = j.slit.strips.map(function (w, i) { return { id: 'S' + (i + 1), w: w, t: wt * w / master }; });
     var used = strips.reduce(function (a, s) { return a + s.w; }, 0);
-    return { strips: strips, master: j.width, edge: j.slit.edge, used: used, trim: j.width - used, y: used / j.width * 100 };
+    var trim = master - used, y = used / master * 100;
+    var tOut = wt * used / master, tTrim = wt - tOut;
+    var lengthM = wt * 1e9 / (master * j.crcThk * density);   // W = width·thickness·L·density  ->  L
+    return { strips: strips, master: master, edge: edge, used: used, trim: trim, y: y, wt: wt, tOut: tOut, tTrim: tTrim, lengthM: lengthM };
   }
 
   // KPIs
   var stats = jobs.map(calc);
   var totalCoils = stats.reduce(function (a, s) { return a + s.strips.length; }, 0);
   var avgY = stats.reduce(function (a, s) { return a + s.y; }, 0) / stats.length;
+  var tIn = stats.reduce(function (a, s) { return a + s.wt; }, 0);
+  var tOut = stats.reduce(function (a, s) { return a + s.tOut; }, 0);
+  var tTrim = stats.reduce(function (a, s) { return a + s.tTrim; }, 0);
   var kpi = [
-    ['Slitting jobs', jobs.length, 'master coils in', 'purple'],
-    ['Slit coils out', totalCoils, 'SPLIT · mult coils', 'purple'],
-    ['Avg width yield', avgY.toFixed(1) + '%', 'across jobs', 'green'],
-    ['Side-trim (scrap)', (100 - avgY).toFixed(1) + '%', 'avg edge loss', 'amber'],
-    ['Report scope', 'Shift ' + S.shift, S.date, '']
+    ['Slitting jobs', jobs.length, totalCoils + ' slit coils out', 'purple'],
+    ['Master tonnage in', tIn.toFixed(1) + ' t', jobs.length + ' coils', 'purple'],
+    ['Slit output', tOut.toFixed(1) + ' t', 'strips shipped', 'green'],
+    ['Side-trim scrap', tTrim.toFixed(2) + ' t', (100 - avgY).toFixed(1) + '% edge loss', 'amber'],
+    ['Avg yield', avgY.toFixed(1) + '%', 'width = mass yield', 'green']
   ];
   document.getElementById('kpis').innerHTML = kpi.map(function (k) {
     return '<div class="kpi ' + k[3] + '"><div class="k">' + k[0] + '</div><div class="v">' + k[1] + '</div><div class="s">' + k[2] + '</div></div>';
@@ -171,10 +180,10 @@
 
     var maxW = Math.max.apply(null, c.strips.map(function (s) { return s.w; }));
     var stripBars = c.strips.map(function (s) {
-      return '<div class="slit-bar-row"><span class="lbl">' + s.id + '</span><span class="track"><span class="fill" style="width:' + (s.w / maxW * 100) + '%"></span></span><span class="val">' + s.w + ' mm</span></div>';
-    }).join('') + '<div class="slit-bar-row"><span class="lbl" style="color:#607d8b">Trim</span><span class="track"><span class="fill" style="width:' + (c.trim / maxW * 100) + '%;background:#cfd8dc"></span></span><span class="val">' + c.trim + ' mm</span></div>';
+      return '<div class="slit-bar-row"><span class="lbl">' + s.id + '</span><span class="track"><span class="fill" style="width:' + (s.w / maxW * 100) + '%"></span></span><span class="val">' + s.w + ' mm · <span class="t">' + s.t.toFixed(1) + ' t</span></span></div>';
+    }).join('') + '<div class="slit-bar-row"><span class="lbl" style="color:#607d8b">Trim</span><span class="track"><span class="fill" style="width:' + (c.trim / maxW * 100) + '%;background:#cfd8dc"></span></span><span class="val">' + c.trim + ' mm · ' + c.tTrim.toFixed(2) + ' t</span></div>';
 
-    var master_info = [['Order', j.order], ['Customer', j.customer], ['Master width', master + ' mm'], ['Thickness', j.crcThk.toFixed(2) + ' mm'], ['Edge trim', c.edge + ' mm × 2'], ['Slit coils', stripLabel]]
+    var master_info = [['Order', j.order], ['Customer', j.customer], ['Master width', master + ' mm'], ['Thickness', j.crcThk.toFixed(2) + ' mm'], ['Coil weight', c.wt.toFixed(1) + ' t'], ['Coil length', Math.round(c.lengthM) + ' m'], ['Edge trim', c.edge + ' mm × 2'], ['Slit coils', stripLabel]]
       .map(function (x) { return '<div class="m-item"><span class="m-k">' + x[0] + '</span><span class="m-v">' + x[1] + '</span></div>'; }).join('');
 
     return '<div class="card">' +
@@ -188,10 +197,10 @@
           '<div><div class="slit-sub">Slit strip widths</div>' + stripBars + '</div>' +
           '<div><div class="slit-sub">Material yield</div><div class="slit-yield">' +
             '<div class="big">' + c.y.toFixed(1) + '%</div>' +
-            '<div style="font-size:11px;color:var(--color-text-hint)">width utilised (' + c.used + ' of ' + master + ' mm)</div>' +
+            '<div style="font-size:11px;color:var(--color-text-hint)">width utilised (' + c.used + ' of ' + master + ' mm) → <b>' + c.tOut.toFixed(1) + ' t</b> of ' + c.wt.toFixed(1) + ' t</div>' +
             '<div class="y-bar"><div class="y-used" style="width:' + c.y + '%"></div><div class="y-trim" style="width:' + (100 - c.y) + '%"></div></div>' +
-            '<div class="y-legend"><span><span class="y-sw" style="background:#66bb6a"></span>Strips ' + c.used + ' mm · ' + c.y.toFixed(1) + '%</span>' +
-            '<span><span class="y-sw" style="background:#cfd8dc"></span>Side-trim ' + c.trim + ' mm · ' + (100 - c.y).toFixed(1) + '%</span></div>' +
+            '<div class="y-legend"><span><span class="y-sw" style="background:#66bb6a"></span>Strips ' + c.used + ' mm · ' + c.y.toFixed(1) + '% · ' + c.tOut.toFixed(1) + ' t</span>' +
+            '<span><span class="y-sw" style="background:#cfd8dc"></span>Side-trim ' + c.trim + ' mm · ' + (100 - c.y).toFixed(1) + '% · ' + c.tTrim.toFixed(2) + ' t</span></div>' +
           '</div></div>' +
         '</div>' +
       '</div></div>';

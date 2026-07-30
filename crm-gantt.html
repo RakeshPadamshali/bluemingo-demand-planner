@@ -123,6 +123,26 @@
   document.getElementById('crumb-ctx').textContent = S.plant + ' · Shift ' + S.shift + ' · ' + S.date;
   document.getElementById('g-meta').textContent = R.jobs.length + ' coils · ' + R.units.length + ' units · ' + S.shiftTime;
 
+  // Colour + label per operation class. Fallback palette guarantees ANY new
+  // process (a cls with no explicit colour) still renders coloured, in both bars
+  // and legend — so adding an operation never leaves a blank/white bar.
+  var CLR = {
+    'g-pkl': '#26a69a', 'g-tcm': '#25A9E0', 'g-ecl': '#5c6bc0', 'g-cal': '#f57c00', 'g-baf': '#ff7043',
+    'g-spm': '#7e57c2', 'g-gal': '#78909c', 'g-ccl': '#ec407a', 'g-slt': '#ab47bc', 'g-ctl': '#66bb6a'
+  };
+  var LABELS = {
+    'g-pkl': 'Pickling', 'g-tcm': 'Cold Rolling', 'g-ecl': 'Electro-Cleaning',
+    'g-cal': 'Anneal — Continuous (CAL)', 'g-baf': 'Anneal — Batch (BAF)', 'g-spm': 'Skin-Pass',
+    'g-gal': 'Galvanizing', 'g-ccl': 'Colour Coating', 'g-slt': 'Slitting', 'g-ctl': 'Cut-to-Length'
+  };
+  var FALLBACK = ['#8d6e63', '#26c6da', '#9ccc65', '#ffa726', '#42a5f5', '#d4e157', '#ba68c8', '#4db6ac', '#a1887f', '#7986cb'];
+  var _fc = {}, _fn = 0;
+  function colorFor(cls) {
+    if (CLR[cls]) return CLR[cls];
+    if (!(cls in _fc)) { _fc[cls] = FALLBACK[_fn % FALLBACK.length]; _fn++; }
+    return _fc[cls];
+  }
+
   // group segments by unit
   var byUnit = {}; R.units.forEach(function (u) { byUnit[u] = []; });
   R.bars.forEach(function (b) { b.segs.forEach(function (s) { byUnit[s.unit].push(Object.assign({ coil: b.job.coil }, s)); }); });
@@ -141,25 +161,20 @@
     var isBatch = segs[0] && segs[0].eqp === 'BATCH';
     var t = ticksHtml(false);
     segs.forEach(function (s) {
-      t += '<div class="g-bar ' + s.cls + '" style="left:' + (s.start * px) + 'px;width:' + Math.max(s.dur * px - 2, 20) + 'px" ' +
+      t += '<div class="g-bar" style="left:' + (s.start * px) + 'px;width:' + Math.max(s.dur * px - 2, 20) + 'px;background:' + colorFor(s.cls) + '" ' +
         'title="' + s.coil + ' · ' + s.op + ' · ' + clk(s.start) + '–' + clk(s.start + s.dur) + '">' + s.coil.replace('CRC-A-', '') + '</div>';
     });
-    html += '<div class="g-row"><div class="g-lane"><span class="dot ' + dotCls + '"></span>' + u +
+    html += '<div class="g-row"><div class="g-lane"><span class="dot" style="background:' + colorFor(dotCls) + '"></span>' + u +
       (isBatch ? '<span class="eqp-b">BATCH</span>' : '') + '</div>' +
       '<div class="g-track" style="min-width:' + trackW + 'px">' + t + '</div></div>';
   });
   document.getElementById('gantt').innerHTML = html;
 
-  // legend (operation colours) — full production route
-  var legendOps = [
-    { label: 'Pickling', cls: 'g-pkl' }, { label: 'Cold Rolling', cls: 'g-tcm' },
-    { label: 'Electro-Cleaning', cls: 'g-ecl' }, { label: 'Anneal — Continuous (CAL)', cls: 'g-cal' },
-    { label: 'Anneal — Batch (BAF)', cls: 'g-baf' }, { label: 'Skin-Pass', cls: 'g-spm' },
-    { label: 'Galvanizing', cls: 'g-gal' }, { label: 'Colour Coating', cls: 'g-ccl' },
-    { label: 'Slitting', cls: 'g-slt' }, { label: 'Cut-to-Length', cls: 'g-ctl' }
-  ];
-  document.getElementById('legend').innerHTML = legendOps.map(function (o) {
-    return '<span class="lg"><span class="sw ' + o.cls + '"></span>' + o.label + '</span>';
+  // legend — derived from the data (flow order), so any new operation appears automatically
+  var seen = {}, legendOrder = [];
+  R.bars.forEach(function (b) { b.segs.forEach(function (s) { if (!seen[s.cls]) { seen[s.cls] = s.op; legendOrder.push(s.cls); } }); });
+  document.getElementById('legend').innerHTML = legendOrder.map(function (cls) {
+    return '<span class="lg"><span class="sw" style="background:' + colorFor(cls) + '"></span>' + (LABELS[cls] || seen[cls]) + '</span>';
   }).join('');
 </script>
 </body>

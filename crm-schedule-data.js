@@ -15,30 +15,30 @@ window.CRM_SCHEDULE = {
   plant: 'Integrated Steel Works — Cold Rolling Mill (CRM)',
   shift: 'A', shiftTime: '06:00 – 14:00', date: '11 May 2026',
   baseMin: 6 * 60,                 // 06:00, in minutes-of-day
-  buffer: 5,                       // transfer/buffer minutes between ops
+  buffer: 4,                       // transfer/buffer minutes between ops
 
   // Common pre-anneal route (every coil): {op, unit(lane), minutes, topology, equipment type, css}
   route: [
-    { op: 'Pickling',        unit: 'Pickling Line PL-1',         min: 42, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-pkl' },
-    { op: 'Cold Rolling',    unit: 'Tandem Cold Mill TCM-1',     min: 30, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-tcm' },
-    { op: 'Electro-Cleaning', unit: 'Electro-Cleaning Line ECL-1', min: 16, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-ecl' }
+    { op: 'Pickling',        unit: 'Pickling Line PL-1',         min: 26, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-pkl' },
+    { op: 'Cold Rolling',    unit: 'Tandem Cold Mill TCM-1',     min: 24, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-tcm' },
+    { op: 'Electro-Cleaning', unit: 'Electro-Cleaning Line ECL-1', min: 20, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-ecl' }
   ],
   // Annealing — each coil takes ONE of these (continuous line or batch furnace):
   anneal: {
-    CAL: { op: 'Annealing', unit: 'Continuous Anneal CAL-1', min: 26, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-cal' },
-    BAF: { op: 'Annealing', unit: 'Batch Anneal BAF-1',      min: 82, topo: 'TRANSFORM', eqp: 'BATCH',      cls: 'g-baf' }
+    CAL: { op: 'Annealing', unit: 'Continuous Anneal CAL-1', min: 24, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-cal' },
+    BAF: { op: 'Annealing', unit: 'Batch Anneal BAF-1',      min: 60, topo: 'TRANSFORM', eqp: 'BATCH',      cls: 'g-baf' }
   },
   skinPass: { op: 'Skin-Pass', unit: 'Skin-Pass Mill SPM-1', min: 20, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-spm' },
   // Coating ops inserted per product (after Skin-Pass, before finishing):
   coating: {
-    'Galvanizing':    { op: 'Galvanizing',    unit: 'Galvanizing Line CGL-1',   min: 34, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-gal' },
-    'Colour Coating': { op: 'Colour Coating', unit: 'Colour Coating Line CCL-1', min: 30, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-ccl' }
+    'Galvanizing':    { op: 'Galvanizing',    unit: 'Galvanizing Line CGL-1',   min: 26, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-gal' },
+    'Colour Coating': { op: 'Colour Coating', unit: 'Colour Coating Line CCL-1', min: 22, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-ccl' }
   },
   productPath: { 'CRCA': [], 'GI': ['Galvanizing'], 'PPGI': ['Galvanizing', 'Colour Coating'] },
   // Finishing op differs per job (SPLIT topology):
   finish: {
-    'Slitting':      { op: 'Slitting',      unit: 'Slitting Line SL-2',  min: 34, topo: 'SPLIT', eqp: 'CONTINUOUS', cls: 'g-slt' },
-    'Cut-to-Length': { op: 'Cut-to-Length', unit: 'Cut-to-Length CTL-1', min: 30, topo: 'SPLIT', eqp: 'CONTINUOUS', cls: 'g-ctl' }
+    'Slitting':      { op: 'Slitting',      unit: 'Slitting Line SL-2',  min: 26, topo: 'SPLIT', eqp: 'CONTINUOUS', cls: 'g-slt' },
+    'Cut-to-Length': { op: 'Cut-to-Length', unit: 'Cut-to-Length CTL-1', min: 24, topo: 'SPLIT', eqp: 'CONTINUOUS', cls: 'g-ctl' }
   },
 
   // 8 dummy coils moving through the mill this shift.
@@ -51,7 +51,15 @@ window.CRM_SCHEDULE = {
     { sched: 'CRM-SCH-2405', coil: 'CRC-A-2274', order: 'SO-2026-0502-14', customer: 'Metro Structural Traders', grade: 'DC01', product: 'PPGI', anneal: 'CAL', hrcThk: 2.50, crcThk: 0.80, width: 1250, qty: 24.0, finish: 'Slitting',      status: 'Charged', slit: { edge: 25, strips: [400, 400, 400] } },
     { sched: 'CRM-SCH-2406', coil: 'CRC-A-2275', order: 'SO-2026-0502-18', customer: 'Pioneer Appliances',      grade: 'DC06', product: 'PPGI', anneal: 'CAL', hrcThk: 2.20, crcThk: 0.50, width: 1050, qty: 18.9, finish: 'Slitting',      status: 'Charged', slit: { edge: 15, strips: [340, 340, 340] } },
     { sched: 'CRM-SCH-2407', coil: 'CRC-A-2276', order: 'SO-2026-0502-19', customer: 'Summit Projects',         grade: 'DC04', product: 'GI',   anneal: 'CAL', hrcThk: 2.80, crcThk: 1.00, width: 1250, qty: 26.0, finish: 'Cut-to-Length', status: 'Planned' },
-    { sched: 'CRM-SCH-2408', coil: 'CRC-A-2277', order: 'SO-2026-0502-21', customer: 'Vulcan Forge',            grade: 'DC03', product: 'CRCA', anneal: 'BAF', hrcThk: 3.00, crcThk: 1.50, width: 900,  qty: 22.3, finish: 'Cut-to-Length', status: 'Planned' }
+    { sched: 'CRM-SCH-2408', coil: 'CRC-A-2277', order: 'SO-2026-0502-21', customer: 'Vulcan Forge',            grade: 'DC03', product: 'CRCA', anneal: 'BAF', hrcThk: 3.00, crcThk: 1.50, width: 900,  qty: 22.3, finish: 'Cut-to-Length', status: 'Planned' },
+    { sched: 'CRM-SCH-2409', coil: 'CRC-A-2278', order: 'SO-2026-0503-04', customer: 'Zenith Auto',             grade: 'DC04', product: 'GI',   anneal: 'CAL', hrcThk: 2.80, crcThk: 0.90, width: 1200, qty: 25.5, finish: 'Slitting',      status: 'In Process', slit: { edge: 20, strips: [580, 580] } },
+    { sched: 'CRM-SCH-2410', coil: 'CRC-A-2279', order: 'SO-2026-0503-06', customer: 'Harbor Fabricators',      grade: 'DC01', product: 'CRCA', anneal: 'CAL', hrcThk: 2.50, crcThk: 0.70, width: 1000, qty: 19.8, finish: 'Cut-to-Length', status: 'Charged' },
+    { sched: 'CRM-SCH-2411', coil: 'CRC-A-2280', order: 'SO-2026-0503-09', customer: 'Pioneer Appliances',      grade: 'DC06', product: 'PPGI', anneal: 'CAL', hrcThk: 2.20, crcThk: 0.55, width: 1250, qty: 23.7, finish: 'Slitting',      status: 'Charged', slit: { edge: 25, strips: [380, 420, 400] } },
+    { sched: 'CRM-SCH-2412', coil: 'CRC-A-2281', order: 'SO-2026-0503-10', customer: 'Apex Heavy Engineering',  grade: 'DC03', product: 'GI',   anneal: 'BAF', hrcThk: 3.00, crcThk: 1.10, width: 1180, qty: 26.8, finish: 'Cut-to-Length', status: 'Charged' },
+    { sched: 'CRM-SCH-2413', coil: 'CRC-A-2282', order: 'SO-2026-0503-12', customer: 'National Power Equipment', grade: 'DC01', product: 'GI',   anneal: 'CAL', hrcThk: 2.50, crcThk: 0.65, width: 1050, qty: 20.1, finish: 'Slitting',      status: 'Planned', slit: { edge: 25, strips: [500, 500] } },
+    { sched: 'CRM-SCH-2414', coil: 'CRC-A-2283', order: 'SO-2026-0503-14', customer: 'Summit Projects',         grade: 'DC04', product: 'CRCA', anneal: 'CAL', hrcThk: 2.80, crcThk: 0.95, width: 1250, qty: 25.9, finish: 'Cut-to-Length', status: 'Planned' },
+    { sched: 'CRM-SCH-2415', coil: 'CRC-A-2284', order: 'SO-2026-0503-16', customer: 'Metro Structural Traders', grade: 'DC06', product: 'PPGI', anneal: 'CAL', hrcThk: 2.20, crcThk: 0.50, width: 1080, qty: 18.5, finish: 'Slitting',      status: 'Planned', slit: { edge: 15, strips: [350, 350, 350] } },
+    { sched: 'CRM-SCH-2416', coil: 'CRC-A-2285', order: 'SO-2026-0503-19', customer: 'Vulcan Forge',            grade: 'DC03', product: 'CRCA', anneal: 'BAF', hrcThk: 3.00, crcThk: 1.40, width: 900,  qty: 21.6, finish: 'Cut-to-Length', status: 'Planned' }
   ]
 };
 
