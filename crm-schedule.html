@@ -145,7 +145,7 @@
     </div>
     <div class="kpis" id="kpis"></div>
     <div class="card">
-      <div class="card-head"><i class="fa-solid fa-calendar-days"></i> Schedule — coils this shift <span class="right" id="tbl-meta"></span></div>
+      <div class="card-head"><i class="fa-solid fa-calendar-days"></i> Schedule — coils (3-day rolling plan) <span class="right" id="tbl-meta"></span></div>
       <div style="overflow-x:auto"><table class="tbl" id="sched-tbl"></table></div>
     </div>
   </main>
@@ -177,11 +177,11 @@
   var coated = jobs.filter(function (j) { return j.product === 'GI' || j.product === 'PPGI'; }).length;
   var endMax = Math.max.apply(null, jobs.map(function (j) { return j.planEnd; }));
   var kpi = [
-    ['Coils scheduled', jobs.length, 'this shift', 'blue'],
+    ['Coils scheduled', jobs.length, 'rolling plan', 'blue'],
     ['Total tonnage', tot.toFixed(1) + ' t', 'input HRC', 'blue'],
     ['Coated coils', coated, 'GI + PPGI (hot-dip)', 'amber'],
     ['Slitting / CTL', slit + ' / ' + ctl, 'finishing split', 'green'],
-    ['Plan span', clk(0) + '–' + clk(endMax), 'first in → last out', 'blue']
+    ['Plan span', (endMax / 60).toFixed(0) + ' h', (endMax / 1440).toFixed(1) + ' days · rolling', 'blue']
   ];
   document.getElementById('kpis').innerHTML = kpi.map(function (k) {
     return '<div class="kpi ' + k[3] + '"><div class="k">' + k[0] + '</div><div class="v">' + k[1] + '</div><div class="s">' + k[2] + '</div></div>';
@@ -211,7 +211,7 @@
       '<td class="mono">' + j.width + ' mm</td>' +
       '<td class="mono">' + j.qty.toFixed(1) + ' t</td>' +
       '<td><div class="route">' + route + '</div></td>' +
-      '<td class="mono">' + clk(ps) + '–' + clk(pe) + '</td>' +
+      '<td class="mono"><span class="hint">D' + (Math.floor((S.baseMin + ps) / 1440) + 1) + '</span> ' + clk(ps) + '–' + clk(pe) + '</td>' +
       '<td><span class="badge ' + (bcls[j.status] || 'b-plan') + '">' + j.status + '</span></td>' +
       '</tr>';
   }).join('') + '</tbody>';

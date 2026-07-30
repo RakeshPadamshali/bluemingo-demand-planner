@@ -13,7 +13,7 @@
    ============================================================ */
 window.CRM_SCHEDULE = {
   plant: 'Integrated Steel Works — Cold Rolling Mill (CRM)',
-  shift: 'A–C', shiftTime: '06:00 → 06:00 (full day)', date: '11 May 2026',
+  shift: 'A–C', shiftTime: '3-day rolling plan', date: '11 May 2026', baseDate: '2026-05-11',
   baseMin: 6 * 60,                 // 06:00, in minutes-of-day
   buffer: 4,                       // transfer/buffer minutes between ops
 
@@ -52,7 +52,7 @@ window.CRM_SCHEDULE = {
     var GAUGE    = [0.50, 0.60, 0.70, 0.80, 0.90, 1.00, 1.20, 1.50];
     var HRC      = [2.20, 2.50, 2.80, 3.00];
     var PRODUCTS = ['CRCA', 'GI', 'PPGI', 'GI', 'CRCA', 'GI', 'PPGI', 'CRCA', 'GI', 'CRCA'];
-    var N = 48, jobs = [];
+    var N = 120, jobs = [];
     function slitFor(width, i) {
       var edge = width >= 1200 ? 25 : (width >= 1050 ? 20 : 15);
       var usable = width - 2 * edge, n = (i % 3 === 0) ? 3 : 2, w = Math.round(usable / n);
@@ -69,7 +69,7 @@ window.CRM_SCHEDULE = {
     }
     for (var i = 0; i < N; i++) {
       var width = WIDTHS[i % WIDTHS.length];
-      var finish = (i % 2 === 0) ? 'Cut-to-Length' : 'Slitting';
+      var finish = (i % 3 === 0) ? 'Slitting' : 'Cut-to-Length';
       var job = {
         sched: 'CRM-SCH-' + (2401 + i),
         coil: 'CRC-A-' + (2270 + i),

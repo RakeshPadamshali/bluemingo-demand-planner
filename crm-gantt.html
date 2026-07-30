@@ -45,22 +45,23 @@
   .card-head { padding:8px 12px; background:var(--color-bg-alt); border-bottom:1px solid var(--color-border-light); font:600 12px 'Roboto'; display:flex; align-items:center; gap:6px; }
   .card-head i { color:var(--color-primary); } .card-head .right { margin-left:auto; font-weight:400; font-size:11px; color:var(--color-text-muted); }
   .card-body { padding:10px 12px; }
-  /* Gantt */
+  /* Gantt — dense multi-day schedule (APS style) */
   .gantt { border:1px solid var(--color-border); border-radius:8px; overflow-x:auto; background:#fff; }
-  .g-row { display:flex; align-items:stretch; border-bottom:1px solid var(--color-border-light); min-height:38px; }
+  .g-row { display:flex; align-items:stretch; border-bottom:1px solid #f3f3f1; min-height:22px; }
   .g-row:last-child { border-bottom:none; }
-  .g-row.head { background:var(--color-bg-alt); }
-  .g-lane { width:180px; flex-shrink:0; display:flex; align-items:center; gap:7px; padding:0 12px; font:600 11.5px 'Roboto'; border-right:1px solid var(--color-border); background:var(--color-bg-alt); }
-  .g-lane .dot { width:9px; height:9px; border-radius:2px; flex-shrink:0; }
+  .g-row.head { min-height:32px; background:#fbfcfd; border-bottom:1px solid var(--color-border); }
+  .g-lane { width:190px; flex-shrink:0; display:flex; align-items:center; gap:5px; padding:0 10px; font:600 10px 'Roboto'; letter-spacing:.2px; text-transform:uppercase; color:#555; border-right:1px solid var(--color-border); background:#fbfcfd; white-space:nowrap; overflow:hidden; }
+  .g-lane.head-lane { color:#8a8a8a; font-weight:700; }
+  .g-lane .eq { color:#9a9a9a; font-weight:500; }
+  .g-lane .eqp-b { margin-left:auto; font:700 8px 'Roboto'; color:#e65100; background:#fff3e0; border-radius:3px; padding:1px 4px; }
   .g-track { position:relative; flex:1; }
-  .g-tick { position:absolute; top:0; bottom:0; border-left:1px solid var(--color-border-light); font-size:9px; color:var(--color-text-hint); padding-left:3px; }
-  .g-bar { position:absolute; top:5px; height:26px; border-radius:5px; color:#fff; font-size:10px; font-weight:600; display:flex; align-items:center; padding:0 7px; overflow:hidden; white-space:nowrap; box-shadow:0 1px 3px rgba(0,0,0,.18); cursor:default; }
-  .g-pkl{background:#26a69a;} .g-tcm{background:#25A9E0;} .g-ecl{background:#5c6bc0;} .g-cal{background:#f57c00;} .g-baf{background:#ff7043;} .g-spm{background:#7e57c2;} .g-gal{background:#78909c;} .g-ccl{background:#ec407a;} .g-slt{background:#ab47bc;} .g-ctl{background:#66bb6a;}
-  .g-lane .eqp-b { font:700 8px 'Roboto'; letter-spacing:.3px; color:#e65100; background:#fff3e0; border-radius:3px; padding:1px 4px; margin-left:auto; }
-  .g-legend { display:flex; flex-wrap:wrap; gap:14px; margin-top:10px; font-size:11.5px; color:var(--color-text-secondary); }
-  .g-legend .lg { display:flex; align-items:center; gap:5px; }
-  .g-legend .sw { width:16px; height:12px; border-radius:3px; }
-  .note { font-size:11px; color:var(--color-text-hint); margin-top:8px; display:flex; align-items:center; gap:6px; }
+  .g-grid { position:absolute; top:0; bottom:0; border-left:1px solid #eef0f2; }
+  .g-grid.day { border-left:1px dashed #c2c8cf; }
+  .g-day { position:absolute; top:8px; transform:translateX(-50%); font:600 10.5px 'Roboto'; color:#555; white-space:nowrap; }
+  .g-day .dm { color:#9a9a9a; font-weight:400; margin-left:4px; }
+  .g-bar { position:absolute; top:4px; height:14px; border-radius:3px; border:1px solid rgba(0,0,0,.16); box-sizing:border-box; cursor:default; }
+  .g-bar:hover { outline:1.5px solid #222; z-index:3; }
+  .note { font-size:11px; color:var(--color-text-hint); margin-top:10px; display:flex; align-items:center; gap:6px; }
 </style>
 <script src="crm-embed.js"></script>
 </head>
@@ -108,11 +109,10 @@
       </div>
     </div>
     <div class="card">
-      <div class="card-head"><i class="fa-solid fa-chart-gantt"></i> Cold Rolling Mill — coil flow across units <span class="right" id="g-meta"></span></div>
+      <div class="card-head"><i class="fa-solid fa-chart-gantt"></i> Cold Rolling Mill — line schedule <span class="right" id="g-meta"></span></div>
       <div class="card-body">
         <div class="gantt" id="gantt"></div>
-        <div class="g-legend" id="legend"></div>
-        <div class="note"><i class="fa-solid fa-circle-info"></i> Each coil flows Pickling → Cold Rolling → Electro-Cleaning → Annealing (Continuous CAL or Batch BAF) → Skin-Pass → optional coating (Galvanizing → Colour Coating for GI/PPGI) → finishing (Slitting or Cut-to-Length). Bars are coloured by operation; each unit processes one coil at a time.</div>
+        <div class="note"><i class="fa-solid fa-circle-info"></i> One lane per <b>operation · equipment</b>; each bar is a coil (coloured per coil so a coil is traceable across lanes) — hover for coil, operation and time. Dashed lines mark day boundaries. Flow: Pickling → Cold Rolling → Electro-Cleaning → Annealing (CAL / BAF) → Skin-Pass → optional Galvanizing → Colour Coating → Slitting / Cut-to-Length.</div>
       </div>
     </div>
   </main>
@@ -121,64 +121,71 @@
 <script>
   var R = window.crmSchedule(), S = window.CRM_SCHEDULE, clk = window.crmClock;
   document.getElementById('crumb-ctx').textContent = S.plant + ' · Shift ' + S.shift + ' · ' + S.date;
-  document.getElementById('g-meta').textContent = R.jobs.length + ' coils · ' + R.units.length + ' units · ' + S.shiftTime;
 
-  // Colour + label per operation class. Fallback palette guarantees ANY new
-  // process (a cls with no explicit colour) still renders coloured, in both bars
-  // and legend — so adding an operation never leaves a blank/white bar.
-  var CLR = {
-    'g-pkl': '#26a69a', 'g-tcm': '#25A9E0', 'g-ecl': '#5c6bc0', 'g-cal': '#f57c00', 'g-baf': '#ff7043',
-    'g-spm': '#7e57c2', 'g-gal': '#78909c', 'g-ccl': '#ec407a', 'g-slt': '#ab47bc', 'g-ctl': '#66bb6a'
-  };
-  var LABELS = {
-    'g-pkl': 'Pickling', 'g-tcm': 'Cold Rolling', 'g-ecl': 'Electro-Cleaning',
-    'g-cal': 'Anneal — Continuous (CAL)', 'g-baf': 'Anneal — Batch (BAF)', 'g-spm': 'Skin-Pass',
-    'g-gal': 'Galvanizing', 'g-ccl': 'Colour Coating', 'g-slt': 'Slitting', 'g-ctl': 'Cut-to-Length'
-  };
-  var FALLBACK = ['#8d6e63', '#26c6da', '#9ccc65', '#ffa726', '#42a5f5', '#d4e157', '#ba68c8', '#4db6ac', '#a1887f', '#7986cb'];
-  var _fc = {}, _fn = 0;
-  function colorFor(cls) {
-    if (CLR[cls]) return CLR[cls];
-    if (!(cls in _fc)) { _fc[cls] = FALLBACK[_fn % FALLBACK.length]; _fn++; }
-    return _fc[cls];
-  }
+  // Colour per coil: validated 8-hue categorical palette, cycled so adjacent coils
+  // always differ. Identity is carried by the hover tooltip, never colour alone.
+  var PALETTE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
+  var coilColor = {}; R.jobs.forEach(function (j, i) { coilColor[j.coil] = PALETTE[i % PALETTE.length]; });
 
-  // group segments by unit
+  // group segments by unit (lane)
   var byUnit = {}; R.units.forEach(function (u) { byUnit[u] = []; });
   R.bars.forEach(function (b) { b.segs.forEach(function (s) { byUnit[s.unit].push(Object.assign({ coil: b.job.coil }, s)); }); });
   var endMax = 0; R.bars.forEach(function (b) { b.segs.forEach(function (s) { endMax = Math.max(endMax, s.start + s.dur); }); });
 
-  var tick = 30, total = Math.ceil((endMax + 8) / tick) * tick;
-  // Fit the whole time span into the visible width so more of the plan shows without scrolling.
-  var laneW = 180, gW = document.getElementById('gantt').clientWidth || 1400;
-  var px = Math.max(1.2, Math.min(1.7, (gW - laneW - 40) / total));   // cap 1.7 = half the old 3.4 (30-min column width halved); shrinks further to fit narrow windows
-  function ticksHtml(withLabels) {
+  // axis span (round up to 6 h); fit the whole multi-day span into the visible width -> thin dense bars
+  var total = Math.ceil((endMax + 20) / 360) * 360;
+  var laneW = 190, gW = document.getElementById('gantt').clientWidth || 1400;
+  var px = Math.max(0.25, Math.min(1.0, (gW - laneW - 40) / total));
+  var trackW = total * px;
+
+  // calendar-day helpers from baseDate; m = 0 is 06:00 on baseDate
+  var base = new Date((S.baseDate || '2026-05-11') + 'T00:00:00');
+  var WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function dayInfo(d) { var dt = new Date(base.getTime() + d * 86400000); return { wd: WD[dt.getDay()], dm: dt.getDate() + ' ' + MO[dt.getMonth()] }; }
+  function stamp(m) { var d = Math.floor((S.baseMin + m) / 1440); return dayInfo(d).wd + ' ' + clk(m); }
+  // midnights (day boundaries) in m-space
+  var firstMid = (1440 - (S.baseMin % 1440)) % 1440; if (firstMid === 0) firstMid = 1440;
+  var mids = []; for (var mm = firstMid; mm < total; mm += 1440) mids.push(mm);
+  var bounds = [0].concat(mids).concat([total]);
+
+  // vertical gridlines (6 h faint + day-boundary dashed) — reused in every track
+  function gridHtml() {
     var h = '';
-    for (var m = 0; m <= total; m += tick) h += '<div class="g-tick" style="left:' + (m * px) + 'px">' + (withLabels ? clk(m) : '') + '</div>';
+    for (var m = 0; m <= total; m += 360) {
+      var isDay = ((S.baseMin + m) % 1440) === 0;
+      h += '<div class="g-grid' + (isDay ? ' day' : '') + '" style="left:' + (m * px) + 'px"></div>';
+    }
     return h;
   }
-  var trackW = total * px;
-  var html = '<div class="g-row head"><div class="g-lane">Unit</div><div class="g-track" style="min-width:' + trackW + 'px">' + ticksHtml(true) + '</div></div>';
+
+  // header row: gridlines + a day label centred over each day segment
+  var headLabels = '';
+  for (var k = 0; k < bounds.length - 1; k++) {
+    var c = (bounds[k] + bounds[k + 1]) / 2, di = dayInfo(k);
+    headLabels += '<div class="g-day" style="left:' + (c * px) + 'px">' + di.wd + '<span class="dm">' + di.dm + '</span></div>';
+  }
+  var html = '<div class="g-row head"><div class="g-lane head-lane">Operation · Equipment</div>' +
+    '<div class="g-track" style="min-width:' + trackW + 'px">' + gridHtml() + headLabels + '</div></div>';
+
+  // one lane per unit; bars coloured per coil
   R.units.forEach(function (u) {
-    var segs = byUnit[u], dotCls = (segs[0] && segs[0].cls) || '';
-    var isBatch = segs[0] && segs[0].eqp === 'BATCH';
-    var t = ticksHtml(false);
+    var segs = byUnit[u]; if (!segs.length) return;
+    var op = (segs[0].op || '').toUpperCase(), equip = u.split(' ').pop();
+    var isBatch = segs[0].eqp === 'BATCH';
+    var t = gridHtml();
     segs.forEach(function (s) {
-      t += '<div class="g-bar" style="left:' + (s.start * px) + 'px;width:' + Math.max(s.dur * px - 2, 20) + 'px;background:' + colorFor(s.cls) + '" ' +
-        'title="' + s.coil + ' · ' + s.op + ' · ' + clk(s.start) + '–' + clk(s.start + s.dur) + '">' + s.coil.replace('CRC-A-', '') + '</div>';
+      t += '<div class="g-bar" style="left:' + (s.start * px) + 'px;width:' + Math.max(s.dur * px, 2) + 'px;background:' + coilColor[s.coil] + '" ' +
+        'title="' + s.coil + '  ·  ' + s.op + '  ·  ' + stamp(s.start) + ' → ' + stamp(s.start + s.dur) + '"></div>';
     });
-    html += '<div class="g-row"><div class="g-lane"><span class="dot" style="background:' + colorFor(dotCls) + '"></span>' + u +
+    html += '<div class="g-row"><div class="g-lane">' + op + ' <span class="eq">· ' + equip + '</span>' +
       (isBatch ? '<span class="eqp-b">BATCH</span>' : '') + '</div>' +
       '<div class="g-track" style="min-width:' + trackW + 'px">' + t + '</div></div>';
   });
   document.getElementById('gantt').innerHTML = html;
 
-  // legend — derived from the data (flow order), so any new operation appears automatically
-  var seen = {}, legendOrder = [];
-  R.bars.forEach(function (b) { b.segs.forEach(function (s) { if (!seen[s.cls]) { seen[s.cls] = s.op; legendOrder.push(s.cls); } }); });
-  document.getElementById('legend').innerHTML = legendOrder.map(function (cls) {
-    return '<span class="lg"><span class="sw" style="background:' + colorFor(cls) + '"></span>' + (LABELS[cls] || seen[cls]) + '</span>';
-  }).join('');
+  document.getElementById('g-meta').textContent = R.jobs.length + ' coils · ' + R.units.length + ' units · ' +
+    dayInfo(0).wd + ' ' + dayInfo(0).dm + ' → ' + dayInfo(bounds.length - 2).wd + ' ' + dayInfo(bounds.length - 2).dm;
 </script>
 </body>
 </html>
