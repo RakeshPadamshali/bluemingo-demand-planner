@@ -80,6 +80,7 @@
     <div class="nav-label">Reports</div>
     <a data-page="gantt"><i class="fa-solid fa-chart-gantt"></i>Line Gantt</a>
     <a data-page="slitting"><i class="fa-solid fa-ruler-combined"></i>Slitting Patterns</a>
+    <a data-page="orders"><i class="fa-solid fa-clipboard-check"></i>Order Status</a>
     <a class="decor"><i class="fa-solid fa-chart-line"></i>Yield &amp; Scrap</a>
     <div class="nav-label">Inventory</div>
     <a class="decor"><i class="fa-solid fa-boxes-stacked"></i>Stock</a>
@@ -104,7 +105,8 @@
     confirmation: { label: 'Confirmation',      icon: 'fa-circle-check',    href: 'production-confirmation-mockup-CRM.html' },
     schedule:     { label: 'Line Schedule',     icon: 'fa-calendar-days',   href: 'crm-schedule.html' },
     gantt:        { label: 'Line Gantt',        icon: 'fa-chart-gantt',     href: 'crm-gantt.html' },
-    slitting:     { label: 'Slitting Patterns', icon: 'fa-ruler-combined',  href: 'crm-slitting.html' }
+    slitting:     { label: 'Slitting Patterns', icon: 'fa-ruler-combined',  href: 'crm-slitting.html' },
+    orders:       { label: 'Order Status',      icon: 'fa-clipboard-check', href: 'crm-orders.html' }
   };
   var stack = document.getElementById('stack'), strip = document.getElementById('tabstrip'), empty = document.getElementById('empty');
   var frames = {}, order = [], active = null;

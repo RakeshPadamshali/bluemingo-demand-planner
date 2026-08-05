@@ -1,95 +1,114 @@
 /* ============================================================
-   CRM (Cold Rolling Mill) — shared dummy line schedule.
-   Consumed by crm-schedule.html (table), crm-gantt.html (Gantt) and
-   crm-slitting.html (report) so all show the SAME jobs / computed times.
+   CRM (Cold Rolling Mill) — shared dummy line schedule + orders.
+   Consumed by crm-schedule.html, crm-gantt.html, crm-slitting.html and
+   crm-orders.html so all show the SAME jobs / orders / computed times.
 
    Full route (production operations only — no QA/inspection steps):
      Pickling -> Cold Rolling -> Electro-Cleaning -> Annealing (CAL | BAF)
      -> Skin-Pass -> [Galvanizing -> Colour Coating] -> finish (Slitting | Cut-to-Length)
-   Coating leg is product-driven: CRCA = uncoated, GI = galvanized, PPGI = pre-painted.
-   Annealing is per coil Continuous (CAL) or Batch furnace (BAF, a long BATCH block).
 
-   The job list is GENERATED to fill a full production day (3 shifts, ~24 h).
+   ORDER-FIRST model: a set of sales orders (each with an ordered qty + due date)
+   is generated, and coils are generated to (partly) cover each order. So a coil's
+   customer/product/grade come from its order, and orders aggregate many coils.
    ============================================================ */
+
+/* Deterministic generator — same orders + coils on every load. */
+var CRM_GEN = (function () {
+  var CUSTOMERS = ['Continental Motors', 'Zenith Auto', 'Apex Heavy Engineering', 'National Power Equipment',
+                   'Metro Structural Traders', 'Pioneer Appliances', 'Summit Projects', 'Vulcan Forge',
+                   'Harbor Fabricators', 'Crestline Industries', 'Ironbridge Works', 'Delta Coil Traders'];
+  var GRADES   = ['DC01', 'DC03', 'DC04', 'DC06'];
+  var WIDTHS   = [900, 1000, 1050, 1180, 1250];
+  var GAUGE    = [0.50, 0.60, 0.70, 0.80, 0.90, 1.00, 1.20, 1.50];
+  var HRC      = [2.20, 2.50, 2.80, 3.00];
+  var PRODUCTS = ['CRCA', 'GI', 'PPGI', 'GI', 'CRCA', 'GI', 'PPGI', 'CRCA', 'GI', 'CRCA'];
+  var FILL     = [1.00, 1.00, 0.82, 1.00, 0.66, 1.00, 0.90, 1.00];   // coverage: some orders under-scheduled
+  var DUE      = [3, 2, 4, 1, 5, 2, 6, 3, 1, 4];                       // due offset (days) from baseDate
+
+  function slitFor(width, k) {
+    var edge = width >= 1200 ? 25 : (width >= 1050 ? 20 : 15);
+    var usable = width - 2 * edge, n = (k % 3 === 0) ? 3 : 2, w = Math.round(usable / n);
+    var strips = [], sum = 0, x;
+    for (x = 0; x < n - 1; x++) { strips.push(w); sum += w; }
+    strips.push(usable - sum);       // last strip = remainder, so 2*edge + sum(strips) == width
+    return { edge: edge, strips: strips };
+  }
+
+  var M = 30, orders = [], jobs = [], coilNo = 2270;
+  for (var o = 0; o < M; o++) {
+    var order = {
+      id: 'SO-2026-' + (1001 + o),
+      customer: CUSTOMERS[o % CUSTOMERS.length],
+      product: PRODUCTS[o % PRODUCTS.length],
+      grade: GRADES[o % GRADES.length],
+      width: WIDTHS[o % WIDTHS.length],
+      crcThk: GAUGE[o % GAUGE.length],
+      hrcThk: HRC[o % HRC.length],
+      finish: (o % 3 === 0) ? 'Slitting' : 'Cut-to-Length',
+      orderedQty: 60 + (o * 31) % 108,        // 60 – 168 t
+      dueOffsetDays: DUE[o % DUE.length]
+    };
+    var scheduledQty = order.orderedQty * FILL[o % FILL.length];
+    var nCoils = Math.max(1, Math.round(scheduledQty / 26));
+    var per = scheduledQty / nCoils;
+    for (var c = 0; c < nCoils; c++) {
+      var gi = jobs.length;                    // schedule sequence index
+      var job = {
+        sched: 'CRM-SCH-' + (2401 + gi),
+        coil: 'CRC-A-' + (coilNo++),
+        order: order.id,
+        customer: order.customer,
+        grade: order.grade,
+        product: order.product,
+        anneal: (gi % 6 === 5) ? 'BAF' : 'CAL',
+        hrcThk: order.hrcThk,
+        crcThk: order.crcThk,
+        width: order.width,
+        qty: Math.round(per * 10) / 10,
+        finish: order.finish,
+        status: 'Planned'
+      };
+      if (order.finish === 'Slitting') job.slit = slitFor(order.width, c);
+      jobs.push(job);
+    }
+    orders.push(order);
+  }
+  // status by schedule position: early coils done, later still planned
+  var T = jobs.length;
+  jobs.forEach(function (j, i) {
+    j.status = i < T * 0.12 ? 'Confirmed' : i < T * 0.28 ? 'In Process' : i < T * 0.55 ? 'Charged' : 'Planned';
+  });
+  return { orders: orders, jobs: jobs };
+})();
+
 window.CRM_SCHEDULE = {
   plant: 'Integrated Steel Works — Cold Rolling Mill (CRM)',
   shift: 'A–C', shiftTime: '3-day rolling plan', date: '11 May 2026', baseDate: '2026-05-11',
   baseMin: 6 * 60,                 // 06:00, in minutes-of-day
   buffer: 4,                       // transfer/buffer minutes between ops
 
-  // Common pre-anneal route (every coil): {op, unit(lane), minutes, topology, equipment type, css}
   route: [
     { op: 'Pickling',        unit: 'Pickling Line PL-1',         min: 26, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-pkl' },
     { op: 'Cold Rolling',    unit: 'Tandem Cold Mill TCM-1',     min: 24, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-tcm' },
     { op: 'Electro-Cleaning', unit: 'Electro-Cleaning Line ECL-1', min: 20, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-ecl' }
   ],
-  // Annealing — each coil takes ONE of these (continuous line or batch furnace):
   anneal: {
     CAL: { op: 'Annealing', unit: 'Continuous Anneal CAL-1', min: 24, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-cal' },
     BAF: { op: 'Annealing', unit: 'Batch Anneal BAF-1',      min: 60, topo: 'TRANSFORM', eqp: 'BATCH',      cls: 'g-baf' }
   },
   skinPass: { op: 'Skin-Pass', unit: 'Skin-Pass Mill SPM-1', min: 20, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-spm' },
-  // Coating ops inserted per product (after Skin-Pass, before finishing):
   coating: {
     'Galvanizing':    { op: 'Galvanizing',    unit: 'Galvanizing Line CGL-1',   min: 26, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-gal' },
     'Colour Coating': { op: 'Colour Coating', unit: 'Colour Coating Line CCL-1', min: 22, topo: 'TRANSFORM', eqp: 'CONTINUOUS', cls: 'g-ccl' }
   },
   productPath: { 'CRCA': [], 'GI': ['Galvanizing'], 'PPGI': ['Galvanizing', 'Colour Coating'] },
-  // Finishing op differs per job (SPLIT topology):
   finish: {
     'Slitting':      { op: 'Slitting',      unit: 'Slitting Line SL-2',  min: 26, topo: 'SPLIT', eqp: 'CONTINUOUS', cls: 'g-slt' },
     'Cut-to-Length': { op: 'Cut-to-Length', unit: 'Cut-to-Length CTL-1', min: 24, topo: 'SPLIT', eqp: 'CONTINUOUS', cls: 'g-ctl' }
   },
 
-  // A full day of coils moving through the mill (deterministic — same on every load).
-  //   product = CRCA | GI | PPGI ;  anneal = CAL | BAF
-  jobs: (function () {
-    var CUSTOMERS = ['Continental Motors', 'Zenith Auto', 'Apex Heavy Engineering', 'National Power Equipment',
-                     'Metro Structural Traders', 'Pioneer Appliances', 'Summit Projects', 'Vulcan Forge',
-                     'Harbor Fabricators', 'Crestline Industries', 'Ironbridge Works', 'Delta Coil Traders'];
-    var GRADES   = ['DC01', 'DC03', 'DC04', 'DC06'];
-    var WIDTHS   = [900, 1000, 1050, 1180, 1250];
-    var GAUGE    = [0.50, 0.60, 0.70, 0.80, 0.90, 1.00, 1.20, 1.50];
-    var HRC      = [2.20, 2.50, 2.80, 3.00];
-    var PRODUCTS = ['CRCA', 'GI', 'PPGI', 'GI', 'CRCA', 'GI', 'PPGI', 'CRCA', 'GI', 'CRCA'];
-    var N = 120, jobs = [];
-    function slitFor(width, i) {
-      var edge = width >= 1200 ? 25 : (width >= 1050 ? 20 : 15);
-      var usable = width - 2 * edge, n = (i % 3 === 0) ? 3 : 2, w = Math.round(usable / n);
-      var strips = [], sum = 0, k;
-      for (k = 0; k < n - 1; k++) { strips.push(w); sum += w; }
-      strips.push(usable - sum);          // last strip takes the remainder -> sum == usable exactly
-      return { edge: edge, strips: strips };
-    }
-    function statusFor(i) {
-      if (i < N * 0.12) return 'Confirmed';
-      if (i < N * 0.28) return 'In Process';
-      if (i < N * 0.55) return 'Charged';
-      return 'Planned';
-    }
-    for (var i = 0; i < N; i++) {
-      var width = WIDTHS[i % WIDTHS.length];
-      var finish = (i % 3 === 0) ? 'Slitting' : 'Cut-to-Length';
-      var job = {
-        sched: 'CRM-SCH-' + (2401 + i),
-        coil: 'CRC-A-' + (2270 + i),
-        order: 'SO-2026-050' + (2 + Math.floor(i / 8)) + '-' + (11 + (i % 8)),
-        customer: CUSTOMERS[i % CUSTOMERS.length],
-        grade: GRADES[i % GRADES.length],
-        product: PRODUCTS[i % PRODUCTS.length],
-        anneal: (i % 6 === 5) ? 'BAF' : 'CAL',
-        hrcThk: HRC[i % HRC.length],
-        crcThk: GAUGE[i % GAUGE.length],
-        width: width,
-        qty: (180 + (i * 37) % 115) / 10,   // 18.0 – 29.4 t, deterministic spread
-        finish: finish,
-        status: statusFor(i)
-      };
-      if (finish === 'Slitting') job.slit = slitFor(width, i);
-      jobs.push(job);
-    }
-    return jobs;
-  })()
+  orders: CRM_GEN.orders,
+  jobs: CRM_GEN.jobs
 };
 
 /* Build the ordered operation list a given coil runs through. */
@@ -103,8 +122,7 @@ window.crmJobOps = function (j) {
     .concat([S.finish[j.finish]]);
 };
 
-/* Forward scheduler over the shared single-unit lines (a unit is taken at
-   max(job-ready, unit-free); the next op starts after this op + buffer).
+/* Forward scheduler over the shared single-unit lines.
    Returns { units[], bars[{job,segs[]}], jobs[ + planStart/planEnd ] }. */
 window.crmSchedule = function () {
   var S = window.CRM_SCHEDULE, free = {}, bars = [], jobs = [];
@@ -122,7 +140,6 @@ window.crmSchedule = function () {
     bars.push({ job: j, segs: segs });
     jobs.push(Object.assign({}, j, { planStart: first, planEnd: last }));
   });
-  // Lane order top-to-bottom = process flow.
   var units = S.route.map(function (o) { return o.unit; })
     .concat([S.anneal.CAL.unit, S.anneal.BAF.unit, S.skinPass.unit,
              S.coating['Galvanizing'].unit, S.coating['Colour Coating'].unit,
@@ -130,8 +147,39 @@ window.crmSchedule = function () {
   return { units: units, bars: bars, jobs: jobs };
 };
 
+/* Order-wise aggregation for the Order Status report.
+   Returns one row per order with scheduled/produced qty, coverage, fulfilment,
+   coil count and expected-completion offset (max planEnd, minutes from 06:00). */
+window.crmOrders = function () {
+  var R = window.crmSchedule(), byOrder = {};
+  R.jobs.forEach(function (j) { (byOrder[j.order] = byOrder[j.order] || []).push(j); });
+  return window.CRM_SCHEDULE.orders.map(function (o) {
+    var cs = byOrder[o.id] || [];
+    var sched = cs.reduce(function (a, c) { return a + c.qty; }, 0);
+    var prod = cs.filter(function (c) { return c.status === 'Confirmed'; }).reduce(function (a, c) { return a + c.qty; }, 0);
+    var wip = cs.filter(function (c) { return c.status === 'In Process' || c.status === 'Charged'; }).reduce(function (a, c) { return a + c.qty; }, 0);
+    var expEnd = cs.length ? Math.max.apply(null, cs.map(function (c) { return c.planEnd; })) : 0;
+    return {
+      id: o.id, customer: o.customer, product: o.product, grade: o.grade, width: o.width,
+      orderedQty: o.orderedQty, dueOffsetDays: o.dueOffsetDays, coils: cs.length,
+      scheduledQty: sched, producedQty: prod, wipQty: wip, expectedEnd: expEnd,
+      coverage: o.orderedQty ? sched / o.orderedQty : 0,
+      fulfilment: o.orderedQty ? prod / o.orderedQty : 0
+    };
+  });
+};
+
 /* 06:00-based HH:MM for a minute offset (wraps past midnight). */
 window.crmClock = function (mins) {
   var m = (window.CRM_SCHEDULE.baseMin + Math.round(mins)) % 1440;
   return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+};
+
+/* Calendar date (weekday + D Mon) for a day offset from baseDate. */
+window.crmDay = function (dayOffset) {
+  var WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var b = new Date((window.CRM_SCHEDULE.baseDate || '2026-05-11') + 'T00:00:00');
+  var dt = new Date(b.getTime() + dayOffset * 86400000);
+  return { wd: WD[dt.getDay()], dm: dt.getDate() + ' ' + MO[dt.getMonth()] };
 };

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CRM Line Schedule · Bluemingo MES v2</title>
+<title>CRM Order Status Report · Bluemingo MES v2</title>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <style>
@@ -42,8 +42,8 @@
   .page-bar .crumb { color:var(--color-text-muted); font-size:11px; }
   .page-bar .actions { margin-left:auto; display:flex; gap:6px; }
   .btn { padding:6px 14px; border-radius:4px; border:none; font:500 12px 'Roboto'; cursor:pointer; display:inline-flex; align-items:center; gap:6px; text-decoration:none; }
-  .btn-primary { background:var(--color-primary); color:#fff; } .btn-primary:hover { background:var(--color-primary-dark); }
   .btn-outline { background:transparent; border:1px solid var(--color-primary); color:var(--color-primary); } .btn-outline:hover { background:var(--color-primary); color:#fff; }
+  .btn-primary { background:var(--color-primary); color:#fff; } .btn-primary:hover { background:var(--color-primary-dark); }
   /* KPI strip */
   .kpis { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:12px; }
   @media (max-width:900px){ .kpis { grid-template-columns:repeat(2,1fr);} }
@@ -52,7 +52,7 @@
   .kpi .k { font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--color-text-muted); font-weight:600; }
   .kpi .v { font-size:22px; font-weight:700; margin-top:3px; font-variant-numeric:tabular-nums; }
   .kpi .s { font-size:11px; color:var(--color-text-hint); margin-top:1px; }
-  .kpi.blue::before{background:var(--color-primary);} .kpi.green::before{background:var(--color-success);} .kpi.amber::before{background:var(--color-warning);}
+  .kpi.blue::before{background:var(--color-primary);} .kpi.green::before{background:var(--color-success);} .kpi.amber::before{background:var(--color-warning);} .kpi.red::before{background:var(--color-danger);}
   /* Card + table */
   .card { background:var(--color-surface); border:1px solid var(--color-border); border-radius:8px; overflow:hidden; }
   .card-head { padding:8px 12px; background:var(--color-bg-alt); border-bottom:1px solid var(--color-border-light); font:600 12px 'Roboto'; display:flex; align-items:center; gap:6px; }
@@ -63,46 +63,39 @@
   table.tbl td { padding:7px 10px; border-bottom:1px solid var(--color-border-light); white-space:nowrap; }
   table.tbl tr:hover td { background:#f2fafe; }
   .mono { font-variant-numeric:tabular-nums; font-family:'Roboto',monospace; }
-  .strong { font-weight:600; }
-  .hint { color:var(--color-text-hint); }
+  .strong { font-weight:600; } .hint { color:var(--color-text-hint); }
   .badge { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:11px; font-size:10.5px; font-weight:600; }
   .b-conf { background:var(--color-success-light); color:var(--color-success); }
-  .b-proc { background:var(--color-info-light); color:#1565c0; }
+  .b-ontrack { background:var(--color-info-light); color:#1565c0; }
   .b-charge { background:var(--color-warning-light); color:#b25f00; }
-  .b-plan { background:#eceff1; color:#546e7a; }
-  .pill { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:5px; font-size:10.5px; font-weight:600; border:1px solid; }
-  .p-slit { color:#7b1fa2; border-color:#e1bee7; background:#f6ecfa; }
-  .p-ctl  { color:#00695c; border-color:#b2dfdb; background:#e5f5f2; }
-  /* route chips (operation flow) + colours */
-  .route { display:flex; align-items:center; gap:2px; }
-  .route .rc { color:#fff; font-size:9px; font-weight:700; padding:2px 5px; border-radius:3px; letter-spacing:.2px; white-space:nowrap; }
-  .route .ra { color:var(--color-text-disabled); font-size:8px; margin:0 1px; }
-  .g-pkl{background:#26a69a;} .g-tcm{background:#25A9E0;} .g-ecl{background:#5c6bc0;} .g-cal{background:#f57c00;} .g-baf{background:#ff7043;} .g-spm{background:#7e57c2;} .g-gal{background:#78909c;} .g-ccl{background:#ec407a;} .g-slt{background:#ab47bc;} .g-ctl{background:#66bb6a;}
-  /* product tag */
+  .b-late { background:var(--color-danger-light); color:#c62828; }
   .prod { display:inline-block; font-size:9px; font-weight:700; letter-spacing:.3px; padding:1px 5px; border-radius:3px; margin-left:5px; vertical-align:1px; }
   .pr-crca { background:#eceff1; color:#546e7a; } .pr-gi { background:#eceff1; color:#37474f; border:1px solid #cfd8dc; } .pr-ppgi { background:#fce4ec; color:#c2185b; }
-  /* expand → operation schedule */
+  /* coverage / fulfilment progress bars */
+  .pbar { display:flex; align-items:center; gap:7px; }
+  .pbar .track { width:92px; height:11px; background:#e6eaed; border:1px solid #d5dbe0; border-radius:6px; overflow:hidden; flex-shrink:0; }
+  .pbar .fill { display:block; height:100%; border-radius:6px 0 0 6px; }
+  .pbar .pct { font-variant-numeric:tabular-nums; font-weight:600; font-size:11px; min-width:30px; }
+  .cov-full { background:#2e9b45; } .cov-part { background:#f0a020; }
+  .ful-fill { background:#1e88e5; }
+  .date-late { color:#c62828; font-weight:600; }
+  /* expand → coils */
   .exp-btn { background:none; border:none; cursor:pointer; color:var(--color-text-hint); font-size:12px; padding:2px 5px; }
   .exp-btn.open { color:var(--color-primary); }
-  tr.op-detail > td { background:#f6fafd; padding:0; }
-  .op-wrap { padding:8px 12px 10px; }
-  .op-sub { font:600 10px 'Roboto'; text-transform:uppercase; letter-spacing:.3px; color:var(--color-text-muted); margin-bottom:6px; display:flex; align-items:center; gap:6px; }
-  table.op-tbl { width:100%; border-collapse:collapse; font-size:11px; background:#fff; border:1px solid var(--color-border-light); border-radius:6px; overflow:hidden; }
-  table.op-tbl th { text-align:left; padding:5px 9px; color:var(--color-text-muted); font-weight:600; text-transform:uppercase; font-size:9.5px; background:#fbfcfd; border-bottom:1px solid var(--color-border-light); white-space:nowrap; }
-  table.op-tbl td { padding:5px 9px; border-bottom:1px solid var(--color-border-light); white-space:nowrap; }
-  table.op-tbl tr:last-child td { border-bottom:none; }
-  .op-dot { width:8px; height:8px; border-radius:2px; display:inline-block; margin-right:6px; }
-  .topo-pill { font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; background:#eceff1; color:#546e7a; }
-  .topo-pill.split { background:#f3e5f5; color:#7b1fa2; }
-  .eqp-batch { font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; background:#fff3e0; color:#e65100; margin-left:6px; }
-  .eqp-cont { font-size:9px; font-weight:600; padding:1px 5px; border-radius:3px; background:#e3f2fd; color:#1565c0; margin-left:6px; }
+  tr.ord-detail > td { background:#f6fafd; padding:0; }
+  .od-wrap { padding:8px 12px 10px; }
+  .od-sub { font:600 10px 'Roboto'; text-transform:uppercase; letter-spacing:.3px; color:var(--color-text-muted); margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+  table.od-tbl { width:100%; border-collapse:collapse; font-size:11px; background:#fff; border:1px solid var(--color-border-light); border-radius:6px; overflow:hidden; }
+  table.od-tbl th { text-align:left; padding:5px 9px; color:var(--color-text-muted); font-weight:600; text-transform:uppercase; font-size:9.5px; background:#fbfcfd; border-bottom:1px solid var(--color-border-light); white-space:nowrap; }
+  table.od-tbl td { padding:5px 9px; border-bottom:1px solid var(--color-border-light); white-space:nowrap; }
+  table.od-tbl tr:last-child td { border-bottom:none; }
 </style>
 <script src="crm-embed.js"></script>
 </head>
 <body>
 <header class="bm-header">
   <div class="logo"><i class="fa-solid fa-industry"></i> Bluemingo MES <span style="opacity:.6;font-weight:500;">v2</span></div>
-  <div class="module-name"><i class="fa-solid fa-calendar-days" style="margin-right:4px;color:var(--color-primary);"></i>Line Schedule</div>
+  <div class="module-name"><i class="fa-solid fa-clipboard-check" style="margin-right:4px;color:var(--color-primary);"></i>Order Status Report</div>
   <div class="spacer"></div>
   <div class="industry-switch">
     <button class="active"><i class="fa-solid fa-layer-group" style="margin-right:4px"></i>Steel · CRM</button>
@@ -115,16 +108,15 @@
   <aside class="bm-sidebar">
     <div class="nav-label">Production</div>
     <a href="production-confirmation-mockup-CRM.html"><i class="fa-solid fa-circle-check"></i>Confirmation</a>
-    <a class="active"><i class="fa-solid fa-calendar-days"></i>Line Schedule</a>
+    <a href="crm-schedule.html"><i class="fa-solid fa-calendar-days"></i>Line Schedule</a>
     <a><i class="fa-solid fa-list-check"></i>Op Queue</a>
     <a><i class="fa-solid fa-pause"></i>Holds &amp; Rework</a>
     <div class="nav-label">Reports</div>
     <a href="crm-gantt.html"><i class="fa-solid fa-chart-gantt"></i>Line Gantt</a>
     <a href="crm-slitting.html"><i class="fa-solid fa-ruler-combined"></i>Slitting Patterns</a>
-    <a href="crm-orders.html"><i class="fa-solid fa-clipboard-check"></i>Order Status</a>
+    <a class="active"><i class="fa-solid fa-clipboard-check"></i>Order Status</a>
     <div class="nav-label">Orders</div>
     <a><i class="fa-solid fa-clipboard-list"></i>Open Orders</a>
-    <a><i class="fa-solid fa-chart-line"></i>Status</a>
     <div class="nav-label">Inventory</div>
     <a><i class="fa-solid fa-boxes-stacked"></i>Stock</a>
     <a><i class="fa-solid fa-link"></i>Genealogy</a>
@@ -136,109 +128,102 @@
   <main class="bm-content">
     <div class="page-bar">
       <div>
-        <h1>CRM Line Schedule</h1>
-        <div class="crumb">Production › Line Schedule › <span id="crumb-ctx"></span></div>
+        <h1>Order Status Report</h1>
+        <div class="crumb">Reports › Order Status › <span id="crumb-ctx"></span></div>
       </div>
       <div class="actions">
-        <a class="btn btn-outline" href="crm-gantt.html"><i class="fa-solid fa-chart-gantt"></i> Open Gantt</a>
-        <button class="btn btn-primary"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-sequence</button>
+        <a class="btn btn-outline" href="crm-schedule.html"><i class="fa-solid fa-calendar-days"></i> Schedule</a>
+        <button class="btn btn-primary" onclick="window.print()"><i class="fa-solid fa-file-export"></i> Export</button>
       </div>
     </div>
     <div class="kpis" id="kpis"></div>
     <div class="card">
-      <div class="card-head"><i class="fa-solid fa-calendar-days"></i> Schedule — coils (3-day rolling plan) <span class="right" id="tbl-meta"></span></div>
-      <div style="overflow-x:auto"><table class="tbl" id="sched-tbl"></table></div>
+      <div class="card-head"><i class="fa-solid fa-clipboard-check"></i> Orders — fulfilment &amp; coverage <span class="right" id="tbl-meta"></span></div>
+      <div style="overflow-x:auto"><table class="tbl" id="ord-tbl"></table></div>
     </div>
   </main>
 </div>
 <script src="crm-schedule-data.js"></script>
 <script>
-  var S = window.CRM_SCHEDULE, R = window.crmSchedule(), clk = window.crmClock;
-  document.getElementById('crumb-ctx').textContent = S.plant + ' · Shift ' + S.shift + ' · ' + S.date;
-  document.getElementById('tbl-meta').textContent = S.plant + ' · ' + S.shiftTime + ' · ' + S.date;
+  var S = window.CRM_SCHEDULE, R = window.crmSchedule(), orders = window.crmOrders(), clk = window.crmClock, day = window.crmDay;
+  document.getElementById('crumb-ctx').textContent = S.plant + ' · ' + S.date;
+  document.getElementById('tbl-meta').textContent = S.plant + ' · plan from ' + day(0).wd + ' ' + day(0).dm;
 
-  // Colour per operation class + fallback palette, so any new operation is coloured too.
-  var CLR = {
-    'g-pkl': '#26a69a', 'g-tcm': '#25A9E0', 'g-ecl': '#5c6bc0', 'g-cal': '#f57c00', 'g-baf': '#ff7043',
-    'g-spm': '#7e57c2', 'g-gal': '#78909c', 'g-ccl': '#ec407a', 'g-slt': '#ab47bc', 'g-ctl': '#66bb6a'
-  };
-  var FALLBACK = ['#8d6e63', '#26c6da', '#9ccc65', '#ffa726', '#42a5f5', '#d4e157', '#ba68c8', '#4db6ac', '#a1887f', '#7986cb'];
-  var _fc = {}, _fn = 0;
-  function colorFor(cls) {
-    if (CLR[cls]) return CLR[cls];
-    if (!(cls in _fc)) { _fc[cls] = FALLBACK[_fn % FALLBACK.length]; _fn++; }
-    return _fc[cls];
+  // coils grouped by order (for the expand drill-down)
+  var byOrder = {}; R.jobs.forEach(function (j) { (byOrder[j.order] = byOrder[j.order] || []).push(j); });
+  function expDay(o) { return Math.floor((S.baseMin + o.expectedEnd) / 1440); }
+  function dtag(m) { return 'D' + (Math.floor((S.baseMin + m) / 1440) + 1); }
+  function statusOf(o) {
+    if (o.fulfilment >= 0.999) return { t: 'Complete', c: 'b-conf', i: 'fa-circle-check' };
+    if (expDay(o) > o.dueOffsetDays) return { t: 'Late', c: 'b-late', i: 'fa-triangle-exclamation' };
+    if (o.coverage < 0.999) return { t: 'Under-covered', c: 'b-charge', i: 'fa-circle-half-stroke' };
+    return { t: 'On track', c: 'b-ontrack', i: 'fa-arrow-trend-up' };
   }
 
   // KPIs
-  var jobs = R.jobs;
-  var tot = jobs.reduce(function (a, j) { return a + j.qty; }, 0);
-  var slit = jobs.filter(function (j) { return j.finish === 'Slitting'; }).length;
-  var ctl = jobs.length - slit;
-  var coated = jobs.filter(function (j) { return j.product === 'GI' || j.product === 'PPGI'; }).length;
-  var endMax = Math.max.apply(null, jobs.map(function (j) { return j.planEnd; }));
+  var complete = orders.filter(function (o) { return o.fulfilment >= 0.999; }).length;
+  var late = orders.filter(function (o) { return statusOf(o).t === 'Late'; }).length;
+  var atRisk = orders.filter(function (o) { var t = statusOf(o).t; return t === 'Late' || t === 'Under-covered'; }).length;
+  var avgCov = orders.reduce(function (a, o) { return a + o.coverage; }, 0) / orders.length * 100;
+  var avgFul = orders.reduce(function (a, o) { return a + o.fulfilment; }, 0) / orders.length * 100;
   var kpi = [
-    ['Coils scheduled', jobs.length, 'rolling plan', 'blue'],
-    ['Total tonnage', tot.toFixed(1) + ' t', 'input HRC', 'blue'],
-    ['Coated coils', coated, 'GI + PPGI (hot-dip)', 'amber'],
-    ['Slitting / CTL', slit + ' / ' + ctl, 'finishing split', 'green'],
-    ['Plan span', (endMax / 60).toFixed(0) + ' h', (endMax / 1440).toFixed(1) + ' days · rolling', 'blue']
+    ['Open orders', orders.length, 'in the plan', 'blue'],
+    ['Complete', complete, 'fully produced', 'green'],
+    ['At risk', atRisk, late + ' late · ' + (atRisk - late) + ' under-covered', 'red'],
+    ['Avg coverage', avgCov.toFixed(0) + '%', 'scheduled ÷ ordered', 'blue'],
+    ['Avg fulfilment', avgFul.toFixed(0) + '%', 'produced ÷ ordered', 'amber']
   ];
   document.getElementById('kpis').innerHTML = kpi.map(function (k) {
     return '<div class="kpi ' + k[3] + '"><div class="k">' + k[0] + '</div><div class="v">' + k[1] + '</div><div class="s">' + k[2] + '</div></div>';
   }).join('');
 
-  // Table — each coil expands to its operation schedule (Seq · Operation · Equipment · times)
-  var bcls = { 'Confirmed': 'b-conf', 'In Process': 'b-proc', 'Charged': 'b-charge', 'Planned': 'b-plan' };
-  var ABBR = { 'Pickling': 'PKL', 'Cold Rolling': 'CR', 'Electro-Cleaning': 'ECL', 'Annealing': 'ANN', 'Skin-Pass': 'SP', 'Galvanizing': 'GALV', 'Colour Coating': 'PAINT', 'Slitting': 'SLIT', 'Cut-to-Length': 'CTL' };
-  var bars = R.bars;
-  var cols = ['', 'Seq', 'Schedule', 'Coil', 'Order · Customer', 'Grade', 'Gauge (mm)', 'Width', 'Qty', 'Route (operations)', 'Window', 'Status'];
+  function bar(pct, cls, extra) {
+    var w = Math.min(100, Math.round(pct));
+    return '<div class="pbar"><span class="track"><span class="fill ' + cls + '" style="width:' + w + '%"></span></span>' +
+      '<span class="pct">' + Math.round(pct) + '%</span>' + (extra || '') + '</div>';
+  }
+
+  // table
+  var cols = ['', 'Order · Customer', 'Product', 'Ordered', 'Coverage', 'Fulfilment', 'Coils', 'Expected', 'Due', 'Status'];
   var head = '<thead><tr>' + cols.map(function (c) { return '<th>' + c + '</th>'; }).join('') + '</tr></thead>';
-  var body = '<tbody>' + bars.map(function (bar, i) {
-    var j = bar.job, segs = bar.segs;
-    var ps = segs[0].start, pe = segs[segs.length - 1].start + segs[segs.length - 1].dur;
-    var route = segs.map(function (s, k) {
-      return (k ? '<span class="ra"><i class="fa-solid fa-chevron-right"></i></span>' : '') +
-        '<span class="rc" style="background:' + colorFor(s.cls) + '" title="' + s.op + ' · ' + s.unit + '">' + (ABBR[s.op] || s.op) + '</span>';
-    }).join('');
-    return '<tr class="coil-row">' +
-      '<td><button class="exp-btn" data-exp="' + i + '" title="Show operation schedule"><i class="fa-solid fa-chevron-right"></i></button></td>' +
-      '<td class="mono hint">' + (i + 1) + '</td>' +
-      '<td class="mono strong">' + j.sched + '</td>' +
-      '<td class="mono">' + j.coil + '</td>' +
-      '<td>' + j.order + ' · <span class="hint">' + j.customer + '</span></td>' +
-      '<td class="strong">' + j.grade + '<span class="prod pr-' + j.product.toLowerCase() + '">' + j.product + '</span></td>' +
-      '<td class="mono">' + j.hrcThk.toFixed(2) + ' → <b>' + j.crcThk.toFixed(2) + '</b></td>' +
-      '<td class="mono">' + j.width + ' mm</td>' +
-      '<td class="mono">' + j.qty.toFixed(1) + ' t</td>' +
-      '<td><div class="route">' + route + '</div></td>' +
-      '<td class="mono"><span class="hint">D' + (Math.floor((S.baseMin + ps) / 1440) + 1) + '</span> ' + clk(ps) + '–' + clk(pe) + '</td>' +
-      '<td><span class="badge ' + (bcls[j.status] || 'b-plan') + '">' + j.status + '</span></td>' +
+  var body = '<tbody>' + orders.map(function (o, i) {
+    var st = statusOf(o), ed = expDay(o), lateExp = ed > o.dueOffsetDays;
+    var expD = day(ed), dueD = day(o.dueOffsetDays);
+    return '<tr class="ord-row">' +
+      '<td><button class="exp-btn" data-exp="' + i + '" title="Show coils"><i class="fa-solid fa-chevron-right"></i></button></td>' +
+      '<td class="mono strong">' + o.id + '<div class="hint" style="font-weight:400">' + o.customer + '</div></td>' +
+      '<td class="strong">' + o.grade + '<span class="prod pr-' + o.product.toLowerCase() + '">' + o.product + '</span></td>' +
+      '<td class="mono">' + o.orderedQty + ' t</td>' +
+      '<td>' + bar(o.coverage * 100, o.coverage >= 0.999 ? 'cov-full' : 'cov-part', ' <span class="hint mono">' + o.scheduledQty.toFixed(0) + '/' + o.orderedQty + 't</span>') + '</td>' +
+      '<td>' + bar(o.fulfilment * 100, 'ful-fill', ' <span class="hint mono">' + o.producedQty.toFixed(0) + 't</span>') + '</td>' +
+      '<td class="mono">' + o.coils + '</td>' +
+      '<td class="mono' + (lateExp ? ' date-late' : '') + '">' + expD.wd + ' ' + expD.dm + '</td>' +
+      '<td class="mono">' + dueD.wd + ' ' + dueD.dm + '</td>' +
+      '<td><span class="badge ' + st.c + '"><i class="fa-solid ' + st.i + '"></i> ' + st.t + '</span></td>' +
       '</tr>';
   }).join('') + '</tbody>';
-  var tbl = document.getElementById('sched-tbl');
+  var tbl = document.getElementById('ord-tbl');
   tbl.innerHTML = head + body;
 
-  // expand a coil → its operation schedule (Seq · Operation · Equipment · Topology · Start · End · Dur)
+  // expand → coils for the order
+  var bcls = { 'Confirmed': 'b-conf', 'In Process': 'b-ontrack', 'Charged': 'b-charge', 'Planned': 'hint' };
   tbl.addEventListener('click', function (e) {
     var btn = e.target.closest ? e.target.closest('.exp-btn') : null; if (!btn) return;
     var i = +btn.getAttribute('data-exp'), tr = btn.closest('tr'), ic = btn.querySelector('i');
     var nx = tr.nextElementSibling;
-    if (nx && nx.classList.contains('op-detail')) { nx.remove(); btn.classList.remove('open'); ic.className = 'fa-solid fa-chevron-right'; return; }
-    var segs = bars[i].segs, j = bars[i].job;
-    var opRows = segs.map(function (s, k) {
-      return '<tr><td class="mono">' + (k + 1) + '</td>' +
-        '<td><span class="op-dot" style="background:' + colorFor(s.cls) + '"></span>' + s.op + '</td>' +
-        '<td class="mono">' + s.unit + (s.eqp === 'BATCH' ? '<span class="eqp-batch">batch</span>' : '') + '</td>' +
-        '<td><span class="topo-pill' + (s.topo === 'SPLIT' ? ' split' : '') + '">' + s.topo + '</span></td>' +
-        '<td class="mono">' + clk(s.start) + '</td>' +
-        '<td class="mono">' + clk(s.start + s.dur) + '</td>' +
-        '<td class="mono">' + s.dur + ' min</td></tr>';
+    if (nx && nx.classList.contains('ord-detail')) { nx.remove(); btn.classList.remove('open'); ic.className = 'fa-solid fa-chevron-right'; return; }
+    var o = orders[i], coils = (byOrder[o.id] || []).slice().sort(function (a, b) { return a.planStart - b.planStart; });
+    var rows = coils.map(function (c) {
+      return '<tr><td class="mono">' + c.coil + '</td>' +
+        '<td class="mono">' + c.qty.toFixed(1) + ' t</td>' +
+        '<td>' + c.finish + '</td>' +
+        '<td class="mono">' + dtag(c.planStart) + ' ' + clk(c.planStart) + '–' + clk(c.planEnd) + '</td>' +
+        '<td><span class="badge ' + (bcls[c.status] === 'hint' ? '' : bcls[c.status]) + '">' + c.status + '</span></td></tr>';
     }).join('');
-    var det = document.createElement('tr'); det.className = 'op-detail';
-    det.innerHTML = '<td colspan="' + cols.length + '"><div class="op-wrap">' +
-      '<div class="op-sub"><i class="fa-solid fa-diagram-project"></i> Operation schedule — ' + j.coil + ' · ' + segs.length + ' ops · routing derived from BOM/routing (not user-reorderable)</div>' +
-      '<table class="op-tbl"><thead><tr><th>Seq</th><th>Operation</th><th>Equipment</th><th>Topology</th><th>Planned Start</th><th>Planned End</th><th>Duration</th></tr></thead><tbody>' + opRows + '</tbody></table>' +
+    var det = document.createElement('tr'); det.className = 'ord-detail';
+    det.innerHTML = '<td colspan="' + cols.length + '"><div class="od-wrap">' +
+      '<div class="od-sub"><i class="fa-solid fa-layer-group"></i> Coils allocated to ' + o.id + ' — ' + coils.length + ' coils · ' + o.scheduledQty.toFixed(0) + ' t of ' + o.orderedQty + ' t ordered</div>' +
+      '<table class="od-tbl"><thead><tr><th>Coil</th><th>Qty</th><th>Finish</th><th>Window</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table>' +
       '</div></td>';
     tr.after(det); btn.classList.add('open'); ic.className = 'fa-solid fa-chevron-down';
   });

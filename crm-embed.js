@@ -13,7 +13,8 @@
     'production-confirmation-mockup-CRM.html': 'confirmation',
     'crm-schedule.html': 'schedule',
     'crm-gantt.html': 'gantt',
-    'crm-slitting.html': 'slitting'
+    'crm-slitting.html': 'slitting',
+    'crm-orders.html': 'orders'
   };
   document.addEventListener('click', function (e) {
     var a = e.target.closest ? e.target.closest('a[href]') : null;
