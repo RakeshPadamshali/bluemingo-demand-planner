@@ -1158,7 +1158,7 @@ erDiagram
 
 ---
 
-> **Numbering note:** §21–§24 are reserved — the development copy of this document (repo `mes-qa`) already uses them for Auth/RBAC (§21), Notifications (§22), the Screen Configuration Framework (§23) and the PPC sample handoff (§24). The additions below continue at **§25** so section numbers stay unique across both copies.
+> **Numbering note:** §21–§27 are reserved — the development copy of this document (repo `mes-qa`) uses them for Auth/RBAC (§21), Notifications (§22), the Screen Configuration Framework (§23), the PPC sample handoff (§24), attribute capture on Sampling & Testing (§25), TDC reference resolution (§26) and the Inspection-result header context (§27). This section is **§25 in this design copy** and lands as **§28 in the development copy** (the dev repo had already consumed §25–§27 by the time it was synced); subsection cross-references (§25.x here) map 1:1 to §28.x there.
 
 ## 25. Submodule — JSW SMS QA additions (2026-08-19)
 
