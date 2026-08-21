@@ -1124,7 +1124,9 @@ erDiagram
 | **TDC** | `mes_tdc_input` (extend), **`tdc_limit`** (3-tier core), `standard`, `standard_limit`, `tdc_standard`, `tdc_test_standard`, `tdc_customer_grade`, `tdc_remark` + `tdc_remark_target`, `tdc_ht`, `tdc_approval` |
 | **Reporting** | `v_qc_test_result`, `v_qc_inspection`, `v_qc_defect`, `v_qc_worklist` (views) |
 
-≈ **75 new tables + 2 extended (`mes_tdc_input`; `mes_global_attributes` +`use_for_qa` only) + 4 views.** *(+5 for the Track A back-ports: `corrective_action`, `grade_downgrade`, `approval`, `fg_recall`, `fg_recall_unit`; +3 for the traceability pass: `sample_test`, `corrective_action_applied`, `salvage_type_ncr_category`; +2 for the 2026-07-16 scope points: `size_basis`, `grade_chemistry`; +2 chemistry/attribute separation: `element`, `attribute_ext`.)*
+| **JSW SMS QA (§25)** | `instrument_checklist` + `_item` + `instrument_check_record` + `_item`, `pit_cooling`, `heat_chemistry_hist`, `notification_rule`, `colour_code`, `end_discard`, `length_master`, `dim_tolerance`, `layout_audit` + `_item` |
+
+≈ **88 new tables + 2 extended (`mes_tdc_input`; `mes_global_attributes` +`use_for_qa` only) + 6 views.** *(+5 for the Track A back-ports: `corrective_action`, `grade_downgrade`, `approval`, `fg_recall`, `fg_recall_unit`; +3 for the traceability pass: `sample_test`, `corrective_action_applied`, `salvage_type_ncr_category`; +2 for the 2026-07-16 scope points: `size_basis`, `grade_chemistry`; +2 chemistry/attribute separation: `element`, `attribute_ext`; **+13 for the JSW SMS QA additions (§25)**; views +`v_qc_pit_cooling`, `v_qc_end_cut`.)*
 
 ---
 
@@ -1150,6 +1152,73 @@ erDiagram
 **Compatibility check vs `bluemingo_mes_ambica` (2026-07-16, read-only inspection):**
 - **Verified compatible:** all 17 referenced platform tables exist (92 tables total; **zero `mes_qc_*` name collisions**); PKs are `<entity>_id` bigint GENERATED identity, named exactly as our FKs assume (`batch_id`, `confirmation_id`, `operation_id`, `schedule_material_child_id`, `material_form_id`, `product_category_id`, `sku_id`, `unit_id`, `customer_id`, `hold_reason_id`, `hold_id`); the audit tail (7 columns) is present on 91/92 tables with **exactly our declared types** on every table QA integrates with (only the 5 `mes_pln_*` planning tables use an older int4/varchar/timestamp variant — QA does not touch them); `mes_tdc_input` is exactly `{tdc_id, tdc_no, tdc_date}` + audit (678 TDCs loaded) so the §11.1 extension collides with nothing; `mes_tdc_attr_range` = `range_value_id` + `tdc_id` + **RA_1–RA_100 min/max pairs** (678 rows, 1:1 with TDCs) — the §11.10 projection fits as designed; `mes_production_confirmation` carries `is_rework`/`original_confirmation_id` (aligns with salvage re-processing) and `mes_operations.max_rework_count` exists (hook for rework limits).
 - **Attribute-registry decision (2026-07-16, user):** the platform table gains ONLY **`use_for_qa boolean DEFAULT false`** (follows its own `use_for_*` idiom); **no QA category column on the shared registry** — QA classification (`attribute_category` etc.) lives QA-side in `mes_qc_attribute_ext` (§5.11). Existing QA-relevant rows (Hardness HRC, RA %, EL %, Tensile, YS RP1.0, UT/MPI/Eddy) are flagged + extended rather than duplicated.
-- **Open integration items:** (1) `mes_inventory_holds` anchors on `inventory_id`, so QA auto-holds go through the platform hold service to resolve the batch/piece's inventory row; (2) **data-quality flag for the platform team:** the live registry has duplicate/placeholder rows (`HTC Code2`, `Execution2`, `Column1`, typo `HT Condittion`) and one real collision — **RA_34 is mapped by both `HTC Code2` and `Hardness (HRC)`** — to be curated before those rows are trusted as QA characteristics; (3) `column_reference` (RA_n) is context-scoped and reused across attribute groups — QA correctly never resolves it at read time (snapshots instead); only the TDC projection uses it, via `element.tdc_range_ref` for chemistry.
+- **Open integration items:** (1) `mes_inventory_holds` anchors on `inventory_id`, so QA auto-holds go through the platform hold service to resolve the batch/piece's inventory row; (2) **data-quality flag for the platform team:** the live registry has duplicate/placeholder rows (`HTC Code2`, `Execution2`, `Column1`, typo `HT Condittion`) — prefer the clean rows and ask platform to fix the typo. *(An RA_34 collision was suspected here earlier; **corrected 2026-08-04 — there is none**: `HTC Code2` = VA_34, `Hardness (HRC)` = RA_34 — different namespaces. `Hardness (HRC)` is safe and already `use_for_qa=true`.)*; (3) `column_reference` (RA_n) is context-scoped and reused across attribute groups — QA correctly never resolves it at read time (snapshots instead); only the TDC projection uses it, via `element.tdc_range_ref` for chemistry.
 
 - **Chemistry is a separate model (2026-07-16):** the element dictionary `mes_qc_element` (§5.10) is THE chemistry reference everywhere — grade_chemistry, TDC/standard chemical limits, stage-QC map, corrective actions, RM results, certificate chemical lines, and the wide heat-chemistry column set — while `mes_global_attributes` now serves **non-chemistry** characteristics only. Shared spec tables carry `attribute_id` **xor** `element_id` (one limits/fill/approval engine, two dictionaries). The element dictionary owns **both wide mappings directly** — `column_reference` → `mes_qc_heat_chemistry` columns, `tdc_range_ref` → `mes_tdc_attr_range` `RA_n` — with no attribute-dictionary involvement; the legacy `mes_global_attributes` chemistry rows (ids 1–33) are one-time migration seeds, then retired.
+
+---
+
+> **Numbering note:** §21–§24 are reserved — the development copy of this document (repo `mes-qa`) already uses them for Auth/RBAC (§21), Notifications (§22), the Screen Configuration Framework (§23) and the PPC sample handoff (§24). The additions below continue at **§25** so section numbers stay unique across both copies.
+
+## 25. Submodule — JSW SMS QA additions (2026-08-19)
+
+Designed from the JSW SMS QA SOW gap analysis (SMS QA area only; scope = rows owned by QA, QA + Platform, QA + SMS MES). Product-agnostic per D0 — "pit", "shift", "colour code", "end cut" are configuration/master data, not hard-coding. Each subsection names the SOW rows it closes.
+
+### 25.1 Shift-gated instrument checklist *(SOW 4, 5, 49, 50)*
+A measuring-instrument checklist completed **once per shift per role**; until completed, the gated inspection screens are locked for that user. Pop-up on first login of the shift = a platform session hook (dependency); the gate itself is enforced server-side against the completion record.
+
+- **`mes_qc_instrument_checklist`** — `checklist_id` PK · `code`/`name` · `screen_scope varchar(30)` (which screen family it gates — e.g. ONLINE_INSPECTION / OFFLINE_INSPECTION; data) · `role varchar(50)` (who must complete it) · `frequency varchar(20)` (SHIFT / DAILY) · **+ audit tail**.
+- **`mes_qc_instrument_checklist_item`** — `item_id` PK · `checklist_id` FK · `sequence_no` · `check_text varchar(255)` · `is_mandatory boolean` · **+ audit tail**.
+- **`mes_qc_instrument_check_record`** — `check_record_id` PK · `checklist_id` FK · `user_id bigint` · `shift_code varchar(20)` · `check_date date` · `status varchar(20)` (PENDING / COMPLETED) · `completed_at timestamptz` · **+ audit tail**. *(Unique (checklist, user, shift, date) — the gate key.)*
+- **`mes_qc_instrument_check_record_item`** — `id` PK · `check_record_id` FK · `item_id` FK · `is_ok boolean` · `remark varchar(255)` (**the SOW-requested remark column**; required when not OK) · **+ audit tail**.
+
+### 25.2 Pit cooling *(SOW 24–28; screen `pit-cooling.html`)*
+- **`mes_qc_pit_cooling`** — `pit_cooling_id` PK · `batch_id` FK→`mes_batches` (Y) · `heat_number varchar(100)` · `pit_location varchar(50)` · `entry_time timestamptz` · `spec_hours numeric(9,2)` (from the governing spec — a TDC/PSN characteristic "pit cooling hours") · `due_out_time timestamptz` (= entry + spec) · `actual_out_time timestamptz` (Y) · `status varchar(20)` (IN_PIT / OUT / OVERDUE) · `remarks varchar(255)` · **+ audit tail**.
+- Entry time & pit location are captured at the consolidated-inspection step (**PPC-owned route data — dependency**); QA reads them. The out-time reminder is a notification rule (§25.4) on `due_out_time`. Report = `v_qc_pit_cooling`.
+
+### 25.3 Chemistry modification history + SMS MES write-back *(SOW 45, 46; extends §7.4)*
+- **`mes_qc_heat_chemistry_hist`** — `hist_id` PK · `heat_chemistry_id` FK→`mes_qc_heat_chemistry` · `element_id` FK→`mes_qc_element` · `old_value`/`new_value numeric(18,4)` · `changed_by bigint` · `changed_date timestamptz` · `reason varchar(255)` · `writeback_status varchar(20)` (NA / PENDING / SENT / ACKED — when the modified value must be pushed back to the source SMS MES) · **+ audit tail**. *(Append-only; before/after always retained. One table serves both the history requirement and the write-back queue.)*
+- `mes_qc_heat_chemistry.capture_source` gains value **`TUNDISH`** (inbound SMS MES tundish analysis; sits beside L2/MANUAL).
+- Decision vocabulary on the chemistry clearance: **Ok / Ok with edit / Accepted Under Deviation** — these map to the existing machinery (CLEARED; CLEARED + a history row; CONDITIONAL + `deviation_ref` + approval §10.3). No new decision table.
+
+### 25.4 Notification & alert rules *(SOW 27, 31, 32, 39, 106; master `master-notification-rule.html`)*
+- **`mes_qc_notification_rule`** — `rule_id` PK · `rule_code varchar(50)` UQ · `event_code varchar(50)` (the QA event vocabulary — e.g. chemistry OOS hold, resample required, calibration overdue, pit-cooling due, sample issued to lab, pending-heats digest) · `recipient_role varchar(50)` (Y) · `recipient_user_id bigint` (Y) · `channel varchar(10)` (IN_APP / EMAIL / BOTH) · `frequency varchar(20)` (IMMEDIATE / SHIFT / DAILY / WEEKLY — digests) · `schedule_text varchar(50)` (Y — cron-like, for digests) · `subject_template varchar(255)` · `body_template varchar(1000)` · `lead_time_minutes integer` (Y — "remind N min before due") · `is_active boolean` · **+ audit tail**.
+- In-app delivery = the notification store (dev §22). **EMAIL channel = platform SMTP service — platform dependency**, flagged; rules are data so plants tune recipients/frequency without code.
+
+### 25.5 Vocabulary masters *(SOW 59–64; screens `master-colour-code.html`, `master-end-discard.html`, `master-length.html`, `master-dim-tolerance.html`)*
+- **`mes_qc_colour_code`** — `colour_code_id` PK · `code`/`name` · `colour_hex varchar(9)` · `code_type varchar(20)` (SCRAP / PSN / GRADE — data) · `remarks` · **+ audit tail**.
+- **`mes_qc_end_discard`** — `end_discard_id` PK · `code`/`name` (reason) · `default_length_mm numeric(9,2)` (Y) · `shape varchar(30)` (Y, scope) · **+ audit tail**.
+- **`mes_qc_length_master`** — `length_id` PK · `code` · `length_mm numeric(12,2)` · `uom_unit_id` FK→`mes_units` · `shape varchar(30)` (Y) · **+ audit tail**.
+- **`mes_qc_dim_tolerance`** — `dim_tolerance_id` PK · `shape varchar(30)` · `size_from`/`size_to numeric(12,2)` · `tol_minus`/`tol_plus numeric(9,3)` · `uom_unit_id` FK→`mes_units` · **+ audit tail**.
+- *These provide the controlled vocabulary the SOW words as "Master"; the **values applied to a given order remain expressible as TDC characteristics** (§11.2 `text_value`/limits) — both views of the same data, per the PSN⊃TDC reading.*
+
+### 25.6 Inspection & clearance capture additions *(SOW 67, 95, 83; extends §6.1, §10.1)*
+- `mes_qc_inspection` gains: `end_cut_length_mm numeric(9,2)` (Y) · `end_cut_reason_id` FK→`mes_qc_end_discard` (Y) · `salvage_note varchar(255)` (Y) · `colour_code_id` FK→`mes_qc_colour_code` (Y) · `marking_text varchar(100)` (Y) · `sticker_applied boolean`.
+- `mes_qc_usage_decision` gains: `sticker_barcode varchar(100)` (Y) · `sticker_printed_at timestamptz` (Y) — batch barcode stickers generated after final clearance.
+- End-cut data feeds `v_qc_end_cut` (report).
+
+### 25.7 Inspection-area layout audit *(SOW 99; screen `layout-audit.html`)*
+- **`mes_qc_layout_audit`** — `layout_audit_id` PK · `audit_code varchar(50)` · `area varchar(100)` · `period varchar(20)` · `frequency varchar(20)` (MONTHLY…) · `allocated_to bigint` · `due_date date` · `status varchar(20)` (OPEN / DONE / **LOCKED**) · `completed_at timestamptz` · **+ audit tail**. *(Completion mandatorily locks the audit — rows become read-only.)*
+- **`mes_qc_layout_audit_item`** — `id` PK · `layout_audit_id` FK · `sequence_no` · `item_text varchar(255)` · `value_num numeric(18,4)` (Y) · `value_text varchar(255)` (Y) · `is_ok boolean` · `remark varchar(255)` · **+ audit tail**.
+
+### 25.8 SMS MES integration contract *(SOW 37, 42, 45, 76, 77, 93 — interface design, no new tables beyond §25.3)*
+| Flow | Direction | Design |
+|---|---|---|
+| Tundish chemistry | SMS MES → QA | Lands as `mes_qc_heat_chemistry` rows, `capture_source=TUNDISH`, judged against the applied band with per-element deviation colour coding on screen |
+| Chemistry write-back | QA → SMS MES | On "Ok with edit", the change is recorded in `heat_chemistry_hist` and pushed back; `writeback_status` tracks PENDING→SENT→ACKED |
+| Casting process parameters (lance open, super heat, casting speed, casting powder) | SMS MES → platform | **Reuses `mes_process_parameters_captured`** (platform, D5) for the casting operation; the Usage-Decision process-validation panel reads it — no QA table |
+| Spectro lab results (hotout chemistry check) | Lab → QA | Existing instrument/L2 import path on testing & chemistry (capture_source) |
+
+### 25.9 Mass upload *(SOW 98 — design note)*
+Batch-characteristic mass upload reuses the **screen-configuration Excel-import framework** (dev §23 / `mes_qc_import_batch`), scoped to inspection results; no new tables.
+
+*UI inventory for this submodule: 3 new functional screens (`instrument-checklist`, `pit-cooling`, `layout-audit`), 5 new masters (`notification-rule`, `colour-code`, `end-discard`, `length`, `dim-tolerance`), and extensions to `test-entry`, `heat-chemistry`, `sample-issue`, `usage-decision`, `qc-worklist`, `instruments`.*
+
+### 25.10 Development-alignment notes (vs `mes-qa` @ `074f38f`, 2026-08-18)
+The development build has evolved past the original design in places. §25 was written against the **current dev state**, and these are the known deviations to honour when implementing — **port the features onto the dev structures, not the mockup DOM**:
+
+1. **Heat Chemistry is heat-first and config-driven in dev** (V63/V76/V77/V84: `heat_number` NOT NULL, sample/batch = evidence only; snapshotted band in `mes_qc_heat_chemistry_ref`; slot-less elements in the `_value` overflow; screen on the config framework with the `ELEMENT_SOURCE` policy). Implement §25.3 there: `heat_chemistry_hist` keys off the hc row (still valid); `TUNDISH` joins the existing `capture_source`; deviation colours and the Ok / Ok-with-edit / AUD decisions sit on the dev band-resolution (pinned-config → heat's TDC intersection → shared resolver), and the element iteration must include overflow-table values. The static mockup specifies the *features*, not the dev screen's structure.
+2. **Capture fields (§25.6) may land as configured attributes instead of columns.** Dev's attribute-first extension pattern (Screen-Configuration-Framework) can carry end-cut / colour-code / marking as TXN attributes with no migration. Either implementation is acceptable; the vocabularies still come from the §25.5 masters, and the end-cut report keys off wherever the value lives. Dedicated columns remain the design default because the values are structural QA semantics (FK'd to masters, reported).
+3. **SMS production samples arrive via the PPC handoff** (`mes_production_sample` contract: PPC issues and numbers the sample; QA writes back only the receipt stamp). For that flow, sticker printing (§ sample-issue extension) must print the **PPC-issued number/barcode**, and the lab-notify event fires on **QA receipt**, not QA issue. QA-drawn lab/offline samples keep the mockup's issue flow.
+4. **§25.4 rules extend the dev notification store (dev §22)** — same store, same delivery; the rules add recipients/channel/frequency/schedule as data. Event codes `QA_PIT_COOLING_DUE`, `QA_PENDING_HEATS_DIGEST`, `QA_MACRO_FEEDBACK` are **new** additions to the existing type vocabulary; the rest already exist in dev.
+5. **Screen-structure drift generally:** dev replaced the classic RM screen with the config-driven Inward family and builds screens from the config framework. The 51 static mockups remain the functional spec for *fields, actions, flows and vocabularies*; layout/structure follows the dev framework. Mass upload (§25.9) = a new import scope on the existing dev import service, not a new mechanism.

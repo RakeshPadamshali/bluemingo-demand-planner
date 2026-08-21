@@ -122,6 +122,51 @@ table.hc-grid{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .hc-note.ok{color:var(--color-success);}.hc-note.warn{color:var(--color-danger);}
 .empty-detail{display:flex;align-items:center;justify-content:center;flex:1;color:var(--color-text-hint);font-style:italic;}
 
+/* ---- change history (SOW SMSQA7-46) — mes_qc_heat_chemistry_hist ---- */
+.hist-panel{border:1px solid var(--color-border);border-radius:var(--r-md);margin:2px 0 var(--sp4);background:var(--color-bg-alt);overflow:hidden;}
+.hist-head{display:flex;align-items:center;gap:var(--sp2);padding:9px 12px;cursor:pointer;user-select:none;flex-wrap:wrap;}
+.hist-head:hover{background:#f0f6fa;}
+.hist-chev{font-size:10px;color:var(--color-text-hint);width:12px;text-align:center;}
+.hist-title{font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.4px;font-weight:700;color:var(--color-text-muted);display:inline-flex;align-items:center;gap:6px;}
+.hist-count{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:16px;padding:0 5px;border-radius:8px;background:rgba(var(--color-primary-rgb),.15);color:var(--color-primary-dark);font-size:10px;font-weight:700;}
+.hist-sub{margin-left:auto;font-size:var(--fs-xs);color:var(--color-text-hint);}
+.hist-body{border-top:1px solid var(--color-border-light);background:#fff;}
+table.hist-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
+.hist-tbl th{text-align:left;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.3px;color:var(--color-text-muted);font-weight:600;padding:7px 12px;border-bottom:1px solid var(--color-border-light);white-space:nowrap;}
+.hist-tbl td{padding:6px 12px;border-bottom:1px solid #f6f6f6;font-variant-numeric:tabular-nums;}
+.hist-tbl td.hel{font-weight:600;}
+.hist-old{color:var(--color-danger);text-decoration:line-through;text-decoration-color:rgba(211,47,47,.5);}
+.hist-new{color:var(--color-success);font-weight:600;}
+.hist-empty{padding:12px;font-size:var(--fs-sm);color:var(--color-text-hint);font-style:italic;}
+
+/* ---- SMS MES integration add-ons (SOW SMSQA7-37 / 42 / 45) ---- */
+/* SMSQA7-37 — tundish capture-source chip (mes_qc_heat_chemistry.capture_source=TUNDISH §25.3) */
+.hc-chips .chip.cap-tun{background:#ede7f6;border-color:#d1c4e9;color:#5e35b1;font-weight:600;}
+/* SMSQA7-42 — 3-state deviation colour code: within (green) / below min (amber) / above max (red) */
+.devlegend{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:8px 0 2px;font-size:var(--fs-xs);color:var(--color-text-muted);}
+.devlegend .dvchip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:10px;background:var(--color-bg-alt);border:1px solid var(--color-border-light);}
+.dvdot{display:inline-block;width:8px;height:8px;border-radius:50%;}
+.dvdot.d-in{background:var(--color-success);}.dvdot.d-lo{background:var(--color-warning);}.dvdot.d-hi{background:var(--color-danger);}
+.hc-grid td.adev-in,.hc-grid tbody tr:hover td.adev-in{background:rgba(76,175,80,.07);}
+.hc-grid td.adev-lo,.hc-grid tbody tr:hover td.adev-lo{background:rgba(245,124,0,.10);}
+.hc-grid td.adev-hi,.hc-grid tbody tr:hover td.adev-hi{background:rgba(211,47,47,.08);}
+.hc-grid input.devlo{border-color:#ffb74d;background:#fff8e1;}
+/* SMSQA7-45 — decision vocabulary (Ok / Ok with edit / Accepted Under Deviation) */
+.dec-wrap{display:flex;align-items:center;gap:var(--sp2);flex-wrap:wrap;justify-content:flex-end;}
+.dec-wrap .btn{padding:9px 12px;font-size:13px;}
+.dec-wrap .btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn-aud{background:#fff3e0;color:#e65100;border:1px solid #ffcc80;}
+.btn-aud:hover:not(:disabled){background:#ffe0b2;}
+.aud-inline{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.aud-inline input{padding:8px 10px;border:1px solid #ffcc80;border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;width:190px;}
+.aud-inline input:focus{outline:none;border-color:var(--color-warning);box-shadow:0 0 0 3px rgba(245,124,0,.15);}
+.badge.b-aud{background:rgba(245,124,0,.14);color:#e65100;}
+/* SMSQA7-45 — per-correction write-back tag (mes_qc_heat_chemistry_hist.writeback_status §25.3; outbound QA → SMS MES §25.8) */
+.wbtag{display:inline-block;padding:1px 7px;border-radius:9px;font-size:10px;font-weight:700;letter-spacing:.3px;white-space:nowrap;}
+.wbtag.wb-na{background:rgba(158,158,158,.14);color:#9e9e9e;}
+.wbtag.wb-pend{background:rgba(245,124,0,.14);color:#ef6c00;}
+.wbtag.wb-sent{background:rgba(76,175,80,.14);color:#2e7d32;}
+
 .sidebar .ms-chev{margin-left:auto;font-size:10px;width:auto!important;padding:3px 4px;border-radius:3px;transition:transform .15s;color:rgba(255,255,255,.4);}
 .sidebar .ms-chev:hover{background:rgba(255,255,255,.15);color:#fff;}
 .sidebar .ms-group.open .ms-chev{transform:rotate(90deg);}
@@ -201,6 +246,7 @@ table.hc-grid{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="rm-inward.html"><i class="fa-solid fa-truck-ramp-box"></i> RM Quality</a>
         <a href="heat-chemistry.html" class="active"><i class="fa-solid fa-vial-circle-check"></i> Heat Chemistry</a>
         <a href="qc-worklist.html"><i class="fa-solid fa-clipboard-check"></i> Inspection</a>
+        <a href="pit-cooling.html"><i class="fa-solid fa-temperature-arrow-down"></i> Pit Cooling</a>
         <a href="sample-issue.html"><i class="fa-solid fa-vials"></i> Sampling</a>
         <a href="test-entry.html"><i class="fa-solid fa-flask"></i> Testing</a>
         <a href="defect-mapping.html"><i class="fa-solid fa-triangle-exclamation"></i> Defects</a>
@@ -214,6 +260,8 @@ table.hc-grid{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
       <div class="s-group" onclick="grpToggle(this)">Equipment<i class="fa-solid fa-chevron-down gchev"></i></div>
       <div class="grp-items">
         <a href="instruments.html"><i class="fa-solid fa-ruler-combined"></i> Instruments</a>
+        <a href="instrument-checklist.html"><i class="fa-solid fa-list-check"></i> Instrument Checklist</a>
+        <a href="layout-audit.html"><i class="fa-solid fa-vector-square"></i> Layout Audit</a>
       </div>
     </div>
     <div class="navgrp" data-g="Masters">
@@ -243,10 +291,15 @@ table.hc-grid{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="master-ncr-category.html"><i class="fa-solid fa-file-circle-exclamation"></i> NCR Category</a>
         <a href="master-standard.html"><i class="fa-solid fa-book"></i> Standard</a>
         <a href="master-standard-limit.html"><i class="fa-solid fa-ruler-horizontal"></i> Standard Limit</a>
+        <a href="master-colour-code.html"><i class="fa-solid fa-palette"></i> Colour Code</a>
+        <a href="master-end-discard.html"><i class="fa-solid fa-scissors"></i> End Discard</a>
+        <a href="master-length.html"><i class="fa-solid fa-ruler-horizontal"></i> Length</a>
+        <a href="master-dim-tolerance.html"><i class="fa-solid fa-arrows-left-right-to-line"></i> Dim Tolerance</a>
         <a href="master-grade-chemistry.html"><i class="fa-solid fa-flask-vial"></i> Grade Chemistry</a>
         <a href="master-instrument-type.html"><i class="fa-solid fa-ruler-combined"></i> Instrument Type</a>
         <a href="master-agency.html"><i class="fa-solid fa-building"></i> Agency</a>
         <a href="master-supplier.html"><i class="fa-solid fa-truck-field"></i> Supplier</a>
+        <a href="master-notification-rule.html"><i class="fa-solid fa-bell"></i> Notification Rule</a>
       </div>
     </div>
   </nav>
@@ -330,7 +383,7 @@ const HEATS=[
  {heat:'2526-16426',grade:'416',tdc:'TDC-003922',sample:'CHM-2526-0187',cast:'23-Jun 20:10',furnace:'Furnace-20T',lab:'Wet Lab',state:'PASS'},
  {heat:'2526-16798',grade:'304L',tdc:'TDC-004810',sample:'CHM-2526-0186',cast:'23-Jun 18:55',furnace:'Furnace-6T',lab:'Central Lab',state:'HOLD'}
 ];
-const BADGE={PASS:'b-pass',FAIL:'b-fail',PENDING:'b-pend',HOLD:'b-hold',CLEARED:'b-clr'};
+const BADGE={PASS:'b-pass',FAIL:'b-fail',PENDING:'b-pend',HOLD:'b-hold',CLEARED:'b-clr',CONDITIONAL:'b-aud'}; /* CONDITIONAL = Accepted Under Deviation (SOW SMSQA7-45) */
 
 /* ===== deterministic mock actuals ===== */
 function rnd(v){const a=Math.abs(v);return a<1?+v.toFixed(3):a<100?+v.toFixed(2):Math.round(v);}
@@ -357,6 +410,85 @@ HEATS.forEach(h=>{
 
 let cur=0, curType='Ladle';
 
+/* ===== SMSQA7-46 — chemistry modification history =====
+   Every correction to an already-entered element value is retained Old → New;
+   persisted in mes_qc_heat_chemistry_hist (append-only; before/after retained). */
+/* wb = SMS MES write-back status per correction — mes_qc_heat_chemistry_hist.writeback_status (§25.3):
+   NA (not queued) → PENDING (queued by "Ok with edit", SOW SMSQA7-45) → SENT (delivered over the
+   outbound QA → SMS MES interface, §25.8). One seed row is SENT to show the full lifecycle. */
+const HIST={
+ '2526-16496':[
+  {el:'C', old:'0.223',nu:'0.219',by:'k.sharma', at:'24-Jun 06:12',reason:'Lab re-check',wb:'NA'},
+  {el:'S', old:'0.028',nu:'0.031',by:'l2.import',at:'24-Jun 06:58',reason:'Re-analysis',wb:'SENT'},
+  {el:'Mn',old:'1.42', nu:'1.44', by:'k.sharma', at:'24-Jun 08:21',reason:'Cross-check with wet lab',wb:'NA'}
+ ]
+};
+let histOpen=true;
+const pendingHist={};   /* queued old→new edits keyed heat|type|element, flushed to HIST on Save */
+function trackChange(h,el,oldV,newV){
+  if(oldV===''||oldV==null)return;                       /* first entry — not a correction */
+  const o=parseFloat(oldV),n=parseFloat(newV);
+  if(!isNaN(o)&&!isNaN(n)&&o===n)return;
+  const key=h.heat+'|'+curType+'|'+el;
+  if(pendingHist[key]){
+    const po=parseFloat(pendingHist[key].old);
+    if(!isNaN(po)&&!isNaN(n)&&po===n){delete pendingHist[key];return;}   /* typed back to the original */
+    pendingHist[key].nu=newV;
+  } else pendingHist[key]={heat:h.heat,el:el,old:''+oldV,nu:newV};
+}
+function histNow(){const t=new Date(),M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return String(t.getDate()).padStart(2,'0')+'-'+M[t.getMonth()]+' '+String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');}
+/* SOW SMSQA7-45 — per-row write-back tag: mes_qc_heat_chemistry_hist.writeback_status (§25.3),
+   delivered over the outbound QA → SMS MES interface (§25.8). NA → PENDING → SENT. */
+function wbTag(s){
+  s=s||'NA';
+  const cls=s==='SENT'?'wb-sent':s==='PENDING'?'wb-pend':'wb-na';
+  return `<span class="wbtag ${cls}" title="writeback_status=${s} — outbound QA → SMS MES (§25.8)">WB: ${s}</span>`;
+}
+function histRows(h){
+  const rows=HIST[h.heat]||[];
+  if(!rows.length)return '<div class="hist-empty">No corrections recorded for this heat.</div>';
+  return '<table class="hist-tbl"><thead><tr><th>Element</th><th>Old</th><th>New</th><th>Changed by</th><th>At</th><th>Reason</th><th>Write-back</th></tr></thead><tbody>'
+    +rows.map(r=>`<tr><td class="hel">${r.el}</td><td><span class="hist-old">${r.old}</span></td><td><span class="hist-new">${r.nu}</span></td><td>${r.by}</td><td>${r.at}</td><td>${r.reason}</td><td>${wbTag(r.wb)}</td></tr>`).join('')
+    +'</tbody></table>';
+}
+function histPanelHtml(h){
+  const n=(HIST[h.heat]||[]).length;
+  return `<div class="hist-panel">
+    <div class="hist-head" onclick="histToggle()">
+      <i class="fa-solid fa-chevron-${histOpen?'down':'right'} hist-chev"></i>
+      <span class="hist-title">Change history <span class="hist-count" id="histCount">${n}</span></span>
+      <span class="hist-sub">Old → New per correction · mes_qc_heat_chemistry_hist (append-only) · WB = write-back to SMS MES (§25.8)</span>
+    </div>
+    <div class="hist-body" id="histBody" style="display:${histOpen?'block':'none'}">${histRows(h)}</div>
+  </div>`;
+}
+function histToggle(){histOpen=!histOpen;renderDetail();}
+function renderHist(){
+  const h=HEATS[cur];
+  const b=document.getElementById('histBody'); if(b)b.innerHTML=histRows(h);
+  const c=document.getElementById('histCount'); if(c)c.textContent=(HIST[h.heat]||[]).length;
+}
+/* Save flushes queued corrections into the history (no reason input in this save flow → default reason) */
+function flushPendingHist(h){
+  /* commit this heat's queued Old→New edits; new hist rows start writeback_status=NA (§25.3) */
+  const keys=Object.keys(pendingHist).filter(k=>pendingHist[k].heat===h.heat);
+  let n=0;
+  keys.forEach(k=>{
+    const p=pendingHist[k]; delete pendingHist[k];
+    if(p.nu===''||p.nu==null)return;                     /* cleared value — nothing to log */
+    (HIST[h.heat]=HIST[h.heat]||[]).push({el:p.el,old:p.old,nu:''+p.nu,by:'qa.user',at:histNow(),reason:'Manual correction',wb:'NA'});
+    n++;
+  });
+  return n;
+}
+function saveChem(){
+  const h=HEATS[cur];
+  const n=flushPendingHist(h);
+  renderHist(); decRefresh();                            /* committed edits can enable "Ok with edit" (SOW SMSQA7-45) */
+  mesToast(n?('Saved — '+n+' chemistry change'+(n>1?'s':'')+' logged to history'):'Saved — no chemistry corrections to log','ok');
+}
+
 /* ===== eval ===== */
 function elResult(e,v){ if(e[2]==null&&e[3]==null) return 'NA';   /* no TDC or GRADE limit -> report-only */
   if(v===''||v==null||isNaN(parseFloat(v))) return ''; const n=parseFloat(v);
@@ -365,6 +497,22 @@ function overall(){ const h=HEATS[cur],spec=specFor(h),vals=store[h.heat][curTyp
   let fail=false,empty=false; spec.forEach(e=>{const r=elResult(e,vals[e[0]]); if(r==='NA')return; if(r==='')empty=true; else if(r==='FAIL')fail=true;});
   return fail?'FAIL':(empty?'PENDING':'PASS'); }
 function fmtSpec(e){ const mn=e[2],mx=e[3]; if(mn!=null&&mx!=null)return mn.toFixed(mn<1?3:2)+' – '+mx.toFixed(mx<1?3:2); if(mx!=null)return '≤ '+mx.toFixed(mx<1?3:2); if(mn!=null)return '≥ '+mn.toFixed(mn<1?3:2); return '—'; }
+/* SOW SMSQA7-42 — 3-state deviation colour code per element: WITHIN / DEV-LOW (< min) / DEV-HIGH (> max).
+   Presentation only — the persisted pass/fail result (elResult/overall) is untouched. */
+function devState(e,v){
+  if(e[2]==null&&e[3]==null) return null;                              /* report-only element */
+  if(v===''||v==null||isNaN(parseFloat(v))) return null;               /* no value yet */
+  const n=parseFloat(v);
+  if(e[3]!=null&&n>e[3]) return 'HI';
+  if(e[2]!=null&&n<e[2]) return 'LO';
+  return 'IN';
+}
+function devCellAttr(d){
+  if(!d) return '';
+  const cls=d==='HI'?'adev-hi':d==='LO'?'adev-lo':'adev-in';
+  const tip=d==='HI'?'DEV-HIGH — above max':d==='LO'?'DEV-LOW — below min':'WITHIN limits';
+  return ` class="${cls}" title="${tip}"`;
+}
 
 /* ===== render list ===== */
 function renderList(){
@@ -376,22 +524,27 @@ function renderList(){
       <span class="badge ${BADGE[h.state]}">${h.state}</span></div>`;
   }).join('');
 }
-function selectHeat(i){cur=i;curType='Ladle';renderList();renderDetail();}
+function selectHeat(i){cur=i;curType='Ladle';audOpen=false;renderList();renderDetail();}
 
 /* ===== render detail ===== */
 function renderDetail(){
   const h=HEATS[cur], spec=specFor(h), vals=store[h.heat][curType], src=store[h.heat]._src[curType]||'—';
   const chips=[['Grade',h.grade],['TDC',h.tdc],['Sample',h.sample],['Cast',h.cast],['Furnace',h.furnace],['Lab',h.lab]]
     .map(p=>`<span class="chip">${p[0]}<b>${p[1]}</b></span>`).join('')
-    +`<span class="chip src">Source<b>${src}</b></span>`;
+    +`<span class="chip src">Source<b>${src}</b></span>`
+    /* SOW SMSQA7-37 — capture-source chip alongside the source display: rows landed with capture_source=TUNDISH (§25.3) */
+    +((store[h.heat]._cap||{})[curType]==='TUNDISH'
+      ?`<span class="chip cap-tun" title="Captured at tundish — mes_qc_heat_chemistry.capture_source=TUNDISH (§25.3); received over the inbound SMS MES → QA interface (§25.8)"><i class="fa-solid fa-tower-broadcast" style="font-size:10px;margin-right:3px"></i>TUNDISH · SMS MES</span>`
+      :'');
   const tabs=TYPES.map(t=>`<div class="hc-tab ${t===curType?'on':''}" onclick="setType('${t}')">${t}${t==='Ladle'?'':' <span style="font-size:10px;color:#999">(opt)</span>'}</div>`).join('');
   const rows=spec.map((e,i)=>{
-    const v=vals[e[0]]??'', r=elResult(e,v), cls=r==='FAIL'?'bad':(r==='PASS'?'good':'');
+    const v=vals[e[0]]??'', r=elResult(e,v), d=devState(e,v);          /* SOW SMSQA7-42: dev colour is presentation-only */
+    const cls=d==='HI'?'bad':d==='LO'?'devlo':d==='IN'?'good':'';
     const badge = r==='NA' ? '<span class="badge b-rep">report-only</span>'
                 : r==='' ? '<span class="badge b-pend">—</span>'
                 : `<span class="badge ${r==='PASS'?'b-pass':'b-fail'}">${r}</span>`;
     return `<tr><td class="el">${e[0]}${srcTag(e[4])}</td><td class="spec">${e[1]}</td><td class="spec">${fmtSpec(e)}</td>
-      <td><input class="${cls}" data-el="${e[0]}" type="number" step="any" value="${v}" placeholder="—" oninput="onEdit(this)"/></td>
+      <td${devCellAttr(d)}><input class="${cls}" data-el="${e[0]}" type="number" step="any" value="${v}" placeholder="—" oninput="onEdit(this)"/></td>
       <td>${badge}</td></tr>`;
   }).join('');
   const ov=overall();
@@ -403,31 +556,45 @@ function renderDetail(){
       </div>
       <div class="hc-actions">
         <button class="btn btn-ghost btn-sm" onclick="importL2()"><i class="fa-solid fa-satellite-dish"></i> Import from L2</button>
+        <button class="btn btn-ghost btn-sm" onclick="importTundish()" title="Tundish sample chemistry — inbound interface SMS MES → QA (SOW SMSQA7-37); rows land with capture_source=TUNDISH (§25.3)"><i class="fa-solid fa-tower-broadcast"></i> Import from SMS MES (Tundish)</button>
         <button class="btn btn-ghost btn-sm" onclick="simulateOOS()"><i class="fa-solid fa-flask-vial"></i> Simulate out-of-spec</button>
-        <button class="btn btn-ghost btn-sm"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        <button class="btn btn-ghost btn-sm" onclick="saveChem()"><i class="fa-solid fa-floppy-disk"></i> Save</button>
       </div>
     </div>
     <div class="hc-tabs">${tabs}</div>
     <div class="hc-grid-wrap">
+      <div class="devlegend">Deviation colour code:
+        <span class="dvchip"><span class="dvdot d-in"></span> within</span> ·
+        <span class="dvchip"><span class="dvdot d-lo"></span> below min</span> ·
+        <span class="dvchip"><span class="dvdot d-hi"></span> above max</span>
+        <span style="color:var(--color-text-hint)">(SOW 42 — Actual cell tinted per element; persisted result unchanged)</span>
+      </div>
       <table class="hc-grid">
         <thead><tr><th>Element</th><th>Unit</th><th>Spec Limit</th><th style="text-align:right">Actual</th><th>Result</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
       <div class="hc-legend">Limit source: <span class="srctag t-tdc">TDC</span> (customer spec) › <span class="srctag t-grd">GRADE</span> (works spec §5.9) › <span class="srctag t-rep">REPORT</span> report-only · elements from the Element master</div>
+      ${histPanelHtml(h)}
     </div>
     <div class="hc-foot">
       <div class="ov">Overall chemistry: <span class="badge big ${ov==='PASS'?'b-pass':ov==='FAIL'?'b-fail':'b-pend'}" id="ovBadge">${ov}</span> <span class="hc-note" id="hcNote"></span></div>
-      <button class="btn ${ov==='FAIL'?'btn-danger':'btn-primary'}" id="clrBtn" onclick="doClearance()" ${ov==='PENDING'?'disabled':''}>
-        <i class="fa-solid ${ov==='FAIL'?'fa-ban':'fa-circle-check'}"></i> ${ov==='FAIL'?'Put heat on hold':'Record chemistry clearance'}</button>
+      <div class="dec-wrap" id="decWrap">${decisionHtml(ov,h)}</div>
     </div>`;
 }
-function setType(t){curType=t;renderDetail();}
+function setType(t){curType=t;audOpen=false;renderDetail();}
 function onEdit(inp){
-  const h=HEATS[cur]; store[h.heat][curType][inp.dataset.el]=inp.value;
+  const h=HEATS[cur];
+  trackChange(h,inp.dataset.el,store[h.heat][curType][inp.dataset.el],inp.value); /* SMSQA7-46: queue Old→New; logged to history on Save */
+  store[h.heat][curType][inp.dataset.el]=inp.value;
   store[h.heat]._src[curType]='Manual';
+  /* manual edit ends the pure-tundish capture — drop the SMSQA7-37 chip for this analysis */
+  if((store[h.heat]._cap||{})[curType]){delete store[h.heat]._cap[curType];const tc=document.querySelector('.hc-chips .chip.cap-tun');if(tc)tc.remove();}
   /* live: recompute just this row class + overall, without full re-render to keep focus */
-  const e=specFor(h).find(x=>x[0]===inp.dataset.el), r=elResult(e,inp.value);
-  inp.className=r==='FAIL'?'bad':(r==='PASS'?'good':'');
+  const e=specFor(h).find(x=>x[0]===inp.dataset.el), r=elResult(e,inp.value), d=devState(e,inp.value);
+  inp.className=d==='HI'?'bad':d==='LO'?'devlo':d==='IN'?'good':'';    /* SOW SMSQA7-42 */
+  const dtd=inp.parentElement;
+  dtd.className=d==='HI'?'adev-hi':d==='LO'?'adev-lo':d==='IN'?'adev-in':'';
+  dtd.title=d==='HI'?'DEV-HIGH — above max':d==='LO'?'DEV-LOW — below min':d==='IN'?'WITHIN limits':'';
   inp.closest('tr').querySelector('td:last-child').innerHTML = r==='NA' ? '<span class="badge b-rep">report-only</span>' : r==='' ? '<span class="badge b-pend">—</span>' : `<span class="badge ${r==='PASS'?'b-pass':'b-fail'}">${r}</span>`;
   refreshOverall();
   /* update source chip */
@@ -438,16 +605,14 @@ function onEdit(inp){
 function refreshOverall(){
   const ov=overall(), b=document.getElementById('ovBadge'); if(!b)return;
   b.textContent=ov; b.className='badge big '+(ov==='PASS'?'b-pass':ov==='FAIL'?'b-fail':'b-pend');
-  const btn=document.getElementById('clrBtn');
-  btn.disabled=ov==='PENDING';
-  btn.className='btn '+(ov==='FAIL'?'btn-danger':'btn-primary');
-  btn.innerHTML=`<i class="fa-solid ${ov==='FAIL'?'fa-ban':'fa-circle-check'}"></i> ${ov==='FAIL'?'Put heat on hold':'Record chemistry clearance'}`;
+  decRefresh();                                          /* SOW SMSQA7-45 — decision buttons track the live overall state */
 }
 function importL2(){
   const h=HEATS[cur], spec=specFor(h), gi=spec.map((e,i)=>i).filter(i=>spec[i][2]!=null||spec[i][3]!=null);
   const failEl=(h.state==='FAIL'||h.state==='HOLD')?gi[hashIdx(h.heat,gi.length)]:-1;
   spec.forEach((e,i)=>store[h.heat][curType][e[0]]=deriveVal(h.heat,i,e,i===failEl));
   store[h.heat]._src[curType]='L2';
+  if(store[h.heat]._cap)delete store[h.heat]._cap[curType];   /* spectro overwrite — no longer tundish-captured (SMSQA7-37) */
   const oos=overall()==='FAIL';
   if(oos && h.state!=='HOLD') h.state='HOLD';   /* auto-hold on out-of-spec import */
   renderList(); renderDetail();
@@ -459,6 +624,69 @@ function doClearance(){
   const h=HEATS[cur], ov=overall(); const n=()=>document.getElementById('hcNote');
   if(ov==='PASS'){h.state='CLEARED'; renderList(); renderDetail(); n().textContent='✓ Chemistry cleared — heat released to production'; n().className='hc-note ok'; mesToast('Heat '+h.heat+' chemistry cleared — released to production','ok');}
   else if(ov==='FAIL'){h.state='HOLD'; renderList(); renderDetail(); n().textContent='⚠ Heat held — chemistry out of spec (TDC / works grade); route to disposition / re-test'; n().className='hc-note warn'; mesToast('Heat '+h.heat+' put ON HOLD — chemistry out of spec','err');}
+}
+
+/* ===== SOW SMSQA7-37 — tundish sample chemistry from SMS MES =====
+   Inbound interface SMS MES → QA (§25.8): tundish spectro rows land in mes_qc_heat_chemistry
+   with capture_source=TUNDISH (§25.3), alongside ladle/product rows captured from L2 or manually. */
+function importTundish(){
+  const h=HEATS[cur], spec=specFor(h), gi=spec.map((e,i)=>i).filter(i=>spec[i][2]!=null||spec[i][3]!=null);
+  const failEl=(h.state==='FAIL'||h.state==='HOLD')?gi[hashIdx(h.heat,gi.length)]:-1;
+  spec.forEach((e,i)=>store[h.heat][curType][e[0]]=deriveVal(h.heat+'~TD',i,e,i===failEl));  /* salted seed → slightly different demo values than the L2 set */
+  store[h.heat]._src[curType]='SMS MES';
+  (store[h.heat]._cap=store[h.heat]._cap||{})[curType]='TUNDISH';
+  const oos=overall()==='FAIL';
+  if(oos && h.state!=='HOLD') h.state='HOLD';            /* same auto-hold rule as the L2 import */
+  renderList(); renderDetail();
+  const n=document.getElementById('hcNote'); if(n){ n.textContent='✓ Tundish sample chemistry received from SMS MES (capture_source=TUNDISH)'; n.className='hc-note ok'; }
+  mesToast('Tundish chemistry received from SMS MES','ok');
+  if(oos) mesToast('Tundish chemistry out of spec (TDC / grade) — heat '+h.heat+' auto-held','warn');
+}
+
+/* ===== SOW SMSQA7-45 — decision vocabulary: Ok / Ok with edit / Accepted Under Deviation =====
+   Ok                       → CLEARED (existing record-clearance path).
+   Ok with edit             → CLEARED + every corrected value of this heat queued for SMS MES write-back:
+                              mes_qc_heat_chemistry_hist.writeback_status NA → PENDING → SENT (§25.3),
+                              delivered over the outbound QA → SMS MES interface (§25.8).
+   Accepted Under Deviation → CONDITIONAL clearance recorded against a deviation reference. */
+let audOpen=false;                                       /* inline deviation-ref input visible? */
+function heatHasEdits(h){
+  if((HIST[h.heat]||[]).length) return true;
+  return Object.keys(pendingHist).some(k=>pendingHist[k].heat===h.heat);
+}
+function decisionHtml(ov,h){
+  const canOk=ov==='PASS', canEdit=ov==='PASS'&&heatHasEdits(h), canAud=ov==='FAIL';
+  const hold=ov==='FAIL'?'<button class="btn btn-danger" onclick="doClearance()" title="Existing hold path — chemistry out of spec"><i class="fa-solid fa-ban"></i> Put heat on hold</button>':'';
+  const aud=audOpen
+    ? `<span class="aud-inline"><input id="audRef" placeholder="Deviation ref — e.g. DEV-${h.heat}" onkeydown="if(event.key==='Enter')confirmAUD()"/><button class="btn btn-aud" onclick="confirmAUD()"><i class="fa-solid fa-file-signature"></i> Record AUD</button><button class="btn btn-ghost" onclick="cancelAUD()">Cancel</button></span>`
+    : `<button class="btn btn-aud" onclick="openAUD()" ${canAud?'':'disabled'} title="${canAud?'Record CONDITIONAL clearance against a deviation reference':'Enabled when chemistry is out of spec'}"><i class="fa-solid fa-file-signature"></i> Accepted Under Deviation</button>`;
+  return hold
+    +`<button class="btn btn-primary" onclick="decideOk()" ${canOk?'':'disabled'} title="${canOk?'Record chemistry clearance (CLEARED)':'Enabled when overall chemistry is PASS'}"><i class="fa-solid fa-circle-check"></i> Ok</button>`
+    +`<button class="btn btn-ghost" onclick="decideOkEdit()" ${canEdit?'':'disabled'} title="${canEdit?'Clear and queue corrected values for SMS MES write-back':'Enabled when overall is PASS and this heat has pending / committed corrections'}"><i class="fa-solid fa-pen-to-square"></i> Ok with edit</button>`
+    +aud;
+}
+function decRefresh(){ const d=document.getElementById('decWrap'); if(d) d.innerHTML=decisionHtml(overall(),HEATS[cur]); }
+function decideOk(){ if(overall()!=='PASS') return; doClearance(); }   /* existing CLEARED path */
+function decideOkEdit(){
+  const h=HEATS[cur];
+  if(overall()!=='PASS'||!heatHasEdits(h)) return;
+  flushPendingHist(h);                                   /* un-saved corrections are committed first */
+  (HIST[h.heat]||[]).forEach(r=>{ if(r.wb!=='SENT') r.wb='PENDING'; }); /* queue write-back: writeback_status → PENDING (§25.3) */
+  h.state='CLEARED';
+  renderList(); renderDetail();
+  const n=document.getElementById('hcNote'); if(n){ n.textContent='✓ Cleared with edits — corrected values queued for SMS MES write-back (writeback_status=PENDING)'; n.className='hc-note ok'; }
+  mesToast('Cleared with edits — modified values queued for SMS MES write-back','ok');
+}
+function openAUD(){ if(overall()!=='FAIL') return; audOpen=true; decRefresh(); const i=document.getElementById('audRef'); if(i) i.focus(); }
+function cancelAUD(){ audOpen=false; decRefresh(); }
+function confirmAUD(){
+  const h=HEATS[cur];
+  if(overall()!=='FAIL'){ audOpen=false; decRefresh(); mesToast('Chemistry is within spec — use Ok','warn'); return; }
+  const i=document.getElementById('audRef'), ref=(i&&i.value.trim())||('DEV-'+h.heat);
+  audOpen=false; h.state='CONDITIONAL';                  /* AUD decision; notified to SMS MES over the outbound interface (§25.8) */
+  renderList(); renderDetail();
+  const n=document.getElementById('hcNote'); if(n){ n.textContent='⚠ Accepted Under Deviation ('+ref+') — CONDITIONAL clearance; decision notified to SMS MES'; n.className='hc-note warn'; }
+  mesToast('Heat '+h.heat+' Accepted Under Deviation ('+ref+') — CONDITIONAL clearance recorded','warn');
 }
 
 /* ===== toast (self-contained; matches sibling QA screens) ===== */
@@ -562,7 +790,7 @@ renderList(); renderDetail();
 function msToggle(e){e.preventDefault();e.stopPropagation();var g=document.getElementById('msGroup');if(g)g.classList.toggle('open');}
 (function(){var f=(location.pathname.split('/').pop()||'').toLowerCase();var g=document.getElementById('msGroup');if(!g)return;var inM=false;g.querySelectorAll('.submenu a').forEach(function(a){if((a.getAttribute('href')||'').toLowerCase()===f){a.classList.add('active');inM=true;}});if(inM||f==='masters.html'){g.classList.add('open');var p=g.querySelector('.ms-parent');if(p)p.classList.add('active');}})();
 </script>
-<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-element.html": {"t": "Element (Chemistry)", "i": "fa-atom"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-size-basis.html": {"t": "Size Basis", "i": "fa-ruler-combined"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-grade-chemistry.html": {"t": "Grade Chemistry", "i": "fa-flask-vial"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}};var KEY='mesOpenTabs';
+<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "pit-cooling.html": {"t": "Pit Cooling", "i": "fa-temperature-arrow-down"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "instrument-checklist.html": {"t": "Instrument Checklist", "i": "fa-list-check"}, "layout-audit.html": {"t": "Layout Audit", "i": "fa-vector-square"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-element.html": {"t": "Element (Chemistry)", "i": "fa-atom"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-size-basis.html": {"t": "Size Basis", "i": "fa-ruler-combined"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-colour-code.html": {"t": "Colour Code", "i": "fa-palette"}, "master-end-discard.html": {"t": "End Discard", "i": "fa-scissors"}, "master-length.html": {"t": "Length", "i": "fa-ruler-horizontal"}, "master-dim-tolerance.html": {"t": "Dim Tolerance", "i": "fa-arrows-left-right-to-line"}, "master-grade-chemistry.html": {"t": "Grade Chemistry", "i": "fa-flask-vial"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}, "master-notification-rule.html": {"t": "Notification Rule", "i": "fa-bell"}};var KEY='mesOpenTabs';
 var here=(location.pathname.split('/').pop()||'dashboard.html').toLowerCase();
 function ld(){try{return JSON.parse(sessionStorage.getItem(KEY))||[];}catch(e){return [];}}
 function sv(a){try{sessionStorage.setItem(KEY,JSON.stringify(a));}catch(e){}}

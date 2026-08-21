@@ -7,3 +7,8 @@
 Thumbs.db
 *.tmp
 *.log
+
+# JSW SOW analysis (client-derived content - keep local, public repo)
+qa_sow_*.py
+apply_sow_analysis.py
+__pycache__/
