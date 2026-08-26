@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rolling Mill · Vardhman Special Steels</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="vss-shell.css">
+<style> .tbl-wrap { max-height:calc(100vh - 430px); overflow:auto; } .dot { width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:0; } </style>
+<script src="vss-embed.js"></script>
+</head>
+<body>
+<div class="bm-layout">
+  <main class="bm-content">
+    <div class="page-bar">
+      <div><h1>Rolling Mill — Schedule</h1><div class="crumb">Production Plan › Rolling Mill › <span id="ctx"></span></div></div>
+      <div class="actions"><a class="btn btn-outline" href="vss-gantt.html"><i class="fa-solid fa-chart-gantt"></i> Master Gantt</a></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="card">
+      <div class="card-head"><i class="fa-solid fa-chart-gantt"></i> Rolling cycles — sequence &amp; timing <span class="right" id="gmeta"></span></div>
+      <div class="card-body">
+        <div class="gantt" id="gantt"></div>
+        <div class="note"><i class="fa-solid fa-circle-info"></i> One lane per rolling cycle/phase; each bar is a size token with its real start→finish time. Rules: MOQ 100 MT/size · rolling sequence descending · changeover = RC/size-setting time.</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><i class="fa-solid fa-bars-staggered"></i> Cycle detail <span class="right" id="tmeta"></span></div>
+      <div class="card-body"><div class="tbl-wrap"><table class="tbl" id="tbl"></table></div></div>
+    </div>
+  </main>
+</div>
+<script>window.VSS_PAGE='rolling'; window.VSS_TITLE='Rolling Mill'; window.VSS_ICON='fa-bars-staggered';</script>
+<script src="vss-chrome.js"></script>
+<script src="vss-data.js"></script>
+<script src="vss-core.js"></script>
+<script>
+  var V = window.VSS;
+  var cyc = V.rolling.filter(function(c){return c.startMin!=null;}).sort(function(a,b){return a.startMin-b.startMin;});
+  document.getElementById('ctx').textContent = V.meta.plant + ' · ' + vssFmtDate(cyc[0].startISO) + ' → ' + vssFmtDate(cyc[cyc.length-1].finishISO);
+
+  var tFin = cyc.reduce(function(a,c){return a+(c.finishQty||0);},0);
+  var tHrs = cyc.reduce(function(a,c){return a+(c.prodHours||0);},0);
+  var underMOQ = cyc.filter(function(c){return (c.finishQty||0) < V.rules.rollingMOQ;}).length;
+  var tChg = cyc.reduce(function(a,c){return a+(c.changeover||0);},0);
+  [['Rolling cycles',cyc.length,'this plan window','blue'],
+   ['Rolled tonnage',Math.round(tFin)+' MT','finished bar','blue'],
+   ['Productive hours',Math.round(tHrs)+' h','mill run time','accent'],
+   ['Under-MOQ sizes',underMOQ,'< '+V.rules.rollingMOQ+' MT/size','amber'],
+   ['Changeover',tChg.toFixed(1)+' h','RC / size setting','amber'],
+   ['Budget prod/day',Math.max.apply(null,cyc.map(function(c){return c.budgetPrdty||0;}))+' MT','peak line rate','green']
+  ].forEach(function(k){ document.getElementById('kpis').insertAdjacentHTML('beforeend',
+    '<div class="kpi '+k[3]+'"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="s">'+k[2]+'</div></div>'); });
+
+  // gantt: lanes = cycle/phase, bars = size tokens
+  var phases = []; cyc.forEach(function(c){ if(phases.indexOf(c.cyclePhase)<0) phases.push(c.cyclePhase); });
+  phases.sort();
+  var bars = cyc.map(function(c,i){ return { unit:c.cyclePhase, start:c.startMin, dur:Math.max(c.finishMin-c.startMin,15), cls:vssColor(i),
+    tip:'Token '+c.token+' · '+c.sizeR+' · '+(c.finishQty||0).toFixed(0)+' MT · '+vssStamp(c.startMin)+' → '+vssStamp(c.finishMin) }; });
+  vssRenderGantt(document.getElementById('gantt'), phases, bars, { laneTitle:'Rolling cycle', startMin:cyc[0].startMin, laneW:150 });
+  document.getElementById('gmeta').textContent = cyc.length+' cycles · '+phases.length+' phases';
+
+  // table
+  var COLS = ['Seq','Token','Size','Cycle','Type-A ord','NDT ord','Input MT','Finish MT','Prod hrs','Changeover','Start','Finish','MOQ'];
+  document.getElementById('tmeta').textContent = 'MOQ '+V.rules.rollingMOQ+' MT/size';
+  document.getElementById('tbl').innerHTML = '<thead><tr>'+COLS.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr></thead><tbody>'+
+    cyc.map(function(c,i){
+      var ok = (c.finishQty||0) >= V.rules.rollingMOQ;
+      return '<tr><td class="mono hint">'+(i+1)+'</td>'+
+        '<td class="mono strong"><span class="dot" style="background:'+vssColor(i)+'"></span>'+c.token+'</td>'+
+        '<td class="mono strong">'+c.sizeR+'</td>'+
+        '<td class="mono">'+c.cyclePhase+'</td>'+
+        '<td class="mono">'+(c.typeA!=null?c.typeA:'—')+'</td>'+
+        '<td class="mono">'+(c.ndtOrders!=null?c.ndtOrders:'—')+'</td>'+
+        '<td class="mono right-al">'+(c.inputQty||0).toFixed(1)+'</td>'+
+        '<td class="mono right-al strong">'+(c.finishQty||0).toFixed(1)+'</td>'+
+        '<td class="mono right-al">'+(c.prodHours||0)+'</td>'+
+        '<td class="mono right-al">'+(c.changeover!=null?c.changeover:'—')+'</td>'+
+        '<td class="mono">'+vssFmtDate(c.startISO)+' '+vssClock(c.startMin)+'</td>'+
+        '<td class="mono">'+vssFmtDate(c.finishISO)+' '+vssClock(c.finishMin)+'</td>'+
+        '<td>'+(ok?'<span class="badge b-green">OK</span>':'<span class="badge b-amber" title="below 100 MT">gap '+(V.rules.rollingMOQ-(c.finishQty||0)).toFixed(0)+'</span>')+'</td>'+
+        '</tr>';
+    }).join('')+'</tbody>';
+</script>
+</body>
+</html>

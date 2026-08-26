@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Master Gantt · Vardhman Special Steels</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="vss-shell.css">
+<script src="vss-embed.js"></script>
+</head>
+<body>
+<div class="bm-layout">
+  <main class="bm-content">
+    <div class="page-bar">
+      <div><h1>Master Gantt — machine allocation</h1><div class="crumb">Tracking › Master Gantt › <span id="ctx"></span></div></div>
+      <div class="actions"><a class="btn btn-outline" href="vss-rolling.html"><i class="fa-solid fa-bars-staggered"></i> Rolling</a><a class="btn btn-outline" href="vss-heattreat.html"><i class="fa-solid fa-temperature-high"></i> Furnaces</a></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="card">
+      <div class="card-head"><i class="fa-solid fa-chart-gantt"></i> All machines — Casting → Rolling → NDT → Bright Bar → Heat Treatment <span class="right" id="gmeta"></span></div>
+      <div class="card-body">
+        <div class="gantt" id="gantt"></div>
+        <div class="note"><i class="fa-solid fa-circle-info"></i> One lane per machine; each bar is a job coloured per rolling cycle so material is traceable across machines — hover for detail. Derived forward from the real rolling plan (billets cast before rolling; NDT, peeling/drawing and furnace anneal after). Dashed lines mark day boundaries.</div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>window.VSS_PAGE='gantt'; window.VSS_TITLE='Master Gantt'; window.VSS_ICON='fa-chart-gantt';</script>
+<script src="vss-chrome.js"></script>
+<script src="vss-data.js"></script>
+<script src="vss-core.js"></script>
+<script>
+  var V=window.VSS, sch=vssSchedule();
+  document.getElementById('ctx').textContent = V.meta.plant + ' · from ' + vssFmtDate(V.meta.baseDate);
+  var starts=sch.bars.map(function(b){return b.start;}); var startMin=Math.max(0,Math.min.apply(null,starts)-60);
+  var busy={}, maxEnd=0; sch.bars.forEach(function(b){ busy[b.unit]=(busy[b.unit]||0)+b.dur; maxEnd=Math.max(maxEnd,b.start+b.dur); });
+  var usedLanes=sch.units.filter(function(u){return busy[u];}).length;
+  var horizonDays=Math.ceil((maxEnd-startMin)/1440);
+  [['Machines',sch.units.length,'across the plant','blue'],
+   ['Scheduled jobs',sch.bars.length,'this window','blue'],
+   ['Active lanes',usedLanes,'with load','accent'],
+   ['Rolling cycles',V.rolling.length,'the backbone','green'],
+   ['Furnaces',V.htCfg.furnaces,'× '+V.htCfg.furnaceMT+' MT','amber'],
+   ['Horizon',horizonDays+' days','Jul rolling plan','blue']
+  ].forEach(function(k){ document.getElementById('kpis').insertAdjacentHTML('beforeend','<div class="kpi '+k[3]+'"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="s">'+k[2]+'</div></div>'); });
+
+  vssRenderGantt(document.getElementById('gantt'), sch.units, sch.bars, { laneTitle:'Machine', startMin:startMin, laneW:150, batchTag:'BATCH' });
+  document.getElementById('gmeta').textContent = sch.bars.length+' jobs · '+sch.units.length+' machines';
+</script>
+</body>
+</html>

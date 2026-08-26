@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vardhman Special Steels — Production Planning</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="vss-shell.css">
+<style>
+  .bm-sidebar a.decor { opacity:.45; }
+  /* tab host */
+  .host-col { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .ws-tabhost { height:35px; background:#e7ebee; border-bottom:1px solid var(--color-border); display:flex; align-items:stretch; flex-shrink:0; }
+  .ws-tabstrip { flex:1; display:flex; align-items:stretch; overflow-x:auto; }
+  .ws-tabstrip::-webkit-scrollbar { height:0; }
+  .ws-tab { display:flex; align-items:center; gap:7px; padding:0 10px 0 12px; font-size:12px; color:var(--color-text-secondary); background:#dfe4e7; border-right:1px solid var(--color-border); cursor:pointer; white-space:nowrap; max-width:230px; user-select:none; }
+  .ws-tab:hover { background:#eaeef0; }
+  .ws-tab.active { background:#fff; color:var(--color-primary-dark); font-weight:600; box-shadow:inset 0 -2px 0 var(--color-primary); }
+  .ws-tab .ws-ic { font-size:11px; opacity:.85; }
+  .ws-tab .ws-close { width:16px; height:16px; border-radius:3px; display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--color-text-hint); }
+  .ws-tab .ws-close:hover { background:rgba(0,0,0,.12); color:var(--color-danger); }
+  .ws-menu-btn { border:none; background:none; cursor:pointer; padding:0 12px; color:var(--color-text-muted); font-size:13px; }
+  .ws-menu-btn:hover { color:var(--color-primary); }
+  .framestack { flex:1; position:relative; background:var(--color-bg); }
+  .bm-frame { position:absolute; inset:0; width:100%; height:100%; border:0; }
+  .ws-empty { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--color-text-hint); gap:8px; }
+  .ws-empty i { font-size:34px; opacity:.4; }
+  .ctxmenu { position:fixed; background:#fff; border:1px solid var(--color-border); border-radius:6px; box-shadow:0 6px 20px rgba(0,0,0,.16); padding:4px; z-index:9999; min-width:180px; }
+  .ctxmenu div { padding:7px 12px; font-size:12px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:8px; color:var(--color-text-secondary); }
+  .ctxmenu div:hover { background:var(--color-primary-light); color:var(--color-primary-dark); }
+  .ctxmenu div.disabled { opacity:.4; pointer-events:none; }
+</style>
+</head>
+<body>
+<header class="bm-header">
+  <div class="logo"><i class="fa-solid fa-industry"></i> Vardhman Special Steels <span class="sub">PPC</span></div>
+  <div class="module-name"><i class="fa-solid fa-diagram-project" style="margin-right:4px;color:var(--accent);"></i>Production Planning &amp; Control</div>
+  <div class="spacer"></div>
+  <div class="plant-switch">
+    <button class="active"><i class="fa-solid fa-bars-staggered" style="margin-right:4px"></i>Bars &amp; Rod</button>
+    <button><i class="fa-solid fa-grip-lines" style="margin-right:4px"></i>Wire</button>
+    <button><i class="fa-solid fa-gears" style="margin-right:4px"></i>Forging</button>
+  </div>
+  <div class="right"><i class="fa-regular fa-bell"></i><div class="avatar">RP</div></div>
+</header>
+<div class="bm-layout">
+  <aside class="bm-sidebar" id="sidebar">
+    <div class="nav-label">Planning</div>
+    <a data-page="dashboard"><i class="fa-solid fa-gauge-high"></i>Dashboard</a>
+    <a data-page="orders"><i class="fa-solid fa-clipboard-list"></i>Order Book</a>
+    <div class="nav-label">Production Plan</div>
+    <a data-page="casting"><i class="fa-solid fa-fire-flame-curved"></i>Casting · SMS</a>
+    <a data-page="rolling"><i class="fa-solid fa-bars-staggered"></i>Rolling Mill</a>
+    <a data-page="ndt"><i class="fa-solid fa-wave-square"></i>NDT Line</a>
+    <a data-page="brightbar"><i class="fa-solid fa-ruler-horizontal"></i>Bright Bar</a>
+    <a data-page="heattreat"><i class="fa-solid fa-temperature-high"></i>Heat Treatment</a>
+    <div class="nav-label">Tracking</div>
+    <a data-page="gantt"><i class="fa-solid fa-chart-gantt"></i>Master Gantt</a>
+    <a data-page="status"><i class="fa-solid fa-truck-fast"></i>Order Status</a>
+    <div class="nav-label">Masters</div>
+    <a class="decor"><i class="fa-solid fa-gears"></i>Machines</a>
+    <a class="decor"><i class="fa-solid fa-flask"></i>Grades &amp; Specs</a>
+    <a class="decor"><i class="fa-solid fa-cogs"></i>Setup</a>
+  </aside>
+  <div class="host-col">
+    <div class="ws-tabhost">
+      <div class="ws-tabstrip" id="tabstrip"></div>
+      <button class="ws-menu-btn" id="ws-menu" title="Tab actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+    </div>
+    <div class="framestack" id="stack">
+      <div class="ws-empty" id="empty"><i class="fa-solid fa-window-restore"></i><div>Pick a module from the sidebar to open a tab</div></div>
+    </div>
+  </div>
+</div>
+<script>
+  var PAGES = {
+    dashboard: { label: 'Dashboard',       icon: 'fa-gauge-high',          href: 'vss-dashboard.html' },
+    orders:    { label: 'Order Book',       icon: 'fa-clipboard-list',      href: 'vss-orders.html' },
+    casting:   { label: 'Casting · SMS',    icon: 'fa-fire-flame-curved',   href: 'vss-casting.html' },
+    rolling:   { label: 'Rolling Mill',     icon: 'fa-bars-staggered',      href: 'vss-rolling.html' },
+    ndt:       { label: 'NDT Line',         icon: 'fa-wave-square',         href: 'vss-ndt.html' },
+    brightbar: { label: 'Bright Bar',       icon: 'fa-ruler-horizontal',    href: 'vss-brightbar.html' },
+    heattreat: { label: 'Heat Treatment',   icon: 'fa-temperature-high',    href: 'vss-heattreat.html' },
+    gantt:     { label: 'Master Gantt',     icon: 'fa-chart-gantt',         href: 'vss-gantt.html' },
+    status:    { label: 'Order Status',     icon: 'fa-truck-fast',          href: 'vss-status.html' }
+  };
+  var stack = document.getElementById('stack'), strip = document.getElementById('tabstrip'), empty = document.getElementById('empty');
+  var frames = {}, order = [], active = null;
+
+  function ensureFrame(id) {
+    if (frames[id]) return frames[id];
+    var f = document.createElement('iframe');
+    f.className = 'bm-frame'; f.src = PAGES[id].href; f.title = PAGES[id].label; f.style.display = 'none';
+    stack.appendChild(f); frames[id] = f; return f;
+  }
+  function open(id) { if (!PAGES[id]) return; if (order.indexOf(id) < 0) order.push(id); activate(id); }
+  function activate(id) {
+    active = id; ensureFrame(id);
+    Object.keys(frames).forEach(function (k) { frames[k].style.display = (k === active ? 'block' : 'none'); });
+    try { var af = frames[active]; if (af && af.contentWindow) af.contentWindow.dispatchEvent(new Event('vss:activated')); } catch (e) {}
+    empty.style.display = order.length ? 'none' : 'flex';
+    document.title = PAGES[id].label + ' · Vardhman Special Steels';
+    render();
+  }
+  function closeTab(id) {
+    var i = order.indexOf(id); if (i < 0) return;
+    if (frames[id]) { frames[id].remove(); delete frames[id]; }
+    order.splice(i, 1);
+    if (active === id) { active = order.length ? order[Math.max(0, i - 1)] : null; if (active) activate(active); else { empty.style.display = 'flex'; document.title = 'Vardhman Special Steels — PPC'; render(); } }
+    else render();
+  }
+  function closeOthers(id) { order.slice().forEach(function (x) { if (x !== id) closeTab(x); }); }
+  function closeAll() { order.slice().forEach(closeTab); }
+  function render() {
+    strip.innerHTML = order.map(function (id) {
+      var p = PAGES[id];
+      return '<div class="ws-tab' + (id === active ? ' active' : '') + '" data-id="' + id + '">' +
+        '<i class="fa-solid ' + p.icon + ' ws-ic"></i>' + p.label +
+        '<span class="ws-close" data-close="' + id + '" title="Close"><i class="fa-solid fa-xmark"></i></span></div>';
+    }).join('');
+    document.querySelectorAll('#sidebar a[data-page]').forEach(function (a) { a.classList.toggle('active', a.getAttribute('data-page') === active); });
+  }
+
+  document.getElementById('sidebar').addEventListener('click', function (e) {
+    var a = e.target.closest('a[data-page]'); if (a) { e.preventDefault(); open(a.getAttribute('data-page')); }
+  });
+  strip.addEventListener('click', function (e) {
+    var cl = e.target.closest('[data-close]'); if (cl) { closeTab(cl.getAttribute('data-close')); return; }
+    var t = e.target.closest('.ws-tab'); if (t) activate(t.getAttribute('data-id'));
+  });
+  strip.addEventListener('contextmenu', function (e) {
+    var t = e.target.closest('.ws-tab'); if (!t) return; e.preventDefault(); menu(e.clientX, e.clientY, t.getAttribute('data-id'));
+  });
+  document.getElementById('ws-menu').addEventListener('click', function () {
+    var r = this.getBoundingClientRect(); menu(r.right - 190, r.bottom + 2, active);
+  });
+  function closeMenu() { var m = document.querySelector('.ctxmenu'); if (m) m.remove(); }
+  function menu(x, y, id) {
+    closeMenu();
+    var others = order.filter(function (z) { return z !== id; }).length;
+    var m = document.createElement('div'); m.className = 'ctxmenu';
+    var rows = [
+      ['Close tab', 'fa-xmark', id ? function () { closeTab(id); } : null],
+      ['Close others', 'fa-diagram-next', (id && others) ? function () { closeOthers(id); } : null],
+      ['Close all', 'fa-trash-can', order.length ? closeAll : null]
+    ];
+    m.innerHTML = rows.map(function (r, i) { return '<div class="' + (r[2] ? '' : 'disabled') + '" data-mi="' + i + '"><i class="fa-solid ' + r[1] + '"></i>' + r[0] + '</div>'; }).join('');
+    m.style.left = Math.max(6, Math.min(x, window.innerWidth - 196)) + 'px';
+    m.style.top = y + 'px';
+    document.body.appendChild(m);
+    m.addEventListener('click', function (e) { var d = e.target.closest('[data-mi]'); if (!d) return; var fn = rows[+d.getAttribute('data-mi')][2]; closeMenu(); if (fn) fn(); });
+    setTimeout(function () { document.addEventListener('mousedown', function od(e) { if (!m.contains(e.target)) { closeMenu(); document.removeEventListener('mousedown', od, true); } }, true); }, 0);
+  }
+
+  window.VSSHost = { open: open };
+  open('dashboard');   // initial tab
+</script>
+</body>
+</html>

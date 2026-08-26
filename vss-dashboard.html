@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard · Vardhman Special Steels</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="vss-shell.css">
+<style>
+  .flow { display:flex; align-items:stretch; gap:0; overflow-x:auto; }
+  .flow .st { flex:1; min-width:118px; background:var(--color-surface); border:1px solid var(--color-border); border-radius:8px; padding:11px 12px; text-align:center; position:relative; }
+  .flow .st .ic { width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;color:#fff;font-size:13px; }
+  .flow .st .nm { font-size:10.5px; text-transform:uppercase; letter-spacing:.3px; color:var(--color-text-muted); font-weight:600; }
+  .flow .st .tv { font-size:18px; font-weight:700; font-variant-numeric:tabular-nums; margin-top:2px; }
+  .flow .st .sub { font-size:10px; color:var(--color-text-hint); }
+  .flow .arr { display:flex; align-items:center; color:#c2c8cf; font-size:16px; padding:0 5px; flex-shrink:0; }
+  .load-row { display:flex; align-items:center; gap:10px; margin-bottom:9px; font-size:12px; }
+  .load-row .ln { width:150px; font-weight:600; } .load-row .lt { flex:1; height:12px; background:#eef1f4; border-radius:6px; overflow:hidden; }
+  .load-row .lf { display:block; height:100%; border-radius:6px; } .load-row .lv { width:120px; text-align:right; font-variant-numeric:tabular-nums; color:var(--color-text-secondary); }
+  .sbars .sr { display:flex; align-items:center; gap:9px; margin-bottom:7px; font-size:12px; }
+  .sbars .sn { width:96px; } .sbars .st { flex:1; height:14px; background:#eef1f4; border-radius:7px; overflow:hidden; } .sbars .sf { display:block; height:100%; border-radius:7px; } .sbars .sv { width:70px; text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }
+  .banner { background:linear-gradient(90deg,#eef6fc,#f7fbff); border:1px solid #d6e8f5; border-radius:8px; padding:10px 14px; font-size:12px; color:#0f5fa3; display:flex; align-items:center; gap:9px; margin-bottom:12px; }
+</style>
+<script src="vss-embed.js"></script>
+</head>
+<body>
+<div class="bm-layout">
+  <main class="bm-content">
+    <div class="page-bar">
+      <div><h1>Production Planning — Dashboard</h1><div class="crumb">Planning › Dashboard › <span id="ctx"></span></div></div>
+      <div class="actions"><a class="btn btn-outline" href="vss-orders.html"><i class="fa-solid fa-clipboard-list"></i> Order Book</a><a class="btn btn-primary" href="vss-gantt.html"><i class="fa-solid fa-chart-gantt"></i> Master Gantt</a></div>
+    </div>
+    <div class="banner"><i class="fa-solid fa-wand-magic-sparkles"></i> <b>One integrated plan</b> replacing the manual Master Planning Sheet &amp; scattered casting/rolling/bright-bar Excel files — orders allocated to every operation, open stock first.</div>
+    <div class="kpis" id="kpis"></div>
+    <div class="card">
+      <div class="card-head"><i class="fa-solid fa-diagram-project"></i> Plant flow — planned tonnage by stage</div>
+      <div class="card-body"><div class="flow" id="flow"></div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><div class="card-head"><i class="fa-solid fa-gears"></i> Machine plan — load vs budget</div><div class="card-body" id="load"></div></div>
+      <div class="card"><div class="card-head"><i class="fa-solid fa-list-check"></i> Orders by current stage</div><div class="card-body sbars" id="stages"></div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><div class="card-head"><i class="fa-solid fa-boxes-stacked"></i> Billet stock allocation</div><div class="card-body" id="billet"></div></div>
+      <div class="card"><div class="card-head"><i class="fa-solid fa-bullseye"></i> Budget target vs plan (rolling)</div><div class="card-body" id="budget"></div></div>
+    </div>
+  </main>
+</div>
+<script>window.VSS_PAGE='dashboard'; window.VSS_TITLE='Dashboard'; window.VSS_ICON='fa-gauge-high';</script>
+<script src="vss-chrome.js"></script>
+<script src="vss-data.js"></script>
+<script src="vss-core.js"></script>
+<script>
+  var V=window.VSS, O=V.orders;
+  document.getElementById('ctx').textContent = V.meta.plant + ' · as of ' + vssFmtDate(V.meta.asOf);
+  function sum(f){ return O.reduce(function(a,o){return a+(f(o)||0);},0); }
+  var tons=sum(function(o){return o.qty;});
+  var rollTons=V.rolling.reduce(function(a,c){return a+(c.finishQty||0);},0);
+  var bright=/^[PD]/, anneal=['RXA','PGS','PXS','PGA'];
+  var bbsTons=sum(function(o){return bright.test(o.supplyCond)?o.qty:0;});
+  var htTons=sum(function(o){return anneal.indexOf(o.supplyCond)>=0?o.qty:0;});
+  var dispTons=sum(function(o){return o.stageNow==='Dispatched'?o.qty:0;});
+  var b=vssBilletBuckets();
+
+  [['Open orders',O.length,'MTO lines','blue'],
+   ['Order book',Math.round(tons)+' MT','to plan','blue'],
+   ['Production demands',O.reduce(function(a,o){return a+o.pdCount;},0),'BLB=2 · BRB=3','accent'],
+   ['Overdue',O.filter(function(o){return o.late==='Overdue';}).length,'past RDD','red'],
+   ['At risk',O.filter(function(o){return o.late==='At risk';}).length,'RDD tight','amber'],
+   ['Dispatched',O.filter(function(o){return o.stageNow==='Dispatched';}).length,'orders done','green']
+  ].forEach(function(k){ document.getElementById('kpis').insertAdjacentHTML('beforeend','<div class="kpi '+k[3]+'"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="s">'+k[2]+'</div></div>'); });
+
+  // plant flow
+  var stages=[['Casting · SMS','fa-fire-flame-curved','#ef6c00',Math.round(tons-b.allocated)+' MT','to cast'],
+    ['Rolling','fa-bars-staggered','#1478c8',Math.round(rollTons)+' MT','30 cycles'],
+    ['NDT','fa-wave-square','#7e57c2',Math.round(rollTons*0.9)+' MT','black bar'],
+    ['Bright Bar','fa-ruler-horizontal','#1baf7a',Math.round(bbsTons)+' MT','peel/draw'],
+    ['Heat Treat','fa-temperature-high','#e34948',Math.round(htTons)+' MT','anneal'],
+    ['Dispatch','fa-truck-fast','#2e7d32',Math.round(dispTons)+' MT','shipped']];
+  document.getElementById('flow').innerHTML = stages.map(function(s,i){
+    return '<div class="st"><div class="ic" style="background:'+s[2]+'"><i class="fa-solid '+s[1]+'"></i></div><div class="nm">'+s[0]+'</div><div class="tv">'+s[3]+'</div><div class="sub">'+s[4]+'</div></div>'+
+      (i<stages.length-1?'<div class="arr"><i class="fa-solid fa-angle-right"></i></div>':'');
+  }).join('');
+
+  // machine load vs budget
+  var maxBud=Math.max.apply(null,V.rolling.map(function(c){return c.budgetPrdty||0;}));
+  var loads=[['Rolling Mill',Math.round(rollTons),Math.round(rollTons*1.15),'#1478c8'],
+    ['NDT Line',Math.round(rollTons*0.9),Math.round(V.ndtCfg.minPerDay*12),'#7e57c2'],
+    ['Bright Bar (5+1)',Math.round(bbsTons),V.bbsCfg.totalCapMT,'#1baf7a'],
+    ['Heat Treatment',Math.round(htTons),V.htCfg.furnaces*V.htCfg.furnaceMT*6,'#e34948']];
+  document.getElementById('load').innerHTML = loads.map(function(l){
+    var pc=Math.min(100,Math.round(l[1]/l[2]*100));
+    return '<div class="load-row"><span class="ln">'+l[0]+'</span><span class="lt"><span class="lf" style="width:'+pc+'%;background:'+l[3]+'"></span></span><span class="lv">'+l[1]+' / '+l[2]+' MT · '+pc+'%</span></div>';
+  }).join('');
+
+  // orders by stage
+  var order=['Billet','Rolled','Stacking','NDT','Bright Bar','Heat Treat','Dispatched'];
+  var cnt={}; O.forEach(function(o){ cnt[o.stageNow]=(cnt[o.stageNow]||0)+1; });
+  var mx=Math.max.apply(null,order.map(function(s){return cnt[s]||0;}));
+  document.getElementById('stages').innerHTML = order.map(function(s){
+    var n=cnt[s]||0, pc=mx?Math.round(n/mx*100):0, col=s==='Dispatched'?'#2e7d32':s==='Billet'?'#8a93a0':'#1478c8';
+    return '<div class="sr"><span class="sn">'+s+'</span><span class="st"><span class="sf" style="width:'+pc+'%;background:'+col+'"></span></span><span class="sv">'+n+'</span></div>';
+  }).join('');
+
+  // billet buckets
+  var tb=b.allocated+b.unallocated+b.notOkay||1;
+  document.getElementById('billet').innerHTML =
+    [['Allocated to orders',b.allocated,'#2e7d32'],['Un-allocated (sampling bal.)',b.unallocated,'#f0a020'],['Not-Okay (off quality)',b.notOkay,'#d84a4a']].map(function(x){
+      var pc=Math.round(x[1]/tb*100);
+      return '<div class="load-row"><span class="ln" style="width:180px">'+x[0]+'</span><span class="lt"><span class="lf" style="width:'+pc+'%;background:'+x[2]+'"></span></span><span class="lv">'+x[1]+' MT</span></div>';
+    }).join('') + '<div class="note"><i class="fa-solid fa-circle-info"></i> Open stock is allocated to sales orders first; the balance goes to casting.</div>';
+
+  // budget vs plan
+  var days={}; V.rolling.forEach(function(c){ if(c.startISO){ var d=c.startISO.slice(0,10); days[d]=(days[d]||0)+(c.finishQty||0); } });
+  var dk=Object.keys(days).sort();
+  document.getElementById('budget').innerHTML =
+    '<div class="load-row"><span class="ln">Budget / day</span><span class="lt"><span class="lf" style="width:100%;background:#c2c8cf"></span></span><span class="lv">'+maxBud+' MT target</span></div>' +
+    dk.slice(0,7).map(function(d){ var pc=Math.min(100,Math.round(days[d]/maxBud*100));
+      return '<div class="load-row"><span class="ln">'+vssFmtDate(d)+'</span><span class="lt"><span class="lf" style="width:'+pc+'%;background:'+(days[d]>=maxBud*0.8?'#2e7d32':'#f0a020')+'"></span></span><span class="lv">'+Math.round(days[d])+' MT · '+pc+'%</span></div>';
+    }).join('');
+</script>
+</body>
+</html>

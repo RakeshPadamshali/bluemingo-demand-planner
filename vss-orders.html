@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Order Book · Vardhman Special Steels</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="vss-shell.css">
+<style>
+  .pr-ZBLB { background:#e3f1fb; color:#0f5fa3; } .pr-ZBRB { background:#fff3e0; color:#b25f00; }
+  .tbl-wrap { max-height:calc(100vh - 250px); overflow:auto; }
+  .jw { background:#ede7f6; color:#5e35b1; } .fifo-U { background:#ffebee; color:#c62828; } .fifo-N { background:#eceff1; color:#607d8b; }
+  td .sz2 { color:var(--color-text-hint); font-size:11px; }
+</style>
+<script src="vss-embed.js"></script>
+</head>
+<body>
+<div class="bm-layout">
+  <main class="bm-content">
+    <div class="page-bar">
+      <div><h1>Order Book</h1><div class="crumb">Planning › Order Book › <span id="ctx"></span></div></div>
+      <div class="actions">
+        <a class="btn btn-outline" href="vss-casting.html"><i class="fa-solid fa-fire-flame-curved"></i> Casting</a>
+        <a class="btn btn-primary" href="vss-status.html"><i class="fa-solid fa-truck-fast"></i> Order Status</a>
+      </div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="card">
+      <div class="card-head"><i class="fa-solid fa-clipboard-list"></i> Sales orders (MTO) <span class="right" id="meta"></span></div>
+      <div class="card-body">
+        <div class="filters" id="filters"></div>
+        <div class="tbl-wrap"><table class="tbl" id="tbl"></table></div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>window.VSS_PAGE='orders'; window.VSS_TITLE='Order Book'; window.VSS_ICON='fa-clipboard-list';</script>
+<script src="vss-chrome.js"></script>
+<script src="vss-data.js"></script>
+<script src="vss-core.js"></script>
+<script>
+  var V = window.VSS, O = V.orders;
+  document.getElementById('ctx').textContent = V.meta.plant + ' · as of ' + vssFmtDate(V.meta.asOf);
+  document.getElementById('meta').textContent = O.length + ' order lines · ' + V.meta.source;
+
+  var tot = O.length, tons = O.reduce(function(a,o){return a+(o.qty||0);},0);
+  var pds = O.reduce(function(a,o){return a+o.pdCount;},0);
+  var stockAlloc = O.filter(function(o){return o.allocStatus==='Stock-allocated';}).length;
+  var jw = O.filter(function(o){return o.jobWork;}).length;
+  var overdue = O.filter(function(o){return o.late==='Overdue';}).length;
+  [['Order lines',tot,'MTO sales orders','blue'],
+   ['Order tonnage',Math.round(tons)+' MT','IH quantity','blue'],
+   ['Production demands',pds,'BLB=2 · BRB=3','accent'],
+   ['Stock-allocated',stockAlloc,'open stock first','green'],
+   ['Job-work',jw,'external vendor','amber'],
+   ['Overdue (RDD)',overdue,'past dispatch date','red']
+  ].forEach(function(k){ document.getElementById('kpis').insertAdjacentHTML('beforeend',
+    '<div class="kpi '+k[3]+'"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="s">'+k[2]+'</div></div>'); });
+
+  function uniq(f){ var s={}; O.forEach(function(o){ if(o[f]) s[o[f]]=1; }); return Object.keys(s).sort(); }
+  var F = { cat:'', supply:'', mat:'', alloc:'', q:'' };
+  function sel(id,label,vals){
+    return '<span class="fl">'+label+'</span><select id="'+id+'"><option value="">All</option>'+
+      vals.map(function(v){return '<option>'+v+'</option>';}).join('')+'</select>';
+  }
+  document.getElementById('filters').innerHTML =
+    sel('f-cat','Category',uniq('category')) + sel('f-supply','Supply',uniq('supplyCond')) +
+    sel('f-mat','Material',['ZBLB','ZBRB']) +
+    '<span class="fl">Alloc</span><select id="f-alloc"><option value="">All</option><option>Stock-allocated</option><option>To-cast</option></select>' +
+    '<span class="fl">Search</span><input id="f-q" placeholder="SO / customer" size="14">' +
+    '<span class="hint" id="fcount" style="margin-left:auto"></span>';
+
+  var STB = { 'Billet':'b-grey','Rolled':'b-blue','Stacking':'b-grey','NDT':'b-blue','Bright Bar':'b-amber','Heat Treat':'b-amber','Dispatch':'b-green','Dispatched':'b-green' };
+  function rows(list){
+    return list.map(function(o,i){
+      var sz = o.rolledSize + (o.peelSize? ' <span class="sz2">→ '+o.peelSize+'</span>':'');
+      var alloc = o.allocStatus==='Stock-allocated'
+        ? '<span class="badge b-green"><i class="fa-solid fa-box-open"></i> '+(o.billetStock||0).toFixed(1)+' MT</span>'
+        : '<span class="badge b-grey">To-cast</span>';
+      var tok = o.token ? '<span class="mono strong">'+o.token+'</span> <span class="hint">'+vssFmtDate(o.tentRollISO)+'</span>' : '<span class="hint">— queued —</span>';
+      var lateC = o.late==='Overdue'?'b-red':o.late==='At risk'?'b-amber':'b-green';
+      return '<tr class="o-row" data-i="'+o._i+'">'+
+        '<td><button class="exp-btn" data-exp="'+o._i+'"><i class="fa-solid fa-chevron-right"></i></button></td>'+
+        '<td class="strong">'+o.customer+(o.jobWork?' <span class="chip jw" title="Job work">JW</span>':'')+'</td>'+
+        '<td class="mono">'+o.so+'</td>'+
+        '<td><span class="chip pr-'+o.matType+'">'+o.matType+'</span> <span class="hint">'+o.pdCount+' PD</span></td>'+
+        '<td class="strong">'+o.grade+'<div class="hint" style="font-weight:400">'+o.category+'</div></td>'+
+        '<td>'+o.supplyCond+'</td>'+
+        '<td class="mono">'+sz+'</td>'+
+        '<td class="mono right-al">'+(o.qty!=null?o.qty:'—')+'</td>'+
+        '<td>'+alloc+'</td>'+
+        '<td>'+tok+'</td>'+
+        '<td><span class="badge '+(STB[o.stageNow]||'b-grey')+'">'+o.stageNow+'</span></td>'+
+        '<td class="mono '+(o.late==='Overdue'?'':'')+'"><span class="badge '+lateC+'" style="min-width:0">'+vssFmtDate(o.rdd)+'</span> <span class="chip fifo-'+(o.stackingFIFO==='Urgent'?'U':'N')+'">'+o.stackingFIFO+'</span></td>'+
+        '</tr>';
+    }).join('');
+  }
+  var COLS = ['','Customer','SO No.','Material','Grade · Cat','Supply','Size','Qty MT','Allocation','Token · Roll date','Stage','RDD · Stacking'];
+  var tbl = document.getElementById('tbl');
+  function apply(){
+    var list = O.filter(function(o){
+      if(F.cat && o.category!==F.cat) return false;
+      if(F.supply && o.supplyCond!==F.supply) return false;
+      if(F.mat && o.matType!==F.mat) return false;
+      if(F.alloc && o.allocStatus!==F.alloc) return false;
+      if(F.q){ var q=F.q.toLowerCase(); if((o.so||'').toLowerCase().indexOf(q)<0 && (o.customer||'').toLowerCase().indexOf(q)<0) return false; }
+      return true;
+    });
+    tbl.innerHTML = '<thead><tr>'+COLS.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr></thead><tbody>'+rows(list)+'</tbody>';
+    document.getElementById('fcount').textContent = list.length+' of '+O.length+' lines';
+  }
+  ['f-cat','f-supply','f-mat','f-alloc'].forEach(function(id){ document.getElementById(id).addEventListener('change',function(){ F[id.slice(2)]=this.value; apply(); }); });
+  document.getElementById('f-q').addEventListener('input',function(){ F.q=this.value; apply(); });
+
+  // expand -> production demands + route
+  tbl.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('.exp-btn'); if(!b) return;
+    var tr = b.closest('tr'), ic=b.querySelector('i'), nx=tr.nextElementSibling;
+    if(nx && nx.classList.contains('sub-detail')){ nx.remove(); b.classList.remove('open'); ic.className='fa-solid fa-chevron-right'; return; }
+    var o = O[+b.getAttribute('data-exp')];
+    var pdTypes = o.matType==='ZBLB' ? [['Rolled Bar','FG'],['Cast Billet','SFG']]
+      : [['Bright Bar','FG'],['Rolled Bar','SFG'],['Cast Billet','SFG']];
+    var base = (o.so||'').replace(/[^0-9]/g,'').slice(-6);
+    var pdRows = pdTypes.map(function(t,k){
+      return '<tr><td class="mono">PD-'+base+'-'+(k+1)+'</td><td>'+t[0]+'</td><td><span class="chip">'+t[1]+'</span></td>'+
+        '<td class="mono">'+(o.qty!=null?o.qty+' MT':'—')+'</td>'+
+        '<td><span class="badge '+(k===pdTypes.length-1?'b-green':'b-grey')+'">'+(k===pdTypes.length-1?'Ready':'Planned')+'</span></td></tr>';
+    }).join('');
+    var route = o.route.map(function(st,k){ return '<span class="chip" style="'+(k<o.stageIndex?'background:#e8f5e9;color:#2e7d32':k===o.stageIndex?'background:#e3f2fd;color:#1565c0':'')+'">'+st+'</span>'; }).join(' <i class="fa-solid fa-angle-right" style="color:#bbb;font-size:9px"></i> ');
+    var det = document.createElement('tr'); det.className='sub-detail';
+    det.innerHTML = '<td colspan="'+COLS.length+'"><div class="sub-wrap">'+
+      '<div class="sub-title"><i class="fa-solid fa-sitemap"></i> Production Demands — '+o.so+' · '+o.matType+' → '+o.pdCount+' PDs · route: '+route+'</div>'+
+      '<table class="sub-tbl"><thead><tr><th>PD No.</th><th>Demand</th><th>Type</th><th>Qty</th><th>Status</th></tr></thead><tbody>'+pdRows+'</tbody></table>'+
+      '</div></td>';
+    tr.after(det); b.classList.add('open'); ic.className='fa-solid fa-chevron-down';
+  });
+
+  apply();
+</script>
+</body>
+</html>

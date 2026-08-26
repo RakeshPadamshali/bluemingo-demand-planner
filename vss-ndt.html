@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NDT Line · Vardhman Special Steels</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="vss-shell.css">
+<style> .tbl-wrap{max-height:calc(100vh - 470px);overflow:auto;} </style>
+<script src="vss-embed.js"></script>
+</head>
+<body>
+<div class="bm-layout">
+  <main class="bm-content">
+    <div class="page-bar">
+      <div><h1>NDT Line — Black Bar</h1><div class="crumb">Production Plan › NDT Line › <span id="ctx"></span></div></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="grid2">
+      <div class="card"><div class="card-head"><i class="fa-solid fa-gauge"></i> Machine ranges &amp; productivity</div><div class="card-body"><table class="tbl" id="cfg"></table><div class="note"><i class="fa-solid fa-circle-info"></i> Route: <b id="route"></b></div></div></div>
+      <div class="card"><div class="card-head"><i class="fa-solid fa-calendar-day"></i> Daily plan — rule checks</div><div class="card-body"><table class="tbl" id="daily"></table><div class="note"><i class="fa-solid fa-triangle-exclamation"></i> Targets: ≥200 MT/day · ≤4 size changes/day · ≤3 days WIP.</div></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><i class="fa-solid fa-wave-square"></i> 1-week sequence (from rolling output) <span class="right" id="smeta"></span></div>
+      <div class="card-body"><div class="tbl-wrap"><table class="tbl" id="seq"></table></div></div>
+    </div>
+  </main>
+</div>
+<script>window.VSS_PAGE='ndt'; window.VSS_TITLE='NDT Line'; window.VSS_ICON='fa-wave-square';</script>
+<script src="vss-chrome.js"></script>
+<script src="vss-data.js"></script>
+<script src="vss-core.js"></script>
+<script>
+  var V=window.VSS;
+  document.getElementById('ctx').textContent = V.meta.plant + ' · black-bar line';
+  document.getElementById('route').textContent = V.ndtCfg.route;
+  function rangeOf(sz){ if(sz<26)return '18-25'; if(sz<36)return '26-35'; if(sz<51)return '36-50'; if(sz<66)return '51-65'; return '66 & Above'; }
+  function prodOf(sz){ var r=V.ndtCfg.ranges.filter(function(x){return x.range===rangeOf(sz);})[0]; return r?r.prodHr:5; }
+
+  // derive NDT jobs from rolling cycles (output -> NDT after rolling)
+  var cyc=V.rolling.filter(function(c){return c.startMin!=null;}).sort(function(a,b){return a.finishMin-b.finishMin;});
+  var free=0, jobs=cyc.map(function(c,i){
+    var qty=c.finishQty||0, dur=Math.max(30,Math.round(qty/prodOf(c.size)*60)), st=Math.max(free,c.finishMin+30);
+    free=st+dur;
+    return { token:c.token, size:c.sizeR, range:rangeOf(c.size), qty:qty, start:st, end:st+dur, cls:vssColor(i) };
+  });
+
+  var tThr=jobs.reduce(function(a,j){return a+j.qty;},0);
+  [['Size ranges',V.ndtCfg.ranges.length,'18-25 … 66+','blue'],
+   ['Min / day',V.ndtCfg.minPerDay+' MT','production target','blue'],
+   ['Max changes',V.ndtCfg.maxChangesDay+'/day','size changes','amber'],
+   ['WIP limit',V.ndtCfg.wipDays+' days','before NDT','amber'],
+   ['NDT jobs',jobs.length,'this week','accent'],
+   ['Throughput',Math.round(tThr)+' MT','planned','green']
+  ].forEach(function(k){ document.getElementById('kpis').insertAdjacentHTML('beforeend','<div class="kpi '+k[3]+'"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="s">'+k[2]+'</div></div>'); });
+
+  document.getElementById('cfg').innerHTML='<thead><tr><th>Range (mm)</th><th>Best/day</th><th>Prod/hr</th><th>Changeover</th></tr></thead><tbody>'+
+    V.ndtCfg.ranges.map(function(r){return '<tr><td class="strong">'+r.range+'</td><td class="mono right-al">'+(r.best||'—')+'</td><td class="mono right-al">'+(r.prodHr||'—')+'</td><td class="mono right-al">'+(r.changeover||'—')+' h</td></tr>';}).join('')+'</tbody>';
+
+  // daily rollup
+  var days={}; jobs.forEach(function(j){ var d=vssDateAt(j.start); var key=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+    days[key]=days[key]||{mt:0,ranges:{},min:j.start}; days[key].mt+=j.qty; days[key].ranges[j.range]=1; });
+  var dk=Object.keys(days).sort(function(a,b){return days[a].min-days[b].min;});
+  document.getElementById('daily').innerHTML='<thead><tr><th>Day</th><th>MT</th><th>Size changes</th><th>Status</th></tr></thead><tbody>'+
+    dk.slice(0,7).map(function(k){ var d=days[k], ch=Object.keys(d.ranges).length;
+      var ok=d.mt>=V.ndtCfg.minPerDay*0.5 && ch<=V.ndtCfg.maxChangesDay;
+      return '<tr><td class="mono">'+vssFmtDate(vssDateAt(d.min).toISOString().slice(0,10))+'</td><td class="mono right-al strong">'+Math.round(d.mt)+'</td><td class="mono right-al">'+ch+'</td>'+
+        '<td>'+(ch>V.ndtCfg.maxChangesDay?'<span class="badge b-amber">>4 changes</span>':ok?'<span class="badge b-green">OK</span>':'<span class="badge b-blue">light</span>')+'</td></tr>';
+    }).join('')+'</tbody>';
+
+  document.getElementById('smeta').textContent=jobs.length+' jobs';
+  document.getElementById('seq').innerHTML='<thead><tr><th>Seq</th><th>Token</th><th>Size</th><th>Range</th><th>Qty MT</th><th>NDT start</th><th>NDT end</th></tr></thead><tbody>'+
+    jobs.map(function(j,i){return '<tr><td class="mono hint">'+(i+1)+'</td><td class="mono strong">'+j.token+'</td><td class="mono strong">'+j.size+'</td><td>'+j.range+'</td>'+
+      '<td class="mono right-al">'+j.qty.toFixed(1)+'</td><td class="mono">'+vssFmtDate(vssDateAt(j.start).toISOString().slice(0,10))+' '+vssClock(j.start)+'</td><td class="mono">'+vssFmtDate(vssDateAt(j.end).toISOString().slice(0,10))+' '+vssClock(j.end)+'</td></tr>';}).join('')+'</tbody>';
+</script>
+</body>
+</html>
