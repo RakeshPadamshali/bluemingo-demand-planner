@@ -24,7 +24,7 @@
     <div class="card">
       <div class="card-head"><i class="fa-solid fa-scale-balanced"></i> Load per line — booked hours, tonnage, utilisation within its active span <span class="right" id="meta"></span></div>
       <div class="card-body"><table class="tbl" id="tbl"></table>
-      <div class="note"><i class="fa-solid fa-circle-info"></i><span>Expand a line to see its <b>order-wise allocation</b> in sequence. Utilisation = booked hours ÷ the line's active span (first booking → last booking); a high figure means the line runs continuously. Parallel lines are filled least-loaded-first — remaining imbalance is capability-driven (e.g. only one peeling line runs PG* ground conditions).</span></div></div>
+      <div class="note"><i class="fa-solid fa-circle-info"></i><span>Expand a line to see its <b>order-wise allocation</b> in sequence. Utilisation = booked hours ÷ the line's active span (first booking → last booking); a high figure means the line runs continuously. Parallel lines are filled least-loaded-first — remaining imbalance is capability-driven (e.g. only one peeling line runs PG* ground conditions). Rolling-mill hours use the sheet's <b>size-wise budget productivity</b> (968 MT/day · 605 for 23–29 mm · 550 for 58 mm, on input tonnage, 90% yield, 22 productive h/day) and Roll-Set changeovers (size 25 min · feeder 1.5 h · BDM 4 h), applied once per size run — orders are sequenced by RDD week, descending size within the week.</span></div></div>
     </div>
   </main>
 </div>
@@ -49,13 +49,13 @@
   var totH=rows.reduce(function(a,r){return a+r.hours;},0);
   var peel=rows.filter(function(r){return /Peeling/.test(r.m);}), pu=peel.map(function(r){return r.util;});
   var busiest=rows.slice().sort(function(a,b){return b.hours-a.hours;})[0];
-  var chg=V.orders.filter(function(o){return o.rollChangeover>0;}).length;
+  var RCH=P.roll.chg, chgH=RCH.mins/60;   // rolling changeovers by type (one per size run)
   [['Lines / machines',rows.length,'plant equipment','blue'],
    ['Booked hours',Math.round(totH)+' h','all orders, all stages','blue'],
    ['Plan horizon',(P.horizonMin/1440).toFixed(0)+' days','last booking ends','accent'],
    ['Busiest line',busiest.m.replace(' (SMS)',''),Math.round(busiest.hours)+' h · '+Math.round(busiest.util*100)+'% in span','amber'],
    ['Peeling balance',Math.round(Math.min.apply(null,pu)*100)+'–'+Math.round(Math.max.apply(null,pu)*100)+'%','util range across 5 lines','green'],
-   ['Rolling changeovers',chg,'size changes (EDD trade-off)','amber']
+   ['Rolling changeovers',Math.round(chgH)+' h',RCH.Size+' size · '+RCH.Feeder+' feeder · '+RCH.BDM+' BDM (one per size run)','amber']
   ].forEach(function(k){ document.getElementById('kpis').insertAdjacentHTML('beforeend','<div class="kpi '+k[3]+'"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="s">'+k[2]+'</div></div>'); });
   document.getElementById('meta').textContent = P.bookings.length+' bookings · '+P.orders.length+' orders';
 

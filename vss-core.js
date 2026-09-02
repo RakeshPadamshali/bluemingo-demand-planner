@@ -1,9 +1,11 @@
 /* Vardhman Special Steels demo — shared helpers over window.VSS (from vss-data.js).
    Times are integer MINUTES from baseDate midnight (2026-07-01). "As of" = mid-plan
    so orders show a realistic spread across stages.
-   vssPlan() is the ORDER-LEVEL forward scheduler: every order is sequenced by delivery
-   date (EDD), booked on real machines along its route, parallel lines are load-balanced
-   (least-loaded first), open billet stock is used before casting. */
+   vssPlan() is the ORDER-LEVEL forward scheduler: orders are sequenced by delivery date at
+   the plant's planning grain (RDD week; descending size within the week = rolling-cycle
+   rule), booked on real machines along their route at the sheet's capacities (rolling mill:
+   size-wise Bdgt Prdty/Day, 90% yield, 2 h/day non-productive, Roll-Set changeover types),
+   parallel lines are load-balanced (least-loaded first), open billet stock is used before casting. */
 (function () {
   var V = window.VSS;
   var BASE = new Date(V.meta.baseDate + 'T00:00:00');
@@ -91,10 +93,31 @@
       cand.sort(function (a, b) { return (free[a.name] || 0) - (free[b.name] || 0); });   // least-loaded first -> balance
       return cand[0];
     }
-    // Sequence: delivery date (EDD), then descending size on the same date (fewer rolling changeovers)
+    // ---- Rolling-mill capacity, straight from the sheet (Rolling Plan + Roll Set) ----
+    // Bdgt Prdty/Day is SIZE-WISE (968; 605 for 23-29 mm; 550 for 58 mm), quoted on INPUT tonnage over 22 productive
+    // hours. The sheet's own cycle stamps spread it over the 24 h clock (2 h/day non-productive), i.e.
+    // duration = input MT x 24 / budget; finish = 90% of input (yield measured from the 30 real cycles).
+    var rollBdgt = {}; V.rolling.forEach(function (c) { if (c.budgetPrdty) rollBdgt[c.size] = c.budgetPrdty; });
+    var inQ = 0, finQ = 0; V.rolling.forEach(function (c) { inQ += c.inputQty || 0; finQ += c.finishQty || 0; });
+    var ROLL_YIELD = inQ > 0 ? finQ / inQ : 0.9, ROLL_HRS = (V.rolling[0] && V.rolling[0].prodHours) || 22;
+    function rollBudget(sz) { return rollBdgt[sz] || (sz >= 23 && sz <= 29 ? 605 : 968); }
+    function rollRunMin(q, sz) { return (q / ROLL_YIELD) * 24 / rollBudget(sz) * 60; }
+    // Roll Set: 8 size-mix feeders -> changeover by TYPE: size-to-size within a feeder 25 min, feeder-to-feeder 1.5 h,
+    // BDM (input billet section 160/200) change 4 h. Sizes 39.5-46.69 mm have no feeder row in the sheet -> nearest feeder.
+    var RC = V.rollset.changeover || { bdmHr: 4, feederHr: 1.5, sizeMin: 25 };
+    var feeders = V.rollset.feeders.map(function (f) { var r = /([\d.]+)\s*-\s*([\d.]+)/.exec(f.range || ''); return { no: f.no, min: r ? +r[1] : 0, max: r ? +r[2] : 999, billet: f.billet }; });
+    function feederOf(sz) {
+      var i, best = null, bd = 1e9;
+      for (i = 0; i < feeders.length; i++) if (sz >= feeders[i].min && sz <= feeders[i].max) return feeders[i];
+      feeders.forEach(function (f) { var d = sz < f.min ? f.min - sz : sz - f.max; if (d < bd) { bd = d; best = f; } });
+      return best;
+    }
+    // Sequence: delivery-date priority at the plant's planning grain — RDD WEEK (Mon-Sun; overdue orders form one
+    // urgent block), then DESCENDING SIZE within the week (rolling-cycle rule). Each size becomes one run, so the mill
+    // pays one changeover per size / feeder / billet-section switch instead of one per order.
+    function rddWeek(o) { if (o.rddMin == null) return 1e9; if (o.rddMin < 0) return -1; return Math.floor((o.rddMin + 2 * 1440) / 10080); }   // BASE is Wed 1 Jul: +2 d aligns weeks to Mon 29 Jun
     var seqOrders = V.orders.slice().sort(function (a, b) {
-      var ra = a.rddMin == null ? 1e12 : a.rddMin, rb = b.rddMin == null ? 1e12 : b.rddMin;
-      if (ra !== rb) return ra - rb;
+      var wa = rddWeek(a), wb = rddWeek(b); if (wa !== wb) return wa - wb;
       var d = sizeNum(b.rolledSize) - sizeNum(a.rolledSize); if (d) return d;
       return a.so < b.so ? -1 : 1;
     });
@@ -108,11 +131,16 @@
       }
       o.planSeq = seq + 1;
       if (o.allocStatus !== 'Stock-allocated') book('Caster (SMS)', 'Billet', qty / 36 * 60);          // open stock first
-      var chg = (lastKey['Rolling Mill'] && lastKey['Rolling Mill'] !== o.rolledSize) ? 25 : 0; lastKey['Rolling Mill'] = o.rolledSize;
-      o.rollChangeover = chg;
-      book('Rolling Mill', 'Rolled', chg + qty / 44 * 60);
+      // Rolling: changeover by type vs the previous run on the mill, then run time at the size's budget productivity
+      var sz = sizeNum(o.rolledSize), fd = feederOf(sz), pv = lastKey['Rolling Mill'];
+      var chgType = !pv ? '' : pv.billet !== fd.billet ? 'BDM' : pv.no !== fd.no ? 'Feeder' : pv.size !== sz ? 'Size' : '';
+      var chg = chgType === 'BDM' ? RC.bdmHr * 60 : chgType === 'Feeder' ? RC.feederHr * 60 : chgType === 'Size' ? RC.sizeMin : 0;
+      lastKey['Rolling Mill'] = { size: sz, no: fd.no, billet: fd.billet };
+      o.rollChangeover = chg; o.rollChgType = chgType; o.rollFeeder = fd.no; o.rollBudget = rollBudget(sz);
+      o.rollRunMin = Math.round(rollRunMin(qty, sz));
+      book('Rolling Mill', 'Rolled', chg + o.rollRunMin);
       book('Stacking Yard', 'Stacking', 180, false);
-      if (o.ndt) { var sz = sizeNum(o.rolledSize), c2 = (lastKey['NDT Line'] && lastKey['NDT Line'] !== ndtRange(sz)) ? 60 : 0; lastKey['NDT Line'] = ndtRange(sz); book('NDT Line', 'NDT', c2 + qty / ndtProd(sz) * 60); }
+      if (o.ndt) { var c2 = (lastKey['NDT Line'] && lastKey['NDT Line'] !== ndtRange(sz)) ? 60 : 0; lastKey['NDT Line'] = ndtRange(sz); book('NDT Line', 'NDT', c2 + qty / ndtProd(sz) * 60); }
       if (isBright(o.supplyCond)) { var L = pickLine(o); o.bbLine = L.name; book(L.name, 'Bright Bar', qty / L.rateHr * 60); }
       if (isAnneal(o.supplyCond)) {
         var n = Math.max(1, Math.ceil(qty / V.htCfg.furnaceMT)), cyc = htMin(o.supplyCond), rem = qty, mx = 0, t0 = t;
@@ -140,7 +168,10 @@
     Object.keys(load).forEach(function (k) { load[k].orderCount = Object.keys(load[k].orders).length; });
     var machines = ['Caster (SMS)', 'Rolling Mill', 'NDT Line'].concat(bb.map(function (l) { return l.name; }))
       .concat(furn.slice().sort(function (a, b) { return a < b ? -1 : 1; }));   // F1..F6 in lane order (furn itself is kept least-loaded-sorted)
-    V._plan = { orders: seqOrders, bookings: bookings, load: load, horizonMin: horizon, machines: machines, yard: 'Stacking Yard' };
+    var rchg = { Size: 0, Feeder: 0, BDM: 0, mins: 0 };
+    seqOrders.forEach(function (o) { if (o.rollChgType) { rchg[o.rollChgType]++; rchg.mins += o.rollChangeover; } });
+    V._plan = { orders: seqOrders, bookings: bookings, load: load, horizonMin: horizon, machines: machines, yard: 'Stacking Yard',
+                roll: { yield: ROLL_YIELD, prodHours: ROLL_HRS, budgets: rollBdgt, rc: RC, chg: rchg } };
     return V._plan;
   }
   window.vssPlan = vssPlan;
