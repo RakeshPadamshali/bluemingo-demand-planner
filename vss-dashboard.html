@@ -43,7 +43,7 @@
       <div class="card-body"><div class="flow" id="flow"></div></div>
     </div>
     <div class="grid2">
-      <div class="card"><div class="card-head"><i class="fa-solid fa-gears"></i> Machine plan — load vs budget</div><div class="card-body" id="load"></div></div>
+      <div class="card"><div class="card-head"><i class="fa-solid fa-gears"></i> Machine load — booked vs available hours (plan)</div><div class="card-body" id="load"></div></div>
       <div class="card"><div class="card-head"><i class="fa-solid fa-list-check"></i> Orders by current stage</div><div class="card-body sbars" id="stages"></div></div>
     </div>
     <div class="grid2">
@@ -91,13 +91,13 @@
 
   // machine load vs budget
   var maxBud=Math.max.apply(null,V.rolling.map(function(c){return c.budgetPrdty||0;}));
-  var loads=[['Rolling Mill',Math.round(rollTons),Math.round(rollTons*1.15),'#1478c8'],
-    ['NDT Line',Math.round(rollTons*0.9),Math.round(V.ndtCfg.minPerDay*12),'#7e57c2'],
-    ['Bright Bar (5+1)',Math.round(bbsTons),V.bbsCfg.totalCapMT,'#1baf7a'],
-    ['Heat Treatment',Math.round(htTons),V.htCfg.furnaces*V.htCfg.furnaceMT*6,'#e34948']];
+  var PL=vssPlan(), hzH=PL.horizonMin/60;
+  function grp(re){ var h=0,n=0; Object.keys(PL.load).forEach(function(m){ if(re.test(m)){ h+=PL.load[m].mins/60; n++; } }); return {h:Math.round(h), cap:Math.round(hzH*Math.max(n,1))}; }
+  var loads=[['Caster (SMS)',grp(/Caster/),'#ef6c00'],['Rolling Mill',grp(/Rolling/),'#1478c8'],['NDT Line',grp(/NDT/),'#7e57c2'],
+    ['Bright Bar (5+1)',grp(/Peeling|Drawing/),'#1baf7a'],['Heat Treatment (6)',grp(/Furnace/),'#e34948']];
   document.getElementById('load').innerHTML = loads.map(function(l){
-    var pc=Math.min(100,Math.round(l[1]/l[2]*100));
-    return '<div class="load-row"><span class="ln">'+l[0]+'</span><span class="lt"><span class="lf" style="width:'+pc+'%;background:'+l[3]+'"></span></span><span class="lv">'+l[1]+' / '+l[2]+' MT · '+pc+'%</span></div>';
+    var pc=Math.min(100,Math.round(l[1].h/l[1].cap*100));
+    return '<div class="load-row"><span class="ln">'+l[0]+'</span><span class="lt"><span class="lf" style="width:'+pc+'%;background:'+l[2]+'"></span></span><span class="lv">'+l[1].h+' / '+l[1].cap+' h · '+pc+'%</span></div>';
   }).join('');
 
   // orders by stage

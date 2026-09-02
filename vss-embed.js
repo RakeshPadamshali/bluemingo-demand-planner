@@ -19,7 +19,9 @@
     'vss-brightbar.html': 'brightbar',
     'vss-heattreat.html': 'heattreat',
     'vss-gantt.html': 'gantt',
-    'vss-status.html': 'status'
+    'vss-status.html': 'status',
+    'vss-load.html': 'load',
+    'vss-booking.html': 'booking'
   };
   document.addEventListener('click', function (e) {
     var a = e.target.closest ? e.target.closest('a[href]') : null;

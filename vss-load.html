@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Machine Load · Vardhman Special Steels</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="vss-shell.css">
+<style>
+  .ubar { display:flex; align-items:center; gap:7px; } .ubar .track{width:110px;height:11px;background:#e6eaed;border:1px solid #d5dbe0;border-radius:6px;overflow:hidden;flex-shrink:0;} .ubar .fill{display:block;height:100%;} .ubar .pct{font-weight:600;font-variant-numeric:tabular-nums;min-width:34px;}
+  .grp { font-size:9.5px; text-transform:uppercase; letter-spacing:.3px; color:var(--color-text-hint); }
+</style>
+<script src="vss-embed.js"></script>
+</head>
+<body>
+<div class="bm-layout">
+  <main class="bm-content">
+    <div class="page-bar">
+      <div><h1>Machine Load — order-wise allocation</h1><div class="crumb">Tracking › Machine Load › <span id="ctx"></span></div></div>
+      <div class="actions"><a class="btn btn-outline" href="vss-gantt.html"><i class="fa-solid fa-chart-gantt"></i> Master Gantt</a><a class="btn btn-outline" href="vss-booking.html"><i class="fa-solid fa-calendar-check"></i> Equipment Booking</a></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="card">
+      <div class="card-head"><i class="fa-solid fa-scale-balanced"></i> Load per line — booked hours, tonnage, utilisation within its active span <span class="right" id="meta"></span></div>
+      <div class="card-body"><table class="tbl" id="tbl"></table>
+      <div class="note"><i class="fa-solid fa-circle-info"></i><span>Expand a line to see its <b>order-wise allocation</b> in sequence. Utilisation = booked hours ÷ the line's active span (first booking → last booking); a high figure means the line runs continuously. Parallel lines are filled least-loaded-first — remaining imbalance is capability-driven (e.g. only one peeling line runs PG* ground conditions).</span></div></div>
+    </div>
+  </main>
+</div>
+<script>window.VSS_PAGE='load'; window.VSS_TITLE='Machine Load'; window.VSS_ICON='fa-scale-balanced';</script>
+<script src="vss-chrome.js"></script>
+<script src="vss-data.js"></script>
+<script src="vss-core.js"></script>
+<script>
+  var V=window.VSS, P=vssPlan();
+  document.getElementById('ctx').textContent = V.meta.plant + ' · plan horizon ' + (P.horizonMin/1440).toFixed(0) + ' days';
+  var machines = P.machines;   // equipment only — the stacking yard is a no-capacity buffer (see Equipment Booking)
+  var byM={}; P.bookings.forEach(function(b){ (byM[b.machine]=byM[b.machine]||[]).push(b); });
+  var rows = machines.map(function(m){
+    var bk=(byM[m]||[]).slice().sort(function(a,b){return a.start-b.start;}); if(!bk.length) return null;
+    var first=bk[0].start, last=Math.max.apply(null,bk.map(function(b){return b.end;})), mins=bk.reduce(function(a,b){return a+(b.end-b.start);},0);
+    var mt=bk.reduce(function(a,b){return a+b.qty;},0), orders={}; bk.forEach(function(b){orders[b.so]=1;});
+    var span=Math.max(last-first,1), util=Math.min(1,mins/span), share=mins/P.horizonMin;
+    var grp=/Caster/.test(m)?'Melt shop':/Rolling/.test(m)?'Rolling':/NDT/.test(m)?'Inspection':/Peeling|Drawing/.test(m)?'Bright bar':/Furnace/.test(m)?'Heat treatment':'Yard';
+    return {m:m, grp:grp, bk:bk, first:first, last:last, hours:mins/60, mt:mt, orders:Object.keys(orders).length, span:span, util:util, share:share};
+  }).filter(Boolean);
+
+  var totH=rows.reduce(function(a,r){return a+r.hours;},0);
+  var peel=rows.filter(function(r){return /Peeling/.test(r.m);}), pu=peel.map(function(r){return r.util;});
+  var busiest=rows.slice().sort(function(a,b){return b.hours-a.hours;})[0];
+  var chg=V.orders.filter(function(o){return o.rollChangeover>0;}).length;
+  [['Lines / machines',rows.length,'plant equipment','blue'],
+   ['Booked hours',Math.round(totH)+' h','all orders, all stages','blue'],
+   ['Plan horizon',(P.horizonMin/1440).toFixed(0)+' days','last booking ends','accent'],
+   ['Busiest line',busiest.m.replace(' (SMS)',''),Math.round(busiest.hours)+' h · '+Math.round(busiest.util*100)+'% in span','amber'],
+   ['Peeling balance',Math.round(Math.min.apply(null,pu)*100)+'–'+Math.round(Math.max.apply(null,pu)*100)+'%','util range across 5 lines','green'],
+   ['Rolling changeovers',chg,'size changes (EDD trade-off)','amber']
+  ].forEach(function(k){ document.getElementById('kpis').insertAdjacentHTML('beforeend','<div class="kpi '+k[3]+'"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="s">'+k[2]+'</div></div>'); });
+  document.getElementById('meta').textContent = P.bookings.length+' bookings · '+P.orders.length+' orders';
+
+  var COLS=['','Line / machine','Orders','Bookings','Booked hrs','MT','Active span','First → last booking','Utilisation in span','Share of horizon'];
+  document.getElementById('tbl').innerHTML='<thead><tr>'+COLS.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr></thead><tbody>'+
+    rows.map(function(r,i){
+      var col=r.util>=0.85?'#d84a4a':r.util>=0.6?'#f0a020':'#2e9b45';
+      return '<tr><td><button class="exp-btn" data-exp="'+i+'"><i class="fa-solid fa-chevron-right"></i></button></td>'+
+        '<td class="strong">'+r.m+'<div class="grp">'+r.grp+'</div></td>'+
+        '<td class="mono">'+r.orders+'</td><td class="mono">'+r.bk.length+'</td>'+
+        '<td class="mono right-al strong">'+Math.round(r.hours)+'</td><td class="mono right-al">'+Math.round(r.mt)+'</td>'+
+        '<td class="mono">'+(r.span/1440).toFixed(1)+' d</td>'+
+        '<td class="mono">'+vssDateMin(r.first)+' → '+vssDateMin(r.last)+'</td>'+
+        '<td><div class="ubar"><span class="track"><span class="fill" style="width:'+Math.round(r.util*100)+'%;background:'+col+'"></span></span><span class="pct">'+Math.round(r.util*100)+'%</span></div></td>'+
+        '<td class="mono">'+Math.round(r.share*100)+'%</td></tr>';
+    }).join('')+'</tbody>';
+
+  // expand -> order-wise allocation on that line (in sequence)
+  document.getElementById('tbl').addEventListener('click',function(e){
+    var b=e.target.closest && e.target.closest('.exp-btn'); if(!b) return;
+    var tr=b.closest('tr'), ic=b.querySelector('i'), nx=tr.nextElementSibling;
+    if(nx && nx.classList.contains('sub-detail')){ nx.remove(); b.classList.remove('open'); ic.className='fa-solid fa-chevron-right'; return; }
+    var r=rows[+b.getAttribute('data-exp')], CAP=120, list=r.bk.slice(0,CAP);
+    var h=list.map(function(x,k){ var o=V.orders[x.oi]; var done=x.end<=VSS_ASOF_MIN, now=!done&&x.start<=VSS_ASOF_MIN;
+      return '<tr><td class="mono hint">'+(k+1)+'</td><td class="mono strong">'+x.so+'</td><td>'+x.customer+'</td><td>'+x.grade+' <span class="hint">'+x.size+' · '+x.cond+'</span></td><td>'+x.stage+'</td>'+
+        '<td class="mono">'+vssStamp(x.start)+'</td><td class="mono">'+vssStamp(x.end)+'</td><td class="mono right-al">'+((x.end-x.start)/60).toFixed(1)+'</td><td class="mono right-al">'+x.qty.toFixed(1)+'</td>'+
+        '<td><span class="badge '+(done?'b-green':now?'b-blue':'b-grey')+'">'+(done?'Done':now?'Running':'Planned')+'</span></td><td class="mono hint">'+vssFmtDate(o.rdd)+'</td></tr>'; }).join('');
+    var det=document.createElement('tr'); det.className='sub-detail';
+    det.innerHTML='<td colspan="'+COLS.length+'"><div class="sub-wrap"><div class="sub-title"><i class="fa-solid fa-list-ol"></i> Order-wise allocation — '+r.m+' · '+r.bk.length+' bookings'+(r.bk.length>CAP?' (showing first '+CAP+' — see Equipment Booking for all)':'')+'</div>'+
+      '<table class="sub-tbl"><thead><tr><th>#</th><th>Order</th><th>Customer</th><th>Grade · size · cond</th><th>Stage</th><th>Start</th><th>End</th><th>Hrs</th><th>MT</th><th>Status</th><th>RDD</th></tr></thead><tbody>'+h+'</tbody></table></div></td>';
+    tr.after(det); b.classList.add('open'); ic.className='fa-solid fa-chevron-down';
+  });
+</script>
+</body>
+</html>

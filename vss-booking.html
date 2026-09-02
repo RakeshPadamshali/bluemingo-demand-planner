@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Equipment Booking · Vardhman Special Steels</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="vss-shell.css">
+<style> .tbl-wrap{max-height:calc(100vh - 250px);overflow:auto;} .eq{font-weight:600;} .eq .g{font-size:9.5px;color:var(--color-text-hint);text-transform:uppercase;letter-spacing:.3px;} </style>
+<script src="vss-embed.js"></script>
+</head>
+<body>
+<div class="bm-layout">
+  <main class="bm-content">
+    <div class="page-bar">
+      <div><h1>Equipment Booking Report</h1><div class="crumb">Tracking › Equipment Booking › <span id="ctx"></span></div></div>
+      <div class="actions"><a class="btn btn-outline" href="vss-load.html"><i class="fa-solid fa-scale-balanced"></i> Machine Load</a><button class="btn btn-primary" onclick="window.print()"><i class="fa-solid fa-file-export"></i> Export</button></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="card">
+      <div class="card-head"><i class="fa-solid fa-calendar-check"></i> Bookings — which equipment is reserved for which order, when <span class="right" id="meta"></span></div>
+      <div class="card-body">
+        <div class="filters" id="filters"></div>
+        <div class="tbl-wrap"><table class="tbl" id="tbl"></table></div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>window.VSS_PAGE='booking'; window.VSS_TITLE='Equipment Booking'; window.VSS_ICON='fa-calendar-check';</script>
+<script src="vss-chrome.js"></script>
+<script src="vss-data.js"></script>
+<script src="vss-core.js"></script>
+<script>
+  var V=window.VSS, P=vssPlan();
+  var ALL=P.bookings.slice().sort(function(a,b){return a.start-b.start || (a.machine<b.machine?-1:1);});
+  document.getElementById('ctx').textContent = V.meta.plant + ' · as of ' + vssFmtDate(V.meta.asOf);
+  var machines=P.machines.concat([P.yard]);
+  function grpOf(m){ return /Caster/.test(m)?'Melt shop':/Rolling/.test(m)?'Rolling':/NDT/.test(m)?'Inspection':/Peeling|Drawing/.test(m)?'Bright bar':/Furnace/.test(m)?'Heat treatment':'Yard'; }
+
+  var F={eq:'',stage:'',win:'14',q:''};
+  document.getElementById('filters').innerHTML=
+    '<span class="fl">Equipment</span><select id="f-eq"><option value="">All</option>'+machines.map(function(m){return '<option>'+m+'</option>';}).join('')+'</select>'+
+    '<span class="fl">Stage</span><select id="f-stage"><option value="">All</option>'+['Billet','Rolled','Stacking','NDT','Bright Bar','Heat Treat'].map(function(s){return '<option>'+s+'</option>';}).join('')+'</select>'+
+    '<span class="fl">Window</span><select id="f-win"><option value="7">Next 7 days</option><option value="14" selected>Next 14 days</option><option value="30">Next 30 days</option><option value="0">Full plan</option></select>'+
+    '<span class="fl">Search</span><input id="f-q" placeholder="order / customer" size="12">'+
+    '<span class="hint" id="fc" style="margin-left:auto"></span>';
+
+  var COLS=['#','Equipment','Order','Customer','Grade · size · cond','Stage','Start','End','Hours','MT','Status'];
+  var tbl=document.getElementById('tbl');
+  function apply(){
+    var win=+F.win, endMin=win?win*1440:Infinity;
+    var list=ALL.filter(function(b){
+      if(F.eq && b.machine!==F.eq) return false;
+      if(F.stage && b.stage!==F.stage) return false;
+      if(b.start>=endMin) return false;
+      if(F.q){ var q=F.q.toLowerCase(); if((b.so||'').toLowerCase().indexOf(q)<0 && (b.customer||'').toLowerCase().indexOf(q)<0) return false; }
+      return true;
+    });
+    var hrs=list.reduce(function(a,b){return a+(b.end-b.start);},0)/60, eqs={}, ords={};
+    list.forEach(function(b){eqs[b.machine]=(eqs[b.machine]||0)+(b.end-b.start); ords[b.so]=1;});
+    var busiest=Object.keys(eqs).sort(function(a,b){return eqs[b]-eqs[a];})[0];
+    document.getElementById('kpis').innerHTML=[
+      ['Bookings',list.length,'in selection','blue'],
+      ['Hours booked',Math.round(hrs)+' h','equipment time','blue'],
+      ['Equipment used',Object.keys(eqs).length,'of '+machines.length,'accent'],
+      ['Orders covered',Object.keys(ords).length,'of '+P.orders.length,'green'],
+      ['Busiest equipment',busiest?busiest.replace(' (SMS)',''):'—',busiest?Math.round(eqs[busiest]/60)+' h':'','amber'],
+      ['Plan horizon',(P.horizonMin/1440).toFixed(0)+' days','full plan','accent']
+    ].map(function(k){return '<div class="kpi '+k[3]+'"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="s">'+k[2]+'</div></div>';}).join('');
+    var CAP=1500, shown=list.slice(0,CAP);
+    tbl.innerHTML='<thead><tr>'+COLS.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr></thead><tbody>'+
+      shown.map(function(b,i){ var done=b.end<=VSS_ASOF_MIN, now=!done&&b.start<=VSS_ASOF_MIN;
+        return '<tr><td class="mono hint">'+(i+1)+'</td><td class="eq">'+b.machine+'<div class="g">'+grpOf(b.machine)+'</div></td>'+
+          '<td class="mono strong">'+b.so+'</td><td>'+b.customer+'</td><td>'+b.grade+' <span class="hint">'+b.size+' · '+b.cond+'</span></td><td>'+b.stage+'</td>'+
+          '<td class="mono">'+vssStamp(b.start)+'</td><td class="mono">'+vssStamp(b.end)+'</td><td class="mono right-al">'+((b.end-b.start)/60).toFixed(1)+'</td><td class="mono right-al">'+b.qty.toFixed(1)+'</td>'+
+          '<td><span class="badge '+(done?'b-green':now?'b-blue':'b-grey')+'">'+(done?'Done':now?'Running':'Booked')+'</span></td></tr>'; }).join('')+'</tbody>';
+    document.getElementById('fc').textContent=(list.length>CAP?'showing '+CAP+' of ':'')+list.length+' bookings';
+    document.getElementById('meta').textContent=P.bookings.length+' bookings in the full plan';
+  }
+  ['f-eq','f-stage','f-win'].forEach(function(id){ document.getElementById(id).addEventListener('change',function(){ F[id.slice(2)]=this.value; apply(); }); });
+  document.getElementById('f-q').addEventListener('input',function(){ F.q=this.value; apply(); });
+  apply();
+</script>
+</body>
+</html>

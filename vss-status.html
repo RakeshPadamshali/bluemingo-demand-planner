@@ -12,7 +12,7 @@
   .route-mini { display:flex; gap:2px; align-items:center; }
   .route-mini .rc { font-size:8.5px; font-weight:700; padding:1px 4px; border-radius:3px; color:#fff; white-space:nowrap; }
   .rc-done{background:#2e7d32;} .rc-now{background:#1478c8;} .rc-todo{background:#cfd6dd;color:#5a6572;}
-  .jw{background:#ede7f6;color:#5e35b1;}
+  .jw{background:#ede7f6;color:#5e35b1;} .urg{background:#ffebee;color:#c62828;}
 </style>
 <script src="vss-embed.js"></script>
 </head>
@@ -20,12 +20,12 @@
 <div class="bm-layout">
   <main class="bm-content">
     <div class="page-bar">
-      <div><h1>Order Status — plant stages</h1><div class="crumb">Tracking › Order Status › <span id="ctx"></span></div></div>
-      <div class="actions"><a class="btn btn-outline" href="vss-orders.html"><i class="fa-solid fa-clipboard-list"></i> Order Book</a></div>
+      <div><h1>Order Status — start / end &amp; plant stages</h1><div class="crumb">Tracking › Order Status › <span id="ctx"></span></div></div>
+      <div class="actions"><a class="btn btn-outline" href="vss-booking.html"><i class="fa-solid fa-calendar-check"></i> Equipment Booking</a><a class="btn btn-outline" href="vss-gantt.html"><i class="fa-solid fa-chart-gantt"></i> Master Gantt</a></div>
     </div>
     <div class="kpis" id="kpis"></div>
     <div class="card">
-      <div class="card-head"><i class="fa-solid fa-truck-fast"></i> Orders — Billet → Rolled → Stacking → NDT → Bright Bar → Heat Treat → Dispatch <span class="right" id="meta"></span></div>
+      <div class="card-head"><i class="fa-solid fa-truck-fast"></i> Orders in delivery-date sequence — Billet → Rolled → Stacking → NDT → Bright Bar → Heat Treat → Dispatch <span class="right" id="meta"></span></div>
       <div class="card-body">
         <div class="filters" id="filters"></div>
         <div class="tbl-wrap"><table class="tbl" id="tbl"></table></div>
@@ -38,26 +38,27 @@
 <script src="vss-data.js"></script>
 <script src="vss-core.js"></script>
 <script>
-  var V=window.VSS, O=V.orders;
+  var V=window.VSS, P=vssPlan(), O=P.orders;      // O is already in delivery-date (EDD) sequence
   document.getElementById('ctx').textContent = V.meta.plant + ' · as of ' + vssFmtDate(V.meta.asOf);
-  document.getElementById('meta').textContent = O.length+' orders';
+  document.getElementById('meta').textContent = O.length+' orders · plan horizon '+(P.horizonMin/1440).toFixed(0)+' days';
 
   var disp=O.filter(function(o){return o.stageNow==='Dispatched';}).length;
   var wip=O.filter(function(o){return o.stageIndex>0 && o.stageNow!=='Dispatched';}).length;
   var avg=Math.round(O.reduce(function(a,o){return a+(o.route.length?o.stageIndex/o.route.length:0);},0)/O.length*100);
-  [['Orders',O.length,'tracked','blue'],
+  [['Orders',O.length,'all with start & end','blue'],
    ['Dispatched',disp,'completed','green'],
    ['In progress',wip,'on the floor','blue'],
    ['Overdue',O.filter(function(o){return o.late==='Overdue';}).length,'past RDD','red'],
-   ['At risk',O.filter(function(o){return o.late==='At risk';}).length,'RDD tight','amber'],
+   ['At risk',O.filter(function(o){return o.late==='At risk';}).length,'plan end > RDD','amber'],
    ['Avg progress',avg+'%','across stages','accent']
   ].forEach(function(k){ document.getElementById('kpis').insertAdjacentHTML('beforeend','<div class="kpi '+k[3]+'"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="s">'+k[2]+'</div></div>'); });
 
-  var F={stage:'',late:'',fifo:''};
+  var F={stage:'',late:'',fifo:'',q:''};
   document.getElementById('filters').innerHTML=
-    '<span class="fl">Stage</span><select id="f-stage"><option value="">All</option>'+['Billet','Rolled','Bright Bar','Heat Treat','Dispatched'].map(function(s){return '<option>'+s+'</option>';}).join('')+'</select>'+
+    '<span class="fl">Stage</span><select id="f-stage"><option value="">All</option>'+['Billet','Rolled','Stacking','NDT','Bright Bar','Heat Treat','Dispatched'].map(function(s){return '<option>'+s+'</option>';}).join('')+'</select>'+
     '<span class="fl">Delivery</span><select id="f-late"><option value="">All</option><option>On track</option><option>At risk</option><option>Overdue</option></select>'+
     '<span class="fl">Stacking</span><select id="f-fifo"><option value="">All</option><option>Urgent</option><option>Normal</option></select>'+
+    '<span class="fl">Search</span><input id="f-q" placeholder="SO / customer" size="12">'+
     '<span class="hint" id="fc" style="margin-left:auto"></span>';
 
   var STB={'Billet':'b-grey','Rolled':'b-blue','Stacking':'b-grey','NDT':'b-blue','Bright Bar':'b-amber','Heat Treat':'b-amber','Dispatched':'b-green'};
@@ -65,31 +66,28 @@
   function routeMini(o){
     return '<div class="route-mini">'+o.route.map(function(st,k){
       var cls=k<o.stageIndex?'rc-done':k===o.stageIndex?'rc-now':'rc-todo';
-      return '<span class="rc '+cls+'" title="'+st+'">'+(ABBR[st]||st)+'</span>';
+      return '<span class="rc '+cls+'" title="'+st+(o.stageEnds[st]!=null?' · '+vssStamp(o.stageEnds[st]):'')+'">'+(ABBR[st]||st)+'</span>';
     }).join('')+'</div>';
   }
-  function stageDates(o){
-    if(o.rollFinMin==null) return null; var rf=o.rollFinMin;
-    return {'Billet':o.rollStartMin-120,'Rolled':rf,'Stacking':rf+200,'NDT':rf+800,'Bright Bar':rf+2400,'Heat Treat':rf+4800,'Dispatch':rf+(/^[PD]/.test(o.supplyCond)?3200:1400)};
-  }
-  var COLS=['','SO No.','Customer','Product','Route','Progress','Stage','Expected','RDD','Stacking'];
+  var COLS=['','Seq','SO No.','Customer','Product','Route','Progress','Stage','Start','End','RDD','Stacking'];
   var tbl=document.getElementById('tbl');
   function rows(list){
     return list.map(function(o){
       var pc=Math.round(o.stageIndex/o.route.length*100);
-      var lateC=o.late==='Overdue'?'fill-red':o.late==='At risk'?'fill-amber':'fill-green';
-      var exp=o.expDispMin!=null?vssFmtDate(vssDateAt(o.expDispMin).toISOString().slice(0,10)):'—';
+      var fill=o.late==='Overdue'?'fill-red':o.late==='At risk'?'fill-amber':'fill-green';
       var lateB=o.late==='Overdue'?'b-red':o.late==='At risk'?'b-amber':'b-green';
       return '<tr><td><button class="exp-btn" data-exp="'+o._i+'"><i class="fa-solid fa-chevron-right"></i></button></td>'+
+        '<td class="mono hint">'+o.planSeq+'</td>'+
         '<td class="mono">'+o.so+(o.jobWork?' <span class="chip jw">JW</span>':'')+'</td>'+
         '<td class="strong">'+o.customer+'</td>'+
-        '<td><span class="chip">'+o.matType+'</span> '+o.grade+' <span class="hint">'+o.supplyCond+'</span></td>'+
+        '<td><span class="chip">'+o.matType+'</span> '+o.grade+' <span class="hint">'+o.rolledSize+' · '+o.supplyCond+'</span></td>'+
         '<td>'+routeMini(o)+'</td>'+
-        '<td><div class="pbar"><span class="track"><span class="fill '+lateC+'" style="width:'+pc+'%"></span></span><span class="pct">'+pc+'%</span></div></td>'+
+        '<td><div class="pbar"><span class="track"><span class="fill '+fill+'" style="width:'+pc+'%"></span></span><span class="pct">'+pc+'%</span></div></td>'+
         '<td><span class="badge '+(STB[o.stageNow]||'b-grey')+'">'+o.stageNow+'</span></td>'+
-        '<td class="mono">'+exp+'</td>'+
+        '<td class="mono">'+vssDateMin(o.planStartMin)+'</td>'+
+        '<td class="mono strong">'+vssDateMin(o.planEndMin)+'</td>'+
         '<td><span class="badge '+lateB+'" style="min-width:0">'+vssFmtDate(o.rdd)+'</span></td>'+
-        '<td><span class="chip '+(o.stackingFIFO==='Urgent'?'jw':'')+'" style="'+(o.stackingFIFO==='Urgent'?'background:#ffebee;color:#c62828':'')+'">'+o.stackingFIFO+'</span></td>'+
+        '<td><span class="chip '+(o.stackingFIFO==='Urgent'?'urg':'')+'">'+o.stackingFIFO+'</span></td>'+
         '</tr>';
     }).join('');
   }
@@ -98,26 +96,30 @@
       if(F.stage && o.stageNow!==F.stage) return false;
       if(F.late && o.late!==F.late) return false;
       if(F.fifo && o.stackingFIFO!==F.fifo) return false;
+      if(F.q){ var q=F.q.toLowerCase(); if((o.so||'').toLowerCase().indexOf(q)<0 && (o.customer||'').toLowerCase().indexOf(q)<0) return false; }
       return true;
     });
     tbl.innerHTML='<thead><tr>'+COLS.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr></thead><tbody>'+rows(list)+'</tbody>';
     document.getElementById('fc').textContent=list.length+' of '+O.length;
   }
   ['f-stage','f-late','f-fifo'].forEach(function(id){ document.getElementById(id).addEventListener('change',function(){ F[id.slice(2)]=this.value; apply(); }); });
+  document.getElementById('f-q').addEventListener('input',function(){ F.q=this.value; apply(); });
 
+  // expand -> stage timeline with the planned machine bookings
   tbl.addEventListener('click',function(e){
     var b=e.target.closest && e.target.closest('.exp-btn'); if(!b) return;
     var tr=b.closest('tr'), ic=b.querySelector('i'), nx=tr.nextElementSibling;
     if(nx && nx.classList.contains('sub-detail')){ nx.remove(); b.classList.remove('open'); ic.className='fa-solid fa-chevron-right'; return; }
-    var o=O[+b.getAttribute('data-exp')], sd=stageDates(o);
-    var rowsH=o.route.map(function(st,k){
-      var stat=k<o.stageIndex?['Done','b-green']:k===o.stageIndex?['In progress','b-blue']:['Planned','b-grey'];
-      var dt=sd&&sd[st]!=null?vssFmtDate(vssDateAt(sd[st]).toISOString().slice(0,10))+' '+vssClock(sd[st]):'—';
-      return '<tr><td class="mono">'+(k+1)+'</td><td class="strong">'+st+'</td><td class="mono">'+dt+'</td><td><span class="badge '+stat[1]+'">'+stat[0]+'</span></td></tr>';
+    var o=V.orders[+b.getAttribute('data-exp')];
+    var bk=P.bookings.filter(function(x){return x.oi===o._i;}).sort(function(a,c){return a.start-c.start;});
+    var rowsH=bk.map(function(x,k){
+      var done=x.end<=VSS_ASOF_MIN, now=!done && x.start<=VSS_ASOF_MIN;
+      return '<tr><td class="mono">'+(k+1)+'</td><td class="strong">'+x.stage+'</td><td>'+x.machine+'</td><td class="mono">'+vssStamp(x.start)+'</td><td class="mono">'+vssStamp(x.end)+'</td><td class="mono right-al">'+((x.end-x.start)/60).toFixed(1)+' h</td><td class="mono right-al">'+x.qty.toFixed(1)+'</td>'+
+        '<td><span class="badge '+(done?'b-green':now?'b-blue':'b-grey')+'">'+(done?'Done':now?'In progress':'Planned')+'</span></td></tr>';
     }).join('');
     var det=document.createElement('tr'); det.className='sub-detail';
-    det.innerHTML='<td colspan="'+COLS.length+'"><div class="sub-wrap"><div class="sub-title"><i class="fa-solid fa-route"></i> Stage timeline — '+o.so+' · '+o.customer+' · token '+(o.token||'— unscheduled')+'</div>'+
-      '<table class="sub-tbl"><thead><tr><th>#</th><th>Stage</th><th>Planned</th><th>Status</th></tr></thead><tbody>'+rowsH+'</tbody></table></div></td>';
+    det.innerHTML='<td colspan="'+COLS.length+'"><div class="sub-wrap"><div class="sub-title"><i class="fa-solid fa-route"></i> Plan — '+o.so+' · '+o.customer+' · seq '+o.planSeq+' by RDD · start '+vssStamp(o.planStartMin)+' → end '+vssStamp(o.planEndMin)+(o.allocStatus==='Stock-allocated'?' · <span class="chip">open billet stock used — no casting</span>':'')+'</div>'+
+      '<table class="sub-tbl"><thead><tr><th>#</th><th>Stage</th><th>Equipment</th><th>Start</th><th>End</th><th>Hours</th><th>MT</th><th>Status</th></tr></thead><tbody>'+rowsH+'</tbody></table></div></td>';
     tr.after(det); b.classList.add('open'); ic.className='fa-solid fa-chevron-down';
   });
   apply();

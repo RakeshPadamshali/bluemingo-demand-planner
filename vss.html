@@ -59,6 +59,8 @@
     <div class="nav-label">Tracking</div>
     <a data-page="gantt"><i class="fa-solid fa-chart-gantt"></i>Master Gantt</a>
     <a data-page="status"><i class="fa-solid fa-truck-fast"></i>Order Status</a>
+    <a data-page="load"><i class="fa-solid fa-scale-balanced"></i>Machine Load</a>
+    <a data-page="booking"><i class="fa-solid fa-calendar-check"></i>Equipment Booking</a>
     <div class="nav-label">Masters</div>
     <a class="decor"><i class="fa-solid fa-gears"></i>Machines</a>
     <a class="decor"><i class="fa-solid fa-flask"></i>Grades &amp; Specs</a>
@@ -85,7 +87,9 @@
     brightbar: { label: 'Bright Bar',       icon: 'fa-ruler-horizontal',    href: 'vss-brightbar.html' },
     heattreat: { label: 'Heat Treatment',   icon: 'fa-temperature-high',    href: 'vss-heattreat.html' },
     gantt:     { label: 'Master Gantt',     icon: 'fa-chart-gantt',         href: 'vss-gantt.html' },
-    status:    { label: 'Order Status',     icon: 'fa-truck-fast',          href: 'vss-status.html' }
+    status:    { label: 'Order Status',     icon: 'fa-truck-fast',          href: 'vss-status.html' },
+    load:      { label: 'Machine Load',     icon: 'fa-scale-balanced',      href: 'vss-load.html' },
+    booking:   { label: 'Equipment Booking',icon: 'fa-calendar-check',      href: 'vss-booking.html' }
   };
   var stack = document.getElementById('stack'), strip = document.getElementById('tabstrip'), empty = document.getElementById('empty');
   var frames = {}, order = [], active = null;

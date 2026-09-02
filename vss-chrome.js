@@ -6,7 +6,8 @@
     ['Planning', [['dashboard', 'Dashboard', 'fa-gauge-high'], ['orders', 'Order Book', 'fa-clipboard-list'], ['forecast', 'Demand Forecast', 'fa-chart-column']]],
     ['Production Plan', [['casting', 'Casting · SMS', 'fa-fire-flame-curved'], ['rolling', 'Rolling Mill', 'fa-bars-staggered'],
       ['ndt', 'NDT Line', 'fa-wave-square'], ['brightbar', 'Bright Bar', 'fa-ruler-horizontal'], ['heattreat', 'Heat Treatment', 'fa-temperature-high']]],
-    ['Tracking', [['gantt', 'Master Gantt', 'fa-chart-gantt'], ['status', 'Order Status', 'fa-truck-fast']]]
+    ['Tracking', [['gantt', 'Master Gantt', 'fa-chart-gantt'], ['status', 'Order Status', 'fa-truck-fast'],
+      ['load', 'Machine Load', 'fa-scale-balanced'], ['booking', 'Equipment Booking', 'fa-calendar-check']]]
   ];
   var DECOR = ['Machines', 'Grades & Specs', 'Setup'];
   var cur = window.VSS_PAGE || '';
