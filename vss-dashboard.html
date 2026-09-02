@@ -39,7 +39,7 @@
     <div class="banner"><i class="fa-solid fa-wand-magic-sparkles"></i> <b>One integrated plan</b> replacing the manual Master Planning Sheet &amp; scattered casting/rolling/bright-bar Excel files — orders allocated to every operation, open stock first.</div>
     <div class="kpis" id="kpis"></div>
     <div class="card">
-      <div class="card-head"><i class="fa-solid fa-diagram-project"></i> Plant flow — planned tonnage by stage</div>
+      <div class="card-head"><i class="fa-solid fa-diagram-project"></i> Plant flow — tonnage the plan routes through each stage <span class="right">big number = whole order book (63-day plan) · sub-line = done so far, as of 6 Jul · NDT / Bright Bar / Heat Treat are branches, not every order passes them</span></div>
       <div class="card-body"><div class="flow" id="flow"></div></div>
     </div>
     <div class="grid2">
@@ -78,12 +78,16 @@
   ].forEach(function(k){ document.getElementById('kpis').insertAdjacentHTML('beforeend','<div class="kpi '+k[3]+'"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="s">'+k[2]+'</div></div>'); });
 
   // plant flow
-  var stages=[['Casting · SMS','fa-fire-flame-curved','#ef6c00',Math.round(tons-b.allocated)+' MT','to cast'],
-    ['Rolling','fa-bars-staggered','#1478c8',Math.round(rollTons)+' MT','30 cycles'],
-    ['NDT','fa-wave-square','#7e57c2',Math.round(rollTons*0.9)+' MT','black bar'],
-    ['Bright Bar','fa-ruler-horizontal','#1baf7a',Math.round(bbsTons)+' MT','peel/draw'],
-    ['Heat Treat','fa-temperature-high','#e34948',Math.round(htTons)+' MT','anneal'],
-    ['Dispatch','fa-truck-fast','#2e7d32',Math.round(dispTons)+' MT','shipped']];
+  // one consistent basis: tonnage the PLAN routes through each stage, with "done so far" (as of 6 Jul) underneath
+  var PB=vssPlan().bookings, asOfMin=VSS_ASOF_MIN;
+  function stg(s){ var pl=0,dn=0,n={}; PB.forEach(function(x){ if(x.stage===s){ pl+=x.qty; n[x.so]=1; if(x.end<=asOfMin) dn+=x.qty; } }); return {pl:Math.round(pl),dn:Math.round(dn),n:Object.keys(n).length}; }
+  var sC=stg('Billet'), sR=stg('Rolled'), sN=stg('NDT'), sB=stg('Bright Bar'), sH=stg('Heat Treat');
+  var stages=[['Casting · SMS','fa-fire-flame-curved','#ef6c00',sC.pl+' MT',sC.n+' orders · '+sC.dn+' MT cast so far'],
+    ['Rolling','fa-bars-staggered','#1478c8',sR.pl+' MT',sR.n+' orders · '+sR.dn+' MT rolled so far'],
+    ['NDT','fa-wave-square','#7e57c2',sN.pl+' MT',sN.n+' orders · '+sN.dn+' MT done so far'],
+    ['Bright Bar','fa-ruler-horizontal','#1baf7a',sB.pl+' MT',sB.n+' orders · '+sB.dn+' MT done so far'],
+    ['Heat Treat','fa-temperature-high','#e34948',sH.pl+' MT',sH.n+' orders · '+sH.dn+' MT done so far'],
+    ['Dispatch','fa-truck-fast','#2e7d32',Math.round(tons)+' MT',O.length+' orders · '+Math.round(dispTons)+' MT shipped so far']];
   document.getElementById('flow').innerHTML = stages.map(function(s,i){
     return '<div class="st"><div class="ic" style="background:'+s[2]+'"><i class="fa-solid '+s[1]+'"></i></div><div class="nm">'+s[0]+'</div><div class="tv">'+s[3]+'</div><div class="sub">'+s[4]+'</div></div>'+
       (i<stages.length-1?'<div class="arr"><i class="fa-solid fa-angle-right"></i></div>':'');
