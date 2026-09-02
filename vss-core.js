@@ -184,7 +184,7 @@
     var total = opts.endMin != null ? opts.endMin : Math.ceil((endMax + 60) / 1440) * 1440;
     var span = Math.max(1440, total - startMin);
     var gW = el.clientWidth || 1400;
-    var px = Math.max(0.02, Math.min(1.2, (gW - laneW - 40) / span));
+    var px = Math.max(0.008, Math.min(1.2, (gW - laneW - 40) / span));   // low floor so a 60-90 day plan fits in one view
     var trackW = span * px;
     function X(m) { return (m - startMin) * px; }
     var step = span > 20 * 1440 ? 1440 : 360;                     // long horizons: day lines only
