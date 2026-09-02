@@ -12,6 +12,7 @@
   var MAP = {
     'vss-dashboard.html': 'dashboard',
     'vss-orders.html': 'orders',
+    'vss-forecast.html': 'forecast',
     'vss-casting.html': 'casting',
     'vss-rolling.html': 'rolling',
     'vss-ndt.html': 'ndt',

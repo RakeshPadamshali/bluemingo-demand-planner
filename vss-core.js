@@ -203,5 +203,28 @@
     return { px: px, total: total, startMin: startMin };
   };
 
+  // Demand planning (o9-B): next 4 weeks W1-W4 = MTO already-scheduled + MTS make-to-stock forecast.
+  window.vssForecast = function () {
+    vssDerive();
+    var base = new Date(V.meta.baseDate + 'T00:00:00'), weeks = [], w;
+    for (w = 0; w < 4; w++) { var st = new Date(base.getTime() + w * 7 * 86400000); weeks.push({ idx: w + 1, start: st, end: new Date(st.getTime() + 7 * 86400000), mto: 0, mts: 0, byCat: {} }); }
+    function weekOf(iso) { if (!iso) return -1; var t = new Date(iso.length <= 10 ? iso + 'T00:00:00' : iso).getTime(); for (var i = 0; i < 4; i++) { if (t >= weeks[i].start.getTime() && t < weeks[i].end.getTime()) return i; } return -1; }
+    V.orders.forEach(function (o) { var i = weekOf(o.tentRollISO || o.rdd); if (i >= 0) { weeks[i].mto += (o.qty || 0); weeks[i].byCat[o.category] = (weeks[i].byCat[o.category] || 0) + (o.qty || 0); } });
+    // MTS = make-to-stock standard grades held to stock (synthesized — not in the MTO order book)
+    var MTS = [
+      { sku: 'MTS-C40-40R', grade: 'C40', cat: 'CS', size: '40R', base: 130 },
+      { sku: 'MTS-20MC5-20R', grade: '20MnCr5', cat: 'CRMN', size: '20R', base: 95 },
+      { sku: 'MTS-8620-30R', grade: 'SAE8620H', cat: 'NICRMO', size: '30R', base: 80 },
+      { sku: 'MTS-16MC5-25R', grade: '16MnCr5', cat: 'CRMN', size: '25R', base: 70 },
+      { sku: 'MTS-C45-50R', grade: 'C45', cat: 'CS', size: '50R', base: 110 },
+      { sku: 'MTS-SCM420-34R', grade: 'SCM420', cat: 'CRMO', size: '34R', base: 60 },
+      { sku: 'MTS-42CM4-56R', grade: '42CrMo4', cat: 'CRMO', size: '56R', base: 90 },
+      { sku: 'MTS-EN19-45R', grade: 'EN19', cat: 'CRMO', size: '45R', base: 75 }
+    ];
+    MTS.forEach(function (m, i) { m.w = []; for (var k = 0; k < 4; k++) { var q = Math.round(m.base * (0.8 + ((i * 7 + k * 17) % 40) / 100)); m.w.push(q); weeks[k].mts += q; weeks[k].byCat[m.cat] = (weeks[k].byCat[m.cat] || 0) + q; } });
+    weeks.forEach(function (wk) { wk.mto = Math.round(wk.mto); wk.total = wk.mto + wk.mts; });
+    return { weeks: weeks, mts: MTS };
+  };
+
   vssDerive();
 })();

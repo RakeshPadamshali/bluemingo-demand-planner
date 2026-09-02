@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Demand Forecast · Vardhman Special Steels</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="vss-shell.css">
+<style>
+  .wk-chart { display:flex; align-items:flex-end; gap:26px; height:230px; padding:12px 16px 0; }
+  .wk { flex:1; display:flex; flex-direction:column; align-items:center; height:100%; justify-content:flex-end; }
+  .wk .stack { width:74%; display:flex; flex-direction:column-reverse; border-radius:5px 5px 0 0; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.12); }
+  .wk .seg-mto { background:#1478c8; } .wk .seg-mts { background:#ef8b1c; }
+  .wk .tot { font-weight:700; font-variant-numeric:tabular-nums; margin-bottom:5px; font-size:13px; }
+  .wk .lbl { margin-top:7px; font-weight:600; font-size:12px; } .wk .dt { font-size:10.5px; color:var(--color-text-hint); }
+  .lgnd { display:flex; gap:16px; justify-content:center; margin-top:8px; font-size:11.5px; color:var(--color-text-secondary); }
+  .lgnd i { width:11px;height:11px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:-1px; }
+</style>
+<script src="vss-embed.js"></script>
+</head>
+<body>
+<div class="bm-layout">
+  <main class="bm-content">
+    <div class="page-bar">
+      <div><h1>Demand Forecast — W1–W4</h1><div class="crumb">Planning › Demand Forecast › <span id="ctx"></span></div></div>
+      <div class="actions"><a class="btn btn-outline" href="vss-orders.html"><i class="fa-solid fa-clipboard-list"></i> Order Book</a></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="card">
+      <div class="card-head"><i class="fa-solid fa-chart-column"></i> 4-week demand — MTO (scheduled) + MTS (make-to-stock)</div>
+      <div class="card-body">
+        <div class="wk-chart" id="chart"></div>
+        <div class="lgnd"><span><i style="background:#1478c8"></i>MTO — already scheduled/planned</span><span><i style="background:#ef8b1c"></i>MTS — make-to-stock forecast</span></div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="card"><div class="card-head"><i class="fa-solid fa-warehouse"></i> MTS forecast — by product</div><div class="card-body"><table class="tbl" id="mts"></table></div></div>
+      <div class="card"><div class="card-head"><i class="fa-solid fa-layer-group"></i> MTO scheduled — by steel category</div><div class="card-body"><table class="tbl" id="mto"></table></div></div>
+    </div>
+    <div class="note"><i class="fa-solid fa-circle-info"></i> MTO demand is drawn from the real order book (grouped by planned/tentative rolling week); MTS is a make-to-stock forecast for standard grades held to stock (so no SKU goes stock-out).</div>
+  </main>
+</div>
+<script>window.VSS_PAGE='forecast'; window.VSS_TITLE='Demand Forecast'; window.VSS_ICON='fa-chart-column';</script>
+<script src="vss-chrome.js"></script>
+<script src="vss-data.js"></script>
+<script src="vss-core.js"></script>
+<script>
+  var V=window.VSS, F=vssForecast(), wks=F.weeks;
+  document.getElementById('ctx').textContent = V.meta.plant + ' · from ' + vssFmtDate(V.meta.baseDate);
+  function wlabel(w){ var s=w.start, e=new Date(w.end.getTime()-86400000); var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return s.getDate()+'–'+e.getDate()+' '+MO[e.getMonth()]; }
+  var tot4=wks.reduce(function(a,w){return a+w.total;},0), mto4=wks.reduce(function(a,w){return a+w.mto;},0), mts4=tot4-mto4;
+  var peak=wks.reduce(function(a,w){return w.total>a.total?w:a;},wks[0]);
+  [['4-week demand',Math.round(tot4)+' MT','W1–W4','blue'],
+   ['MTO scheduled',Math.round(mto4)+' MT',Math.round(mto4/tot4*100)+'% of demand','blue'],
+   ['MTS forecast',Math.round(mts4)+' MT',F.mts.length+' stock SKUs','accent'],
+   ['Peak week','W'+peak.idx,Math.round(peak.total)+' MT','amber'],
+   ['Avg / week',Math.round(tot4/4)+' MT','load target','green'],
+   ['MTS SKUs',F.mts.length,'held to stock','green']
+  ].forEach(function(k){ document.getElementById('kpis').insertAdjacentHTML('beforeend','<div class="kpi '+k[3]+'"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="s">'+k[2]+'</div></div>'); });
+
+  var mx=Math.max.apply(null,wks.map(function(w){return w.total;}))||1;
+  document.getElementById('chart').innerHTML = wks.map(function(w){
+    var h=Math.round(w.total/mx*180); var hMto=Math.round(w.mto/w.total*h), hMts=h-hMto;
+    return '<div class="wk"><div class="tot">'+Math.round(w.total)+'</div>'+
+      '<div class="stack" style="height:'+h+'px"><div class="seg-mto" style="height:'+hMto+'px" title="MTO '+Math.round(w.mto)+' MT"></div><div class="seg-mts" style="height:'+hMts+'px" title="MTS '+w.mts+' MT"></div></div>'+
+      '<div class="lbl">W'+w.idx+'</div><div class="dt">'+wlabel(w)+'</div></div>';
+  }).join('');
+
+  document.getElementById('mts').innerHTML='<thead><tr><th>SKU</th><th>Grade</th><th>Cat</th><th>Size</th><th>W1</th><th>W2</th><th>W3</th><th>W4</th><th>Total</th></tr></thead><tbody>'+
+    F.mts.map(function(m){ var t=m.w.reduce(function(a,b){return a+b;},0);
+      return '<tr><td class="mono strong">'+m.sku+'</td><td>'+m.grade+'</td><td>'+m.cat+'</td><td class="mono">'+m.size+'</td>'+
+        m.w.map(function(q){return '<td class="mono right-al">'+q+'</td>';}).join('')+'<td class="mono right-al strong">'+t+'</td></tr>';
+    }).join('')+'</tbody>';
+
+  var cats={}; wks.forEach(function(w,i){ Object.keys(w.byCat).forEach(function(c){ cats[c]=cats[c]||[0,0,0,0]; cats[c][i]+=w.byCat[c]; }); });
+  var ck=Object.keys(cats).sort(function(a,b){return (cats[b][0]+cats[b][1]+cats[b][2]+cats[b][3])-(cats[a][0]+cats[a][1]+cats[a][2]+cats[a][3]);});
+  document.getElementById('mto').innerHTML='<thead><tr><th>Category</th><th>W1</th><th>W2</th><th>W3</th><th>W4</th><th>Total</th></tr></thead><tbody>'+
+    ck.slice(0,10).map(function(c){ var a=cats[c]; var t=a[0]+a[1]+a[2]+a[3];
+      return '<tr><td class="strong">'+c+'</td>'+a.map(function(q){return '<td class="mono right-al">'+Math.round(q)+'</td>';}).join('')+'<td class="mono right-al strong">'+Math.round(t)+'</td></tr>';
+    }).join('')+'</tbody>';
+</script>
+</body>
+</html>

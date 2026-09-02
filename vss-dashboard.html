@@ -8,12 +8,13 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link rel="stylesheet" href="vss-shell.css">
 <style>
-  .flow { display:flex; align-items:stretch; gap:0; overflow-x:auto; }
+  .flow { display:flex; align-items:flex-start; gap:0; overflow-x:auto; }
   .flow .st { flex:1; min-width:118px; background:var(--color-surface); border:1px solid var(--color-border); border-radius:8px; padding:11px 12px; text-align:center; position:relative; }
   .flow .st .ic { width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;color:#fff;font-size:13px; }
   .flow .st .nm { font-size:10.5px; text-transform:uppercase; letter-spacing:.3px; color:var(--color-text-muted); font-weight:600; }
-  .flow .st .tv { font-size:18px; font-weight:700; font-variant-numeric:tabular-nums; margin-top:2px; }
-  .flow .st .sub { font-size:10px; color:var(--color-text-hint); }
+  .flow .st .tv { font-size:18px; font-weight:700; margin-top:3px; color:var(--color-text-primary); }
+  .flow .st .sub { font-size:10px; color:var(--color-text-hint); margin-top:1px; }
+  .flow .arr { display:flex; align-items:center; color:#c2c8cf; font-size:16px; padding:22px 5px 0; flex-shrink:0; }
   .flow .arr { display:flex; align-items:center; color:#c2c8cf; font-size:16px; padding:0 5px; flex-shrink:0; }
   .load-row { display:flex; align-items:center; gap:10px; margin-bottom:9px; font-size:12px; }
   .load-row .ln { width:150px; font-weight:600; } .load-row .lt { flex:1; height:12px; background:#eef1f4; border-radius:6px; overflow:hidden; }
@@ -21,6 +22,10 @@
   .sbars .sr { display:flex; align-items:center; gap:9px; margin-bottom:7px; font-size:12px; }
   .sbars .sn { width:96px; } .sbars .st { flex:1; height:14px; background:#eef1f4; border-radius:7px; overflow:hidden; } .sbars .sf { display:block; height:100%; border-radius:7px; } .sbars .sv { width:70px; text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }
   .banner { background:linear-gradient(90deg,#eef6fc,#f7fbff); border:1px solid #d6e8f5; border-radius:8px; padding:10px 14px; font-size:12px; color:#0f5fa3; display:flex; align-items:center; gap:9px; margin-bottom:12px; }
+  .oc { display:grid; grid-template-columns:1fr 1fr; gap:0 24px; } @media (max-width:860px){ .oc{grid-template-columns:1fr;} }
+  .oc .ci { display:flex; gap:9px; align-items:flex-start; font-size:12px; padding:6px 0; border-bottom:1px solid var(--color-border-light); }
+  .oc .ci > i { color:var(--color-success); margin-top:2px; font-size:12px; }
+  .oc .ci .mod { color:var(--color-primary); font-size:10.5px; font-weight:600; margin-top:1px; }
 </style>
 <script src="vss-embed.js"></script>
 </head>
@@ -45,6 +50,7 @@
       <div class="card"><div class="card-head"><i class="fa-solid fa-boxes-stacked"></i> Billet stock allocation</div><div class="card-body" id="billet"></div></div>
       <div class="card"><div class="card-head"><i class="fa-solid fa-bullseye"></i> Budget target vs plan (rolling)</div><div class="card-body" id="budget"></div></div>
     </div>
+    <div class="card"><div class="card-head"><i class="fa-solid fa-clipboard-check"></i> Planning outcomes — Scenario o9 <span class="right">A) Supply / production planning · B) Demand planning</span></div><div class="card-body"><div class="oc" id="oc"></div></div></div>
   </main>
 </div>
 <script>window.VSS_PAGE='dashboard'; window.VSS_TITLE='Dashboard'; window.VSS_ICON='fa-gauge-high';</script>
@@ -119,6 +125,20 @@
     dk.slice(0,7).map(function(d){ var pc=Math.min(100,Math.round(days[d]/maxBud*100));
       return '<div class="load-row"><span class="ln">'+vssFmtDate(d)+'</span><span class="lt"><span class="lf" style="width:'+pc+'%;background:'+(days[d]>=maxBud*0.8?'#2e7d32':'#f0a020')+'"></span></span><span class="lv">'+Math.round(days[d])+' MT · '+pc+'%</span></div>';
     }).join('');
+
+  // o9 desired outcomes coverage
+  var OC=[
+    ['A1 · Allocate MTO orders to every operation by product category','Order Book · Casting · Rolling · Bright Bar'],
+    ['A2 · Customer serviceability — no SKU stock-out','Order Status · MTS buffer'],
+    ['A3 · Line balancing — machines run continuously','Master Gantt · machine load'],
+    ['A4 · Optimum utilisation & minimum changeover','Rolling changeover · load vs budget'],
+    ['A5 · Start & end date of all orders','Order Book · Order Status'],
+    ['A6 · Order status at each production point','Order Status'],
+    ['A7 · Machine allocation as per orders','Master Gantt'],
+    ['A8 · Allocate open stock first, then cast the rest','Casting billet buckets · Order Book'],
+    ['B1 · Forecast next W1–W4 (MTO scheduled + MTS)','Demand Forecast']
+  ];
+  document.getElementById('oc').innerHTML = OC.map(function(o){ return '<div class="ci"><i class="fa-solid fa-circle-check"></i><div><div>'+o[0]+'</div><div class="mod">'+o[1]+'</div></div></div>'; }).join('');
 </script>
 </body>
 </html>

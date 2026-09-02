@@ -31,6 +31,7 @@ body { margin:0; font-family:'Roboto',system-ui,-apple-system,'Segoe UI',sans-se
 .bm-sidebar a.active::before { content:''; position:absolute; left:0; top:4px; bottom:4px; width:2px; background:var(--accent); border-radius:0 2px 2px 0; }
 .bm-sidebar a i { width:15px; text-align:center; opacity:.85; font-size:11px; }
 .bm-content { flex:1; overflow-y:auto; display:flex; flex-direction:column; padding:12px 16px 28px; }
+.bm-content > * { flex-shrink:0; }   /* don't let the scroll column squash cards below their content */
 .page-bar { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
 .page-bar h1 { margin:0; font-size:16px; font-weight:600; }
 .page-bar .crumb { color:var(--color-text-muted); font-size:11px; margin-top:1px; }
