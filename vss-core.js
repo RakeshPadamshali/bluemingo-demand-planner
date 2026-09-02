@@ -242,7 +242,7 @@
   // cover in weeks, projected stock W1-W4 (no replenishment), replenishment need, stock-out alarm.
   window.vssMTSCover = function () {
     var F = vssForecast(), LEAD = 2;                      // weeks of cover needed (rolling -> dispatch lead time)
-    var FAC = [2.2, 0.7, 1.4, 0.5, 3.0, 1.1, 0.9, 1.8];   // seeded opening stock (x avg weekly demand); swap for real stock
+    var FAC = [4.6, 0.7, 2.6, 1.4, 5.2, 3.1, 0.9, 4.3];   // seeded opening stock (x avg weekly demand) -> mix of OK / Replenish / Stock-out; swap for real stock
     return F.mts.map(function (m, i) {
       var tot = m.w.reduce(function (a, b) { return a + b; }, 0), avg = tot / 4;
       var opening = Math.round(avg * FAC[i % FAC.length]);
