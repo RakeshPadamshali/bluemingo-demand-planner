@@ -16,6 +16,7 @@
   .wk .lbl { margin-top:7px; font-weight:600; font-size:12px; } .wk .dt { font-size:10.5px; color:var(--color-text-hint); }
   .lgnd { display:flex; gap:16px; justify-content:center; margin-top:8px; font-size:11.5px; color:var(--color-text-secondary); }
   .lgnd i { width:11px;height:11px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:-1px; }
+  .neg { color:#c62828; font-weight:700; }
 </style>
 <script src="vss-embed.js"></script>
 </head>
@@ -34,6 +35,11 @@
         <div class="lgnd"><span><i style="background:#1478c8"></i>MTO — already scheduled/planned</span><span><i style="background:#ef8b1c"></i>MTS — make-to-stock forecast</span></div>
       </div>
     </div>
+    <div class="card">
+      <div class="card-head"><i class="fa-solid fa-shield-halved"></i> MTS buffer — stock cover &amp; stock-out alarm (no SKU stock-out) <span class="right">lead time 2 weeks · alarm when projected stock turns negative before replenishment can land</span></div>
+      <div class="card-body"><table class="tbl" id="cover"></table>
+      <div class="note"><i class="fa-solid fa-circle-info"></i><span>Per make-to-stock SKU: opening stock vs. weekly demand → <b>cover</b> (weeks of stock), projected closing stock W1–W4 with no replenishment (red = stock-out), the <b>replenishment</b> to produce over the 4 weeks (ends with 1 week safety) and the week to produce by. Opening stocks are seeded — drop in VSS's real stock and MTS list to make this live.</span></div></div>
+    </div>
     <div class="grid2">
       <div class="card"><div class="card-head"><i class="fa-solid fa-warehouse"></i> MTS forecast — by product</div><div class="card-body"><table class="tbl" id="mts"></table></div></div>
       <div class="card"><div class="card-head"><i class="fa-solid fa-layer-group"></i> MTO scheduled — by steel category</div><div class="card-body"><table class="tbl" id="mto"></table></div></div>
@@ -46,7 +52,7 @@
 <script src="vss-data.js"></script>
 <script src="vss-core.js"></script>
 <script>
-  var V=window.VSS, F=vssForecast(), wks=F.weeks;
+  var V=window.VSS, F=vssForecast(), wks=F.weeks, CV=vssMTSCover();
   document.getElementById('ctx').textContent = V.meta.plant + ' · from ' + vssFmtDate(V.meta.baseDate);
   function wlabel(w){ var s=w.start, e=new Date(w.end.getTime()-86400000); var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return s.getDate()+'–'+e.getDate()+' '+MO[e.getMonth()]; }
   var tot4=wks.reduce(function(a,w){return a+w.total;},0), mto4=wks.reduce(function(a,w){return a+w.mto;},0), mts4=tot4-mto4;
@@ -56,7 +62,7 @@
    ['MTS forecast',Math.round(mts4)+' MT',F.mts.length+' stock SKUs','accent'],
    ['Peak week','W'+peak.idx,Math.round(peak.total)+' MT','amber'],
    ['Avg / week',Math.round(tot4/4)+' MT','load target','green'],
-   ['MTS SKUs',F.mts.length,'held to stock','green']
+   ['Stock-out risk',CV.filter(function(s){return s.status==='Stock-out';}).length,'MTS SKUs run out within lead time','red']
   ].forEach(function(k){ document.getElementById('kpis').insertAdjacentHTML('beforeend','<div class="kpi '+k[3]+'"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="s">'+k[2]+'</div></div>'); });
 
   var mx=Math.max.apply(null,wks.map(function(w){return w.total;}))||1;
@@ -78,6 +84,17 @@
   document.getElementById('mto').innerHTML='<thead><tr><th>Category</th><th>W1</th><th>W2</th><th>W3</th><th>W4</th><th>Total</th></tr></thead><tbody>'+
     ck.slice(0,10).map(function(c){ var a=cats[c]; var t=a[0]+a[1]+a[2]+a[3];
       return '<tr><td class="strong">'+c+'</td>'+a.map(function(q){return '<td class="mono right-al">'+Math.round(q)+'</td>';}).join('')+'<td class="mono right-al strong">'+Math.round(t)+'</td></tr>';
+    }).join('')+'</tbody>';
+
+  // MTS buffer — stock cover & stock-out alarm per stock SKU
+  document.getElementById('cover').innerHTML='<thead><tr><th>SKU</th><th>Grade · size</th><th>Opening stock</th><th>Avg wk demand</th><th>Cover</th><th>Proj W1</th><th>W2</th><th>W3</th><th>W4</th><th>Replenish</th><th>Produce by</th><th>Status</th></tr></thead><tbody>'+
+    CV.map(function(s){ var b=s.status==='Stock-out'?'b-red':s.status==='Replenish'?'b-amber':'b-green';
+      var covPc=Math.min(100,Math.round(s.cover/4*100)), covCol=s.cover<1?'fill-red':s.cover<2?'fill-amber':'fill-green';
+      return '<tr><td class="mono strong">'+s.sku+'</td><td>'+s.grade+' <span class="hint">'+s.size+' · '+s.cat+'</span></td><td class="mono right-al">'+s.opening+'</td><td class="mono right-al">'+s.avg+'</td>'+
+        '<td><div class="pbar"><span class="track"><span class="fill '+covCol+'" style="width:'+covPc+'%"></span></span><span class="pct">'+s.cover.toFixed(1)+' wk</span></div></td>'+
+        s.proj.map(function(q){return '<td class="mono right-al'+(q<0?' neg':'')+'">'+q+'</td>';}).join('')+
+        '<td class="mono right-al strong">'+(s.replenish?s.replenish+' MT':'—')+'</td><td class="mono">'+s.produceBy+'</td>'+
+        '<td><span class="badge '+b+'">'+(s.status==='Stock-out'?'<i class="fa-solid fa-triangle-exclamation"></i> ':'')+s.status+'</span></td></tr>';
     }).join('')+'</tbody>';
 </script>
 </body>

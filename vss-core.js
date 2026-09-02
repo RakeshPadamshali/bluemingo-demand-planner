@@ -238,5 +238,23 @@
     return { weeks: weeks, mts: MTS };
   };
 
+  // MTS buffer (o9-A2 "no SKU stock-out"): per stock SKU, opening stock vs weekly demand ->
+  // cover in weeks, projected stock W1-W4 (no replenishment), replenishment need, stock-out alarm.
+  window.vssMTSCover = function () {
+    var F = vssForecast(), LEAD = 2;                      // weeks of cover needed (rolling -> dispatch lead time)
+    var FAC = [2.2, 0.7, 1.4, 0.5, 3.0, 1.1, 0.9, 1.8];   // seeded opening stock (x avg weekly demand); swap for real stock
+    return F.mts.map(function (m, i) {
+      var tot = m.w.reduce(function (a, b) { return a + b; }, 0), avg = tot / 4;
+      var opening = Math.round(avg * FAC[i % FAC.length]);
+      var proj = [], s = opening, outWeek = null;
+      m.w.forEach(function (q, k) { s -= q; proj.push(Math.round(s)); if (s < 0 && outWeek == null) outWeek = k + 1; });
+      var cover = avg ? opening / avg : 99;
+      var status = (outWeek != null && outWeek <= LEAD) ? 'Stock-out' : (outWeek != null || cover < LEAD) ? 'Replenish' : 'OK';
+      var replenish = Math.max(0, Math.round(tot + avg - opening));   // produce over W1-W4 to end with 1 week safety
+      return { sku: m.sku, grade: m.grade, cat: m.cat, size: m.size, w: m.w, opening: opening, avg: Math.round(avg), cover: cover,
+               proj: proj, outWeek: outWeek, status: status, replenish: replenish, produceBy: outWeek != null ? 'W' + Math.max(1, outWeek - 1) : (cover < LEAD ? 'W1' : '—'), lead: LEAD };
+    });
+  };
+
   vssPlan();   // run the scheduler once at load so every page sees start/end, stages and bookings
 })();

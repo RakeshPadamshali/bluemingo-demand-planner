@@ -25,6 +25,11 @@
     </div>
     <div class="kpis" id="kpis"></div>
     <div class="card">
+      <div class="card-head"><i class="fa-solid fa-handshake"></i> Customer serviceability — can each customer be served by its RDD? <span class="right" id="svmeta"></span></div>
+      <div class="card-body"><div style="max-height:240px;overflow:auto"><table class="tbl" id="svc"></table></div>
+      <div class="note"><i class="fa-solid fa-circle-info"></i><span><b>Service level</b> = orders whose planned end is within the customer's RDD ÷ orders (At risk = plan end after RDD; Overdue = RDD already passed, not yet dispatched). Stock-out prevention for make-to-stock SKUs — the <b>MTS buffer</b> — is on <a href="vss-forecast.html">Demand Forecast › MTS buffer</a>.</span></div></div>
+    </div>
+    <div class="card">
       <div class="card-head"><i class="fa-solid fa-truck-fast"></i> Orders in delivery-date sequence — Billet → Rolled → Stacking → NDT → Bright Bar → Heat Treat → Dispatch <span class="right" id="meta"></span></div>
       <div class="card-body">
         <div class="filters" id="filters"></div>
@@ -44,14 +49,23 @@
 
   var disp=O.filter(function(o){return o.stageNow==='Dispatched';}).length;
   var wip=O.filter(function(o){return o.stageIndex>0 && o.stageNow!=='Dispatched';}).length;
-  var avg=Math.round(O.reduce(function(a,o){return a+(o.route.length?o.stageIndex/o.route.length:0);},0)/O.length*100);
+  var svc=Math.round(O.filter(function(o){return o.late==='On track';}).length/O.length*100);   // orders servable by RDD
   [['Orders',O.length,'all with start & end','blue'],
    ['Dispatched',disp,'completed','green'],
    ['In progress',wip,'on the floor','blue'],
    ['Overdue',O.filter(function(o){return o.late==='Overdue';}).length,'past RDD','red'],
    ['At risk',O.filter(function(o){return o.late==='At risk';}).length,'plan end > RDD','amber'],
-   ['Avg progress',avg+'%','across stages','accent']
+   ['Serviceability',svc+'%','orders servable by RDD','green']
   ].forEach(function(k){ document.getElementById('kpis').insertAdjacentHTML('beforeend','<div class="kpi '+k[3]+'"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="s">'+k[2]+'</div></div>'); });
+
+  // customer serviceability — service level per customer
+  var byC={}; O.forEach(function(o){ var c=byC[o.customer]=byC[o.customer]||{c:o.customer,n:0,ok:0,risk:0,od:0}; c.n++; if(o.late==='On track')c.ok++; else if(o.late==='At risk')c.risk++; else c.od++; });
+  var custs=Object.keys(byC).map(function(k){return byC[k];}).sort(function(a,b){return b.n-a.n;});
+  document.getElementById('svmeta').textContent=custs.length+' customers · plant service level '+svc+'%';
+  document.getElementById('svc').innerHTML='<thead><tr><th>Customer</th><th>Orders</th><th>On time</th><th>At risk</th><th>Overdue</th><th>Service level</th></tr></thead><tbody>'+
+    custs.map(function(c){ var pc=Math.round(c.ok/c.n*100), col=pc>=90?'fill-green':pc>=70?'fill-amber':'fill-red';
+      return '<tr><td class="strong">'+c.c+'</td><td class="mono">'+c.n+'</td><td class="mono">'+c.ok+'</td><td class="mono" style="color:#b25f00">'+c.risk+'</td><td class="mono" style="color:#c62828">'+c.od+'</td>'+
+        '<td><div class="pbar"><span class="track"><span class="fill '+col+'" style="width:'+pc+'%"></span></span><span class="pct">'+pc+'%</span></div></td></tr>'; }).join('')+'</tbody>';
 
   var F={stage:'',late:'',fifo:'',q:''};
   document.getElementById('filters').innerHTML=
