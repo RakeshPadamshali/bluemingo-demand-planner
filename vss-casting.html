@@ -39,15 +39,15 @@
 <script src="vss-data.js"></script>
 <script src="vss-core.js"></script>
 <script>
-  var V=window.VSS, heats=vssMOQGap(), b=vssBilletBuckets();
+  var V=window.VSS, heats=vssMOQGap(), b=vssBilletBuckets(), PL=vssPlan(), INV=vssInventory();
   document.getElementById('ctx').textContent = V.meta.plant + ' · ' + V.smsCfg.sections.length + ' sections';
   var gaps=heats.filter(function(h){return h.gap>0;}).length;
-  var toCast=Math.round(V.orders.reduce(function(a,o){return a+(o.allocStatus==='To-cast'?(o.qty||0):0);},0));
+  var toCast=Math.round(PL.load['Caster (SMS)']?PL.load['Caster (SMS)'].mt:0);   // billet MT the plan casts (full need for no-stock orders + top-ups)
   [['Heats planned',heats.length,'sample window','blue'],
    ['Heat size',V.smsCfg.heatMT+' MT','× '+V.smsCfg.capHeatsDay+'/day','blue'],
    ['Sections',V.smsCfg.sections.length,'160/200/210','accent'],
    ['MOQ gaps',gaps,'below min-order','amber'],
-   ['To cast',toCast+' MT','after open stock','green'],
+   ['To cast',toCast+' MT','billet MT after open stock · incl. '+INV.topUp.mt+' MT top-up','green'],
    ['Billet allocated',b.allocated+' MT','to orders','green']
   ].forEach(function(k){ document.getElementById('kpis').insertAdjacentHTML('beforeend','<div class="kpi '+k[3]+'"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="s">'+k[2]+'</div></div>'); });
 
@@ -60,7 +60,7 @@
     [['Allocated to orders',b.allocated,'#2e7d32'],['Un-allocated (sampling)',b.unallocated,'#f0a020'],['Not-Okay (off quality)',b.notOkay,'#d84a4a']].map(function(x){
       var pc=Math.round(x[1]/tb*100);
       return '<div class="load-row"><span class="ln">'+x[0]+'</span><span class="lt"><span class="lf" style="width:'+pc+'%;background:'+x[2]+'"></span></span><span class="lv">'+x[1]+' MT</span></div>';
-    }).join('');
+    }).join('') + '<div class="note"><i class="fa-solid fa-circle-info"></i><span>Allocated stock is drawn at the mill order by order ('+INV.fullCover+' orders fully covered, '+INV.topUp.n+' need a top-up cast) — <a href="vss-inventory.html">Inventory Consumption</a> shows the run-down.</span></div>';
 
   document.getElementById('moq').innerHTML = Object.keys(V.smsCfg.moq).map(function(k){
     return '<div class="moqcell"><div class="c">'+V.smsCfg.moq[k]+'</div><div class="m">'+k+'</div></div>';

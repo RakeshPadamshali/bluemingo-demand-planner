@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inventory Consumption · Vardhman Special Steels</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="vss-shell.css">
+<style>
+  .wk-chart { display:flex; align-items:flex-end; gap:12px; height:212px; padding:12px 10px 0; overflow-x:auto; }
+  .wk { flex:1; min-width:58px; display:flex; flex-direction:column; align-items:center; height:100%; justify-content:flex-end; }
+  .wk .stack { width:72%; display:flex; flex-direction:column-reverse; border-radius:5px 5px 0 0; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.12); }
+  .wk .seg-done { background:#2e9b45; } .wk .seg-plan { background:#1478c8; }
+  .wk .tot { font-weight:700; font-variant-numeric:tabular-nums; margin-bottom:5px; font-size:12.5px; }
+  .wk .lbl { margin-top:7px; font-weight:600; font-size:12px; } .wk .dt { font-size:10.5px; color:var(--color-text-hint); }
+  .wk .bal { font-size:10.5px; color:var(--color-text-secondary); font-variant-numeric:tabular-nums; margin-top:2px; }
+  .lgnd { display:flex; gap:16px; justify-content:center; margin-top:8px; font-size:11.5px; color:var(--color-text-secondary); flex-wrap:wrap; }
+  .lgnd i { width:11px;height:11px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:-1px; }
+  .tbl-wrap { max-height:calc(100vh - 300px); overflow:auto; }
+  .pool { font-weight:600; } .ex { display:inline-block; font-size:9px; font-weight:700; letter-spacing:.3px; padding:1px 5px; border-radius:3px; margin-left:6px; vertical-align:1px; background:#e8f5e9; color:#2e7d32; }
+  .stg { font-weight:600; } .stg .g { font-size:9.5px; color:var(--color-text-hint); text-transform:uppercase; letter-spacing:.3px; font-weight:400; }
+  .neg { color:#c62828; font-weight:600; }
+</style>
+<script src="vss-embed.js"></script>
+</head>
+<body>
+<div class="bm-layout">
+  <main class="bm-content">
+    <div class="page-bar">
+      <div><h1>Inventory Consumption — existing stock &amp; WIP, stage by stage</h1><div class="crumb">Tracking › Inventory Consumption › <span id="ctx"></span></div></div>
+      <div class="actions"><a class="btn btn-outline" href="vss-casting.html"><i class="fa-solid fa-fire-flame-curved"></i> Casting · SMS</a><a class="btn btn-outline" href="vss-booking.html"><i class="fa-solid fa-calendar-check"></i> Equipment Booking</a></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-head"><i class="fa-solid fa-boxes-stacked"></i> Existing billet stock — run-down by week <span class="right">drawn at the rolling mill, order by order</span></div>
+        <div class="card-body"><div class="wk-chart" id="chart"></div>
+          <div class="lgnd"><span><i style="background:#2e9b45"></i>consumed so far (as of 6 Jul)</span><span><i style="background:#1478c8"></i>planned draws</span><span>bal = allocated stock left after the week</span></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><i class="fa-solid fa-warehouse"></i> On hand today — what is lying where, and when the plan picks it up <span class="right">as of 6 Jul</span></div>
+        <div class="card-body"><table class="tbl" id="onhand"></table>
+        <div class="note"><i class="fa-solid fa-circle-info"></i><span><b>Existing stock</b> = billets already in the yard at plan start (the order book's <i>Billet Stock</i> column, allocated open-stock-first). <b>WIP on hand</b> = material a stage has already produced that the next stage has not yet drawn.</span></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><i class="fa-solid fa-diagram-project"></i> What each stage consumes — inventory pool × consuming stage <span class="right">MT · consumed so far = drawn by 6 Jul · on hand = produced, awaiting the draw · planned = not yet produced</span></div>
+      <div class="card-body"><table class="tbl" id="matrix"></table>
+      <div class="note"><i class="fa-solid fa-circle-info"></i><span>Pools: <b>Billet stock</b> (existing) and <b>Cast billets</b> feed the mill; the mill's <b>Rolled bar</b> is drawn by NDT, bright bar, the furnaces or dispatch depending on the order's route; each of those produces the next pool. Casting and billet draws are in billet MT (bar qty ÷ 90% mill yield); everything after the mill is in bar MT.</span></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><i class="fa-solid fa-list-ul"></i> Consumption ledger — every draw on inventory, in time order <span class="right" id="meta"></span></div>
+      <div class="card-body">
+        <div class="filters" id="filters"></div>
+        <div class="tbl-wrap"><table class="tbl" id="tbl"></table></div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>window.VSS_PAGE='inventory'; window.VSS_TITLE='Inventory Consumption'; window.VSS_ICON='fa-boxes-stacked';</script>
+<script src="vss-chrome.js"></script>
+<script src="vss-data.js"></script>
+<script src="vss-core.js"></script>
+<script>
+  var V=window.VSS, P=vssPlan(), INV=vssInventory(), O=V.orders, ASOF=VSS_ASOF_MIN;
+  document.getElementById('ctx').textContent = V.meta.plant + ' · as of ' + vssFmtDate(V.meta.asOf);
+  var STAGE_LABEL={ 'Rolled':'Rolling Mill','NDT':'NDT Line','Bright Bar':'Bright Bar (peeling / drawing)','Heat Treat':'Heat Treatment (furnaces)','Dispatch':'Dispatch' };
+  var STAGE_GRP={ 'Rolled':'Rolling','NDT':'Inspection','Bright Bar':'Bright bar','Heat Treat':'Heat treatment','Dispatch':'Finished goods' };
+  function countOrders(f){ var s={}; INV.events.forEach(function(e){ if(f(e)) s[e.oi]=1; }); return Object.keys(s).length; }
+  var bs=INV.pools['Billet stock']||{mt:0,n:0,soFar:0,onHand:0,planned:0,last:null};
+  var wipOnHand=0; INV.events.forEach(function(e){ if(!e.existing && e.status==='On hand') wipOnHand+=e.qty; });
+  [['Existing billet stock',Math.round(INV.opening)+' MT','allocated '+INV.allocated+' · un-alloc '+INV.buckets.unallocated+' · not-OK '+INV.buckets.notOkay,'blue'],
+   ['Consumed at mill so far',Math.round(bs.soFar)+' MT',countOrders(function(e){return e.existing&&e.status==='Consumed';})+' orders · as of 6 Jul','green'],
+   ['Still to consume',Math.round(bs.onHand)+' MT',countOrders(function(e){return e.existing&&e.status!=='Consumed';})+' orders · last draw '+(bs.last!=null?vssDateMin(bs.last):'—'),'accent'],
+   ['Top-up casting',INV.topUp.mt+' MT',INV.topUp.n+' orders · stock short of billet need','amber'],
+   ['Stays in stock',INV.idle+' MT','surplus '+INV.surplus+' · un-alloc '+INV.buckets.unallocated+' · not-OK '+INV.buckets.notOkay,'amber'],
+   ['WIP on hand today',Math.round(wipOnHand)+' MT',countOrders(function(e){return !e.existing&&e.status==='On hand';})+' orders · awaiting the next stage','blue']
+  ].forEach(function(k){ document.getElementById('kpis').insertAdjacentHTML('beforeend','<div class="kpi '+k[3]+'"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="s">'+k[2]+'</div></div>'); });
+
+  // run-down chart: one column per week, green = already drawn, blue = planned draws; "bal" = allocated stock left after the week
+  var W=INV.weeks, mx=Math.max.apply(null,W.map(function(w){return w.consumed;}))||1;
+  document.getElementById('chart').innerHTML = W.map(function(w){
+    var h=Math.round(w.consumed/mx*150), hd=w.consumed?Math.round(w.done/w.consumed*h):0, hp=h-hd;
+    return '<div class="wk"><div class="tot">'+Math.round(w.consumed)+'</div>'+
+      '<div class="stack" style="height:'+Math.max(h,2)+'px" title="'+w.n+' draws · '+Math.round(w.done)+' MT drawn so far"><div class="seg-done" style="height:'+hd+'px"></div><div class="seg-plan" style="height:'+hp+'px"></div></div>'+
+      '<div class="lbl">W'+w.idx+'</div><div class="dt">'+vssDateMin(w.start).slice(4)+'</div><div class="bal">bal '+Math.round(w.closing)+'</div></div>';
+  }).join('');
+
+  // on hand today, by pool
+  var oh={}; INV.events.forEach(function(e){ if(e.status!=='On hand') return; var r=oh[e.pool]=oh[e.pool]||{mt:0,orders:{},stages:{},first:null,last:null,existing:e.existing};
+    r.mt+=e.qty; r.orders[e.oi]=1; r.stages[e.stage]=(r.stages[e.stage]||0)+e.qty; r.first=r.first==null?e.min:Math.min(r.first,e.min); r.last=r.last==null?e.min:Math.max(r.last,e.min); });
+  document.getElementById('onhand').innerHTML='<thead><tr><th>Pool</th><th>On hand</th><th>Orders</th><th>Drawn next at</th><th>Earliest draw</th><th>Latest draw</th></tr></thead><tbody>'+
+    INV.poolOrder.filter(function(p){return oh[p];}).map(function(p){ var r=oh[p];
+      return '<tr><td class="pool">'+p+(r.existing?'<span class="ex">EXISTING</span>':'')+'</td><td class="mono right-al strong">'+Math.round(r.mt)+' MT</td><td class="mono">'+Object.keys(r.orders).length+'</td>'+
+        '<td>'+INV.stageOrder.filter(function(s){return r.stages[s];}).map(function(s){return '<span class="chip">'+STAGE_LABEL[s]+' · '+Math.round(r.stages[s])+' MT</span>';}).join(' ')+'</td>'+
+        '<td class="mono">'+vssStamp(r.first)+'</td><td class="mono">'+vssStamp(r.last)+'</td></tr>'; }).join('')+
+    '<tr><td class="pool">Idle billet stock</td><td class="mono right-al strong">'+INV.idle+' MT</td><td class="mono">—</td><td><span class="chip">not drawn by any order</span><div class="hint">surplus '+INV.surplus+' · un-alloc '+INV.buckets.unallocated+' · not-OK '+INV.buckets.notOkay+'</div></td><td class="mono">—</td><td class="mono">—</td></tr></tbody>';
+
+  // pool x consuming stage matrix
+  var C=INV.cells;
+  document.getElementById('matrix').innerHTML='<thead><tr><th>Consuming stage</th><th>Pool consumed</th><th>Orders</th><th>Draws</th><th>Consumed so far</th><th>On hand, awaiting</th><th>Planned</th><th>Total MT</th><th>First draw → last draw</th></tr></thead><tbody>'+
+    INV.stageOrder.filter(function(s){return C[s];}).map(function(s){ var pools=INV.poolOrder.filter(function(p){return C[s][p];});
+      return pools.map(function(p,i){ var a=C[s][p];
+        return '<tr>'+(i===0?'<td class="stg" rowspan="'+pools.length+'">'+STAGE_LABEL[s]+'<div class="g">'+STAGE_GRP[s]+'</div></td>':'')+
+          '<td class="pool">'+p+(p==='Billet stock'?'<span class="ex">EXISTING</span>':'')+'</td><td class="mono">'+Object.keys(a.orders).length+'</td><td class="mono">'+a.n+'</td>'+
+          '<td class="mono right-al">'+Math.round(a.soFar)+'</td><td class="mono right-al">'+Math.round(a.onHand)+'</td><td class="mono right-al">'+Math.round(a.planned)+'</td><td class="mono right-al strong">'+Math.round(a.mt)+'</td>'+
+          '<td class="mono">'+vssDateMin(a.first)+' → '+vssDateMin(a.last)+'</td></tr>'; }).join(''); }).join('')+'</tbody>';
+
+  // ledger
+  var F={pool:'Billet stock',stage:'',status:'',win:'0',q:''};
+  document.getElementById('filters').innerHTML=
+    '<span class="fl">Pool</span><select id="f-pool"><option value="">All pools</option>'+INV.poolOrder.map(function(p){return '<option'+(p===F.pool?' selected':'')+'>'+p+'</option>';}).join('')+'</select>'+
+    '<span class="fl">Consumed at</span><select id="f-stage"><option value="">All stages</option>'+INV.stageOrder.map(function(s){return '<option value="'+s+'">'+STAGE_LABEL[s]+'</option>';}).join('')+'</select>'+
+    '<span class="fl">Status</span><select id="f-status"><option value="">All</option><option>Consumed</option><option>On hand</option><option>Planned</option></select>'+
+    '<span class="fl">Window</span><select id="f-win"><option value="7">Next 7 days</option><option value="14">Next 14 days</option><option value="30">Next 30 days</option><option value="0" selected>Full plan</option></select>'+
+    '<span class="fl">Search</span><input id="f-q" placeholder="order / customer" size="12">'+
+    '<span class="hint" id="fc" style="margin-left:auto"></span>';
+  var COLS=['#','When','Pool consumed','Consumed at','Order','RDD','Customer','Grade · size · cond','MT','Stock balance after','Status'];
+  var tbl=document.getElementById('tbl');
+  function apply(){
+    var win=+F.win, endMin=win?win*1440:Infinity, q=F.q.toLowerCase();
+    var list=INV.events.filter(function(e){
+      if(F.pool && e.pool!==F.pool) return false; if(F.stage && e.stage!==F.stage) return false; if(F.status && e.status!==F.status) return false;
+      if(e.min>=endMin) return false;
+      if(q && (e.so||'').toLowerCase().indexOf(q)<0 && (e.customer||'').toLowerCase().indexOf(q)<0) return false;
+      return true; });
+    var mt=list.reduce(function(a,e){return a+e.qty;},0), CAP=1500, shown=list.slice(0,CAP);
+    tbl.innerHTML='<thead><tr>'+COLS.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr></thead><tbody>'+
+      shown.map(function(e,i){
+        return '<tr><td class="mono hint">'+(i+1)+'</td><td class="mono">'+vssStamp(e.min)+'</td>'+
+          '<td class="pool">'+e.pool+(e.existing?'<span class="ex">EXISTING</span>':'')+'</td>'+
+          '<td class="stg">'+STAGE_LABEL[e.stage]+'<div class="g">'+(e.machine==='Dispatch'?'finished goods':e.machine)+'</div></td>'+
+          '<td class="mono strong">'+e.so+'</td><td class="mono'+(e.late==='Overdue'?' neg':'')+'">'+vssFmtDate(e.rdd)+'</td><td>'+e.customer+'</td>'+
+          '<td>'+e.grade+' <span class="hint">'+e.size+' · '+e.cond+'</span></td>'+
+          '<td class="mono right-al strong">'+e.qty.toFixed(1)+'</td><td class="mono right-al">'+(e.balance!=null?Math.round(e.balance)+' MT':'—')+'</td>'+
+          '<td><span class="badge '+(e.status==='Consumed'?'b-green':e.status==='On hand'?'b-blue':'b-grey')+'">'+e.status+'</span></td></tr>'; }).join('')+'</tbody>';
+    document.getElementById('fc').textContent=(list.length>CAP?'showing '+CAP+' of ':'')+list.length+' draws · '+Math.round(mt)+' MT';
+    document.getElementById('meta').textContent=INV.events.length+' draws in the full plan · default view = existing billet stock';
+  }
+  ['f-pool','f-stage','f-status','f-win'].forEach(function(id){ document.getElementById(id).addEventListener('change',function(){ F[id.slice(2)]=this.value; apply(); }); });
+  document.getElementById('f-q').addEventListener('input',function(){ F.q=this.value; apply(); });
+  apply();
+</script>
+</body>
+</html>

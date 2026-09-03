@@ -132,7 +132,7 @@
         '<td><span class="badge '+(done?'b-green':now?'b-blue':'b-grey')+'">'+(done?'Done':now?'In progress':'Planned')+'</span></td></tr>';
     }).join('');
     var det=document.createElement('tr'); det.className='sub-detail';
-    det.innerHTML='<td colspan="'+COLS.length+'"><div class="sub-wrap"><div class="sub-title"><i class="fa-solid fa-route"></i> Plan — '+o.so+' · '+o.customer+' · seq '+o.planSeq+' by RDD week · size desc · start '+vssStamp(o.planStartMin)+' → end '+vssStamp(o.planEndMin)+(o.allocStatus==='Stock-allocated'?' · <span class="chip">open billet stock used — no casting</span>':'')+'</div>'+
+    det.innerHTML='<td colspan="'+COLS.length+'"><div class="sub-wrap"><div class="sub-title"><i class="fa-solid fa-route"></i> Plan — '+o.so+' · '+o.customer+' · seq '+o.planSeq+' by RDD week · size desc · start '+vssStamp(o.planStartMin)+' → end '+vssStamp(o.planEndMin)+(o.allocStatus==='Stock-allocated'?' · <span class="chip">open billet stock '+o.stockUsed.toFixed(1)+' MT drawn at the mill — no casting</span>':o.allocStatus==='Stock + top-up'?' · <span class="chip">open billet stock '+o.stockUsed.toFixed(1)+' MT + top-up cast '+o.topUp.toFixed(1)+' MT</span>':'')+'</div>'+
       '<table class="sub-tbl"><thead><tr><th>#</th><th>Stage</th><th>Equipment</th><th>Start</th><th>End</th><th>Hours</th><th>MT</th><th>Status</th></tr></thead><tbody>'+rowsH+'</tbody></table></div></td>';
     tr.after(det); b.classList.add('open'); ic.className='fa-solid fa-chevron-down';
   });

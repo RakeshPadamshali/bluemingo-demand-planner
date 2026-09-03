@@ -21,7 +21,8 @@
     'vss-gantt.html': 'gantt',
     'vss-status.html': 'status',
     'vss-load.html': 'load',
-    'vss-booking.html': 'booking'
+    'vss-booking.html': 'booking',
+    'vss-inventory.html': 'inventory'
   };
   document.addEventListener('click', function (e) {
     var a = e.target.closest ? e.target.closest('a[href]') : null;

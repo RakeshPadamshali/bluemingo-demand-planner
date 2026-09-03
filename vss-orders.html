@@ -49,7 +49,7 @@
   [['Order lines',O.length,'EDD sequenced','blue'],
    ['Order tonnage',Math.round(tons)+' MT','IH quantity','blue'],
    ['Production demands',O.reduce(function(a,o){return a+o.pdCount;},0),'BLB=2 · BRB=3','accent'],
-   ['Stock-allocated',O.filter(function(o){return o.allocStatus==='Stock-allocated';}).length,'skip casting','green'],
+   ['From billet stock',O.filter(function(o){return (o.billetStock||0)>0;}).length,O.filter(function(o){return o.allocStatus==='Stock-allocated';}).length+' skip casting · '+O.filter(function(o){return o.allocStatus==='Stock + top-up';}).length+' need a top-up','green'],
    ['Job-work',O.filter(function(o){return o.jobWork;}).length,'external vendor','amber'],
    ['Overdue (RDD)',O.filter(function(o){return o.late==='Overdue';}).length,'past dispatch date','red']
   ].forEach(function(k){ document.getElementById('kpis').insertAdjacentHTML('beforeend',
@@ -61,7 +61,7 @@
   document.getElementById('filters').innerHTML =
     sel('f-cat','Category',uniq('category')) + sel('f-supply','Supply',uniq('supplyCond')) + sel('f-mat','Material',['ZBLB','ZBRB']) +
     sel('f-type','Type',['Domestic','Export','Sample']) +
-    '<span class="fl">Alloc</span><select id="f-alloc"><option value="">All</option><option>Stock-allocated</option><option>To-cast</option></select>' +
+    '<span class="fl">Alloc</span><select id="f-alloc"><option value="">All</option><option>Stock-allocated</option><option>Stock + top-up</option><option>To-cast</option></select>' +
     '<span class="fl">Search</span><input id="f-q" placeholder="SO / customer" size="12">' +
     '<span class="hint" id="fcount" style="margin-left:auto"></span>';
 
@@ -70,7 +70,9 @@
     return list.map(function(o){
       var sz = o.rolledSize + (o.peelSize? ' <span class="sz2">→ '+o.peelSize+'</span>':'');
       var alloc = o.allocStatus==='Stock-allocated'
-        ? '<span class="badge b-green"><i class="fa-solid fa-box-open"></i> '+(o.billetStock||0).toFixed(1)+' MT</span>'
+        ? '<span class="badge b-green" title="billet stock '+(o.billetStock||0).toFixed(1)+' MT covers the need of '+o.billetNeed.toFixed(1)+' MT"><i class="fa-solid fa-box-open"></i> '+(o.billetStock||0).toFixed(1)+' MT</span>'
+        : o.allocStatus==='Stock + top-up'
+        ? '<span class="badge b-amber" title="billet stock '+(o.billetStock||0).toFixed(1)+' MT + top-up cast '+o.topUp.toFixed(1)+' MT (need '+o.billetNeed.toFixed(1)+' MT)"><i class="fa-solid fa-box-open"></i> '+(o.billetStock||0).toFixed(1)+' MT <span class="hint">+ cast '+o.topUp.toFixed(1)+'</span></span>'
         : '<span class="badge b-grey">To-cast</span>';
       var lateC = o.late==='Overdue'?'b-red':o.late==='At risk'?'b-amber':'b-green';
       return '<tr class="o-row">'+

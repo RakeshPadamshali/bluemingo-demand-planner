@@ -7,7 +7,7 @@
     ['Production Plan', [['casting', 'Casting · SMS', 'fa-fire-flame-curved'], ['rolling', 'Rolling Mill', 'fa-bars-staggered'],
       ['ndt', 'NDT Line', 'fa-wave-square'], ['brightbar', 'Bright Bar', 'fa-ruler-horizontal'], ['heattreat', 'Heat Treatment', 'fa-temperature-high']]],
     ['Tracking', [['gantt', 'Master Gantt', 'fa-chart-gantt'], ['status', 'Order Status', 'fa-truck-fast'],
-      ['load', 'Machine Load', 'fa-scale-balanced'], ['booking', 'Equipment Booking', 'fa-calendar-check']]]
+      ['load', 'Machine Load', 'fa-scale-balanced'], ['booking', 'Equipment Booking', 'fa-calendar-check'], ['inventory', 'Inventory Consumption', 'fa-boxes-stacked']]]
   ];
   var DECOR = ['Machines', 'Grades & Specs', 'Setup'];
   var cur = window.VSS_PAGE || '';

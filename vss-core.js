@@ -45,6 +45,10 @@
   function hash(str) { var h = 0, i; str = str || ''; for (i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0; return h; }
   function sizeNum(s) { var m = /([\d.]+)/.exec(String(s || '')); return m ? parseFloat(m[1]) : 40; }
   window.vssSizeNum = sizeNum;
+  // Mill yield (finish ÷ input) measured from the sheet's 30 real rolling cycles — billets an order needs = bar qty ÷ yield
+  var inQ0 = 0, finQ0 = 0; V.rolling.forEach(function (c) { inQ0 += c.inputQty || 0; finQ0 += c.finishQty || 0; });
+  var ROLL_YIELD = inQ0 > 0 ? finQ0 / inQ0 : 0.9;
+  window.VSS_ROLL_YIELD = ROLL_YIELD;
 
   // ---- static derived fields per order ----
   function vssDerive() {
@@ -54,7 +58,13 @@
     V.orders.forEach(function (o, i) {
       o._i = i;
       o.pdCount = o.matType === 'ZBLB' ? 2 : 3;                              // BLB=2, BRB=3
-      o.allocStatus = (o.billetStock && o.billetStock > 0) ? 'Stock-allocated' : 'To-cast';
+      // open stock first, then cast the rest: billets the order needs (input basis), what the sheet's Billet Stock covers, the rest
+      var need = (o.qty || 0) / ROLL_YIELD, stk = o.billetStock || 0;
+      o.billetNeed = Math.round(need * 10) / 10;
+      o.stockUsed = Math.round(Math.min(stk, need) * 10) / 10;                 // drawn from existing stock at the mill
+      o.topUp = Math.round(Math.max(0, need - stk) * 10) / 10;                 // still to cast
+      o.stockSurplus = Math.round(Math.max(0, stk - need) * 10) / 10;          // stays in stock
+      o.allocStatus = stk <= 0 ? 'To-cast' : o.topUp > 0.05 ? 'Stock + top-up' : 'Stock-allocated';
       o.jobWork = (hash(o.so) % 16 === 0);
       o.ndt = (o.inspection || '').toUpperCase() === 'NDT';                  // real inspection route
       var pre = (/^[A-Za-z]+/.exec(o.so || '') || [''])[0].toUpperCase();
@@ -98,8 +108,7 @@
     // hours. The sheet's own cycle stamps spread it over the 24 h clock (2 h/day non-productive), i.e.
     // duration = input MT x 24 / budget; finish = 90% of input (yield measured from the 30 real cycles).
     var rollBdgt = {}; V.rolling.forEach(function (c) { if (c.budgetPrdty) rollBdgt[c.size] = c.budgetPrdty; });
-    var inQ = 0, finQ = 0; V.rolling.forEach(function (c) { inQ += c.inputQty || 0; finQ += c.finishQty || 0; });
-    var ROLL_YIELD = inQ > 0 ? finQ / inQ : 0.9, ROLL_HRS = (V.rolling[0] && V.rolling[0].prodHours) || 22;
+    var ROLL_HRS = (V.rolling[0] && V.rolling[0].prodHours) || 22;
     function rollBudget(sz) { return rollBdgt[sz] || (sz >= 23 && sz <= 29 ? 605 : 968); }
     function rollRunMin(q, sz) { return (q / ROLL_YIELD) * 24 / rollBudget(sz) * 60; }
     // Roll Set: 8 size-mix feeders -> changeover by TYPE: size-to-size within a feeder 25 min, feeder-to-feeder 1.5 h,
@@ -123,14 +132,16 @@
     });
     seqOrders.forEach(function (o, seq) {
       var qty = o.qty || 0, t = 0, first = null, last = 0, route = [], ends = {};
-      function book(machine, stage, dur, contend) {
+      function book(machine, stage, dur, contend, q) {
         var s = contend === false ? t : Math.max(t, free[machine] || 0), e = s + Math.max(Math.round(dur), 10);
         if (contend !== false) free[machine] = e;
-        bookings.push({ machine: machine, stage: stage, so: o.so, oi: o._i, customer: o.customer, grade: o.grade, size: o.rolledSize, cond: o.supplyCond, qty: qty, start: s, end: e });
+        bookings.push({ machine: machine, stage: stage, so: o.so, oi: o._i, customer: o.customer, grade: o.grade, size: o.rolledSize, cond: o.supplyCond, qty: q != null ? q : qty, start: s, end: e });
         if (first === null) first = s; last = Math.max(last, e); t = e + buf; route.push(stage); ends[stage] = e; return e;
       }
       o.planSeq = seq + 1;
-      if (o.allocStatus !== 'Stock-allocated') book('Caster (SMS)', 'Billet', qty / 36 * 60);          // open stock first
+      // open stock first, then cast the rest — billet MT to cast = the full need (no stock) or just the top-up (stock short of need)
+      var castQ = o.allocStatus === 'To-cast' ? o.billetNeed : o.topUp;
+      if (castQ > 0) book('Caster (SMS)', 'Billet', castQ / 36 * 60, undefined, castQ);
       // Rolling: changeover by type vs the previous run on the mill, then run time at the size's budget productivity
       var sz = sizeNum(o.rolledSize), fd = feederOf(sz), pv = lastKey['Rolling Mill'];
       var chgType = !pv ? '' : pv.billet !== fd.billet ? 'BDM' : pv.no !== fd.no ? 'Feeder' : pv.size !== sz ? 'Size' : '';
@@ -175,6 +186,63 @@
     return V._plan;
   }
   window.vssPlan = vssPlan;
+
+  // ---- INVENTORY CONSUMPTION: every draw a stage makes on a stock / WIP pool, in time order ----
+  // Pools: 'Billet stock' (EXISTING — the order book's Billet Stock column, i.e. opening yard stock), 'Cast billets' (made by
+  // the caster in this plan), then the WIP each transforming stage produces: 'Rolled bar' -> 'Tested bar' (NDT) -> 'Bright bar'
+  // -> 'Annealed bar'. A stage draws the pool its route arrives with; Dispatch draws the finished pool. Status vs the as-of
+  // date: Consumed (draw already happened) / On hand (material exists, next stage not yet run) / Planned (not yet produced).
+  window.vssInventory = function () {
+    if (V._inv) return V._inv;
+    var P = vssPlan(), B = window.vssBilletBuckets(), events = [];
+    var MADE = { 'Rolled': 'Rolled bar', 'NDT': 'Tested bar', 'Bright Bar': 'Bright bar', 'Heat Treat': 'Annealed bar' };
+    var POOLS = ['Billet stock', 'Cast billets', 'Rolled bar', 'Tested bar', 'Bright bar', 'Annealed bar'];
+    var STG = ['Rolled', 'NDT', 'Bright Bar', 'Heat Treat', 'Dispatch'];
+    var byOrder = {}; P.bookings.forEach(function (b) { (byOrder[b.oi] = byOrder[b.oi] || []).push(b); });
+    function ev(o, b, pool, existing, qty, madeAt) {
+      return { min: b.start, stage: b.stage, machine: b.machine, so: o.so, oi: o._i, customer: o.customer, grade: o.grade, size: o.rolledSize,
+               cond: o.supplyCond, rdd: o.rdd, rddMin: o.rddMin, late: o.late, pool: pool, existing: !!existing, qty: Math.round(qty * 10) / 10, madeAt: madeAt };
+    }
+    P.orders.forEach(function (o) {
+      var bk = (byOrder[o._i] || []).slice().sort(function (a, b) { return a.start - b.start; });
+      var rolled = bk.filter(function (b) { return b.stage === 'Rolled'; })[0]; if (!rolled) return;
+      var cast = bk.filter(function (b) { return b.stage === 'Billet'; })[0];
+      if (o.stockUsed > 0) events.push(ev(o, rolled, 'Billet stock', true, o.stockUsed, 0));
+      if (cast && cast.qty > 0) events.push(ev(o, rolled, 'Cast billets', false, cast.qty, cast.end));
+      var pool = 'Rolled bar', madeAt = rolled.end;
+      ['NDT', 'Bright Bar', 'Heat Treat'].forEach(function (st) {
+        var bs = bk.filter(function (b) { return b.stage === st; }); if (!bs.length) return;
+        bs.forEach(function (b) { events.push(ev(o, b, pool, false, b.qty, madeAt)); });
+        pool = MADE[st]; madeAt = Math.max.apply(null, bs.map(function (b) { return b.end; }));
+      });
+      events.push(ev(o, { start: o.expDispMin, stage: 'Dispatch', machine: 'Dispatch' }, pool, false, o.qty || 0, madeAt));
+    });
+    events.sort(function (a, b) { return a.min - b.min || a.oi - b.oi; });
+    var bal = B.allocated;
+    events.forEach(function (e) {
+      if (e.pool === 'Billet stock') { bal -= e.qty; e.balance = Math.round(bal * 10) / 10; }
+      e.status = e.min <= AS_OF_MIN ? 'Consumed' : (e.madeAt != null && e.madeAt <= AS_OF_MIN) ? 'On hand' : 'Planned';
+    });
+    function agg() { return { mt: 0, n: 0, orders: {}, soFar: 0, onHand: 0, planned: 0, first: null, last: null }; }
+    function add(a, e) {
+      a.mt += e.qty; a.n++; a.orders[e.oi] = 1; a[e.status === 'Consumed' ? 'soFar' : e.status === 'On hand' ? 'onHand' : 'planned'] += e.qty;
+      a.first = a.first == null ? e.min : Math.min(a.first, e.min); a.last = a.last == null ? e.min : Math.max(a.last, e.min);
+    }
+    var pools = {}, cells = {};
+    events.forEach(function (e) { add(pools[e.pool] = pools[e.pool] || agg(), e); var c = cells[e.stage] = cells[e.stage] || {}; add(c[e.pool] = c[e.pool] || agg(), e); });
+    // weekly run-down of the existing billet stock (Mon-Sun weeks from Mon 29 Jun; BASE = Wed 1 Jul)
+    var wk0 = -2 * 1440, weeks = [], nW = Math.max(1, Math.ceil((P.horizonMin - wk0) / 10080));
+    for (var w = 0; w < nW; w++) weeks.push({ idx: w + 1, start: wk0 + w * 10080, end: wk0 + (w + 1) * 10080, consumed: 0, done: 0, n: 0, opening: 0, closing: 0 });
+    events.forEach(function (e) { if (e.pool !== 'Billet stock') return; var wk = weeks[Math.floor((e.min - wk0) / 10080)]; if (!wk) return; wk.consumed += e.qty; wk.n++; if (e.status === 'Consumed') wk.done += e.qty; });
+    while (weeks.length > 1 && weeks[weeks.length - 1].consumed === 0) weeks.pop();
+    var run = B.allocated; weeks.forEach(function (wk) { wk.opening = run; run -= wk.consumed; wk.closing = run; });
+    var topUpN = 0, topUpMT = 0, surplus = 0, stockOrders = 0, fullN = 0;
+    V.orders.forEach(function (o) { if ((o.billetStock || 0) > 0) { stockOrders++; surplus += o.stockSurplus; if (o.topUp > 0.05) { topUpN++; topUpMT += o.topUp; } else fullN++; } });
+    V._inv = { events: events, pools: pools, cells: cells, poolOrder: POOLS, stageOrder: STG, weeks: weeks, buckets: B,
+               opening: B.allocated + B.unallocated + B.notOkay, allocated: B.allocated, stockOrders: stockOrders, fullCover: fullN,
+               surplus: Math.round(surplus), topUp: { n: topUpN, mt: Math.round(topUpMT) }, idle: Math.round(surplus + B.unallocated + B.notOkay) };
+    return V._inv;
+  };
 
   // Gantt feed from the plan: lanes = machines, bars = order bookings coloured per order.
   window.vssSchedule = function () {

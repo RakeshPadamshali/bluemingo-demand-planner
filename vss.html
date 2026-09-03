@@ -61,6 +61,7 @@
     <a data-page="status"><i class="fa-solid fa-truck-fast"></i>Order Status</a>
     <a data-page="load"><i class="fa-solid fa-scale-balanced"></i>Machine Load</a>
     <a data-page="booking"><i class="fa-solid fa-calendar-check"></i>Equipment Booking</a>
+    <a data-page="inventory"><i class="fa-solid fa-boxes-stacked"></i>Inventory Consumption</a>
     <div class="nav-label">Masters</div>
     <a class="decor"><i class="fa-solid fa-gears"></i>Machines</a>
     <a class="decor"><i class="fa-solid fa-flask"></i>Grades &amp; Specs</a>
@@ -89,7 +90,8 @@
     gantt:     { label: 'Master Gantt',     icon: 'fa-chart-gantt',         href: 'vss-gantt.html' },
     status:    { label: 'Order Status',     icon: 'fa-truck-fast',          href: 'vss-status.html' },
     load:      { label: 'Machine Load',     icon: 'fa-scale-balanced',      href: 'vss-load.html' },
-    booking:   { label: 'Equipment Booking',icon: 'fa-calendar-check',      href: 'vss-booking.html' }
+    booking:   { label: 'Equipment Booking',icon: 'fa-calendar-check',      href: 'vss-booking.html' },
+    inventory: { label: 'Inventory Consumption', icon: 'fa-boxes-stacked',  href: 'vss-inventory.html' }
   };
   var stack = document.getElementById('stack'), strip = document.getElementById('tabstrip'), empty = document.getElementById('empty');
   var frames = {}, order = [], active = null;

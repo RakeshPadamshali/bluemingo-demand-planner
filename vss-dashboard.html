@@ -39,7 +39,7 @@
     <div class="banner"><i class="fa-solid fa-wand-magic-sparkles"></i> <b>One integrated plan</b> replacing the manual Master Planning Sheet &amp; scattered casting/rolling/bright-bar Excel files — orders allocated to every operation, open stock first.</div>
     <div class="kpis" id="kpis"></div>
     <div class="card">
-      <div class="card-head"><i class="fa-solid fa-diagram-project"></i> Plant flow — tonnage the plan routes through each stage <span class="right">big number = whole order book (63-day plan) · sub-line = done so far, as of 6 Jul · NDT / Bright Bar / Heat Treat are branches, not every order passes them</span></div>
+      <div class="card-head"><i class="fa-solid fa-diagram-project"></i> Plant flow — tonnage the plan routes through each stage <span class="right">big number = whole order book (63-day plan) · sub-line = done so far, as of 6 Jul · NDT / Bright Bar / Heat Treat are branches, not every order passes them · casting in billet MT (bar ÷ 90% mill yield), the rest in bar MT</span></div>
       <div class="card-body"><div class="flow" id="flow"></div></div>
     </div>
     <div class="grid2">
@@ -119,7 +119,7 @@
     [['Allocated to orders',b.allocated,'#2e7d32'],['Un-allocated (sampling bal.)',b.unallocated,'#f0a020'],['Not-Okay (off quality)',b.notOkay,'#d84a4a']].map(function(x){
       var pc=Math.round(x[1]/tb*100);
       return '<div class="load-row"><span class="ln" style="width:180px">'+x[0]+'</span><span class="lt"><span class="lf" style="width:'+pc+'%;background:'+x[2]+'"></span></span><span class="lv">'+x[1]+' MT</span></div>';
-    }).join('') + '<div class="note"><i class="fa-solid fa-circle-info"></i> Open stock is allocated to sales orders first; the balance goes to casting.</div>';
+    }).join('') + '<div class="note"><i class="fa-solid fa-circle-info"></i><span>Open stock is allocated to sales orders first; the balance goes to casting — <a href="vss-inventory.html">Inventory Consumption</a> shows the stock being drawn stage by stage.</span></div>';
 
   // budget vs plan
   var days={}; V.rolling.forEach(function(c){ if(c.startISO){ var d=c.startISO.slice(0,10); days[d]=(days[d]||0)+(c.finishQty||0); } });
@@ -139,7 +139,7 @@
     ['A5 · Start & end date of all orders','Order Book · Order Status'],
     ['A6 · Order status at each production point','Order Status'],
     ['A7 · Machine allocation as per orders','Master Gantt'],
-    ['A8 · Allocate open stock first, then cast the rest','Casting billet buckets · Order Book'],
+    ['A8 · Allocate open stock first, then cast the rest','Inventory Consumption · Casting billet buckets · Order Book'],
     ['B1 · Forecast next W1–W4 (MTO scheduled + MTS)','Demand Forecast']
   ];
   document.getElementById('oc').innerHTML = OC.map(function(o){ return '<div class="ci"><i class="fa-solid fa-circle-check"></i><div><div>'+o[0]+'</div><div class="mod">'+o[1]+'</div></div></div>'; }).join('');
