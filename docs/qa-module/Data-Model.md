@@ -1280,7 +1280,7 @@ Transports and message formats are agreed with the machine vendors — open poin
 ### 26.10 Scope & alignment notes
 1. **PPC-owned (coordination, not designed here):** campaign/day-wise production views (MQA 1/2); **batch split & merge** with weight updation, proportional end-cut/salvage weights and child numbering (MQA 25 — the UD screen hosts the action, the inventory mutation is production's); production confirmations and product-code conversion (MQA 28/29); the batch-characteristic derivation master (undefined — open point); plan production dates on the bright-bar monitor (MQA 27).
 2. **YMS-owned:** yard/location tracking, location modification and receiving acknowledgement (MQA 6). §26.2's handover record is the auto-line quality record, not location tracking.
-3. **Numbering:** this section is **§26 in this design copy and lands as §29 in the development copy** (its §25–§28 are used). No migrations are authored here; schema changes follow the development repo's approval rule.
+3. **Numbering:** this section is **§26 in this design copy and lands as §31 in the development copy** (its §25–§30 are used). No migrations are authored here; schema changes follow the development repo's approval rule.
 4. **Dev alignment:** implementation lands on the dev structures (config framework, heat-first chemistry, attribute-first capture) — the §25.10/§28.10 notes apply unchanged to this submodule.
 
 *UI inventory for this submodule: 2 new functional screens (`auto-line`, `agency-allocation`), 2 new masters (`inspection-path`, `barcode-type`), and extensions to `qc-worklist` (path chip + supplementary trigger), `instrument-checklist` (machine log books, numeric items), `test-entry` (heat-reference expected values), `usage-decision` (weight capture; barcode-type + heat-filtered bulk print). Screen family 51 → 55. New tables: 7 (§26.1 ×4, §26.2, §26.3, §26.7) → ~95 `mes_qc_*` tables.*
@@ -1339,7 +1339,7 @@ Transports and message formats with the LIMS/SAP owners — open point.
 ### 27.9 Scope & alignment notes
 1. **PPC-owned (coordination, not designed here):** rolling-plan view screens (platform report configuration); the Annealing and Ball Mill (GMM) operations and grinding-media form in the platform vocabulary; rolled tonnage for the monthly report; the Forging operation (once routed, the standard framework applies).
 2. **Open point:** *Trials* (SOW 71) are undefined — what a trial is, who raises it and what the follow-up tracks need definition before design.
-3. **Numbering:** this section is **§27 in this design copy and lands as §30 in the development copy** (its §25–§29 are used). No migrations authored; schema changes follow the development repo's approval rule.
+3. **Numbering:** this section is **§27 in this design copy and lands as §32 in the development copy** (its §25–§31 are used). No migrations authored; schema changes follow the development repo's approval rule.
 4. **Dev alignment:** implementation lands on the dev structures (config framework, attribute-first capture); §25.10/§28.10 notes apply.
 
 *UI inventory for this submodule: 1 new functional screen (`lab-worklist`), and extensions to `test-entry` (conditions strip, rating/qualitative results, per-test decisions, result copy, register preview), `sample-issue` (prep verify), `master-notification-rule` (lab event seeds). Screen family 55 → 56. New tables: 1 (`mes_qc_plan_change_request`) + capture columns + 2 views → ~96 `mes_qc_*` tables.*
