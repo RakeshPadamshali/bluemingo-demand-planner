@@ -1222,3 +1222,124 @@ The development build has evolved past the original design in places. §25 was w
 3. **SMS production samples arrive via the PPC handoff** (`mes_production_sample` contract: PPC issues and numbers the sample; QA writes back only the receipt stamp). For that flow, sticker printing (§ sample-issue extension) must print the **PPC-issued number/barcode**, and the lab-notify event fires on **QA receipt**, not QA issue. QA-drawn lab/offline samples keep the mockup's issue flow.
 4. **§25.4 rules extend the dev notification store (dev §22)** — same store, same delivery; the rules add recipients/channel/frequency/schedule as data. Event codes `QA_PIT_COOLING_DUE`, `QA_PENDING_HEATS_DIGEST`, `QA_MACRO_FEEDBACK` are **new** additions to the existing type vocabulary; the rest already exist in dev.
 5. **Screen-structure drift generally:** dev replaced the classic RM screen with the config-driven Inward family and builds screens from the config framework. The 51 static mockups remain the functional spec for *fields, actions, flows and vocabularies*; layout/structure follows the dev framework. Mass upload (§25.9) = a new import scope on the existing dev import service, not a new mechanism.
+
+---
+
+## 26. Submodule — JSW Mills QA additions (2026-09-03)
+
+Designed from the JSW **Mills QA** SOW gap analysis (MQA 1–29; scope = rows owned by QA, QA + Platform, QA + L2 (machine)). Product-agnostic per D0 — "path", "auto line", "agency", "machine log book", "barcode type" are configuration/master data, not hard-coding. Each subsection names the MQA rows it closes. PPC-owned and YMS-owned points are listed in §26.10, not designed here.
+
+### 26.1 Inspection path allocation *(MQA 7, 8; master `master-inspection-path.html`, worklist extension)*
+The SOW's inspection-path matrix: named inspection routes (STD, Double Rolling, Annealing, Bright-bar, Slow-cooled, Auto-line, Subcon-WIP — data rows), resolved automatically per lot from order/spec axes, modifiable per batch by a specific role with a reason.
+
+- **`mes_qc_inspection_path`** — `path_id` PK · `code`/`name` UQ · `description` · `is_active` · **+ audit tail**.
+- **`mes_qc_inspection_path_stage`** — `id` PK · `path_id` FK · `sequence_no` · `operation_code varchar(50)` (stage vocabulary, as in the stage-QC map) · `unit_group varchar(30)` (Y — e.g. AUTOLINE groups the §26.2 units) · `is_mandatory boolean` · **+ audit tail**.
+- **`mes_qc_path_rule`** *(the matrix)* — `rule_id` PK · `priority` · `so_characteristic varchar(100)` (Y) · `tdc_id` FK (Y — the PSN/TDC axis) · `customer_id bigint` (Y) · `grade varchar(50)` (Y) · `product_form varchar(30)` (Y) · `supply_condition varchar(50)` (Y) · `path_id` FK · `is_active` · **+ audit tail**. *(First active match by priority allocates the path.)*
+- **`mes_qc_material_path`** — `id` PK · `batch_id` FK→`mes_batches` · `heat_number varchar(100)` (Y) · `path_id` FK · `source varchar(10)` (AUTO / MANUAL) · `allocated_by bigint` · `allocated_at timestamptz` · `change_reason varchar(255)` (Y — mandatory when MANUAL) · **+ audit tail**. *(Role-gated modification; history via audit events.)*
+- Final inspection / worklist shows the allocated path as a chip; modification is a role-gated dialog with mandatory reason.
+
+### 26.2 Auto inspection line *(MQA 8, 9; screen `auto-line.html`)*
+Materials whose allocated path routes through the AUTOLINE unit group appear on a dedicated line screen: a receipt (taking-over) step, then the line units as tabs **in path sequence** (e.g. Two-Roll Straightener · Multi-Roll Straightener · Shot Blasting · Auto UT · MFLT · Eddy Current · End Cut & Chamfer — data, per §26.1 stages), each tab recording results with **sequential clearance** and a **rework decision** (salvage §12).
+
+- **`mes_qc_handover`** — `handover_id` PK · `batch_id` FK · `direction varchar(10)` (HAND_OVER / TAKE_OVER) · `area_from`/`area_to varchar(50)` · `bundles_count int` (Y) · `bars_count int` (Y) · `handed_by`/`received_by bigint` · `handover_time timestamptz` · `remarks varchar(255)` · **+ audit tail**. *(The line's quality record for handing over / taking over; piece counts cross-check production counts.)*
+- Tracking (order, heat, bundle/bar counts, per-unit status) reads worklist + handover + clearances — no further tables.
+
+### 26.3 Agency material allocation & station interlock *(MQA 17; screen `agency-allocation.html`)*
+- **`mes_qc_agency_allocation`** — `allocation_id` PK · `batch_id` FK · `agency_id` FK→`mes_qc_agency` · `station varchar(50)` (Y) · `planned_date date` · `actual_start`/`actual_complete timestamptz` (Y) · `status varchar(20)` (PLANNED / IN_PROGRESS / DONE / CANCELLED) · `remarks varchar(255)` · **+ audit tail**. *(Plan vs actual from the dates.)*
+- **Interlock (server-side):** result entry is accepted only when an active allocation links the material to the entering user's agency, and the scanned physical barcode matches the batch — capture columns `scan_verified boolean` · `scanned_code varchar(100)` (Y) on the inspection/test record. Agency isolation = allocation + role-screen access; per-station users are role data.
+
+### 26.4 Machine log books *(MQA 10–12, 18; extends §25.1)*
+- `mes_qc_instrument_checklist` gains **`instrument_id` FK** (Y) — a checklist bound to a machine/unit **is** its shift log book (two-roll, multi-roll, shot blast, MPI bath/UV…).
+- `mes_qc_instrument_check_record_item` gains **`value_num numeric(18,4)`** (Y) · **`uom varchar(20)`** (Y) — measured entries (bath concentration, UV intensity) beside OK/remark.
+- The §25.1 shift gate applies per unit; the checklist screen shows the machine column and numeric item rows.
+
+### 26.5 Supplementary inspection trigger *(MQA 5; worklist extension)*
+- `mes_qc_inspection` gains **`supplementary_required boolean`** · `supplementary_reason varchar(255)` (Y). Ticking it on the online result **auto-raises a SUPPLEMENTARY inspection** for the same batch/stage (permitted where the stage-QC map sets `allow_supplementary`); the worklist flags it with a SUPPLEMENTARY chip. Piece quantification uses the existing OK/Not-OK piece counts.
+
+### 26.6 Piece-vs-heat chemistry check *(MQA 22, 23; test-entry extension)*
+- `mes_qc_test` gains **`reference_source varchar(20)`** (TDC — default / HEAT_CHEMISTRY) · **`compare_tolerance_pct numeric(9,3)`** (Y) · **`element_exclusions varchar(100)`** (Y — CSV of element codes, e.g. C,P,S for grade confirmation).
+- With HEAT_CHEMISTRY, test entry shows the expected value **from the heat's stored chemistry** (element-mapped via `mes_qc_element`); PASS = within tolerance of the heat value; excluded elements are report-only. Spark metascope (C/Mn/Cr) and mobile spectro are Test-master rows — no code per test.
+
+### 26.7 Barcode type & bulk sticker print *(MQA 24; extends §25.6; master `master-barcode-type.html`)*
+- **`mes_qc_barcode_type`** — `barcode_type_id` PK · `code`/`name` · `symbology varchar(20)` (CODE128…) · `label_width_mm`/`label_height_mm numeric(6,1)` · `template_ref varchar(100)` (Y) · `is_active` · **+ audit tail**.
+- Batch-sticker generation (§25.6) gains: barcode-type selection, a **heat-number filter that loads all the heat's batches**, and multi-batch bulk print. `mes_qc_usage_decision` gains `barcode_type_id` FK (Y).
+
+### 26.8 Operations result feedback *(MQA 3, 4 — design note, no new tables)*
+- Notification-rule vocabulary (§25.4) gains **`QA_ONLINE_RESULT`** — immediate in-app pop-up to the operation role with the sample/batch hyperlink when an online result is recorded.
+- The read-only **result-reference view** for operations = the §25 operations mode of the worklist, searchable by heat / batch / sample id.
+
+### 26.9 Machine & device interface contract *(MQA 13–15; weighing from MQA 25 — like §25.8, no new tables)*
+| Flow | Direction | Design |
+|---|---|---|
+| Auto UT / MFLT / Eddy-current results | Machine → QA | Land via the existing instrument/L2 import path as test/inspection results (`capture source = MACHINE`); per-piece good/reject counts land as the OK/Not-OK piece counts on the inspection |
+| Batch weight at final clearance | Weighing machine → QA | `mes_qc_usage_decision` gains `final_weight_kg numeric(12,3)` (Y) · `weight_source varchar(10)` (SCALE / MANUAL) — captured on the UD |
+| Sticker printing | QA → label printer | §25.6/§26.7 stickers to the label printer — device interface |
+
+Transports and message formats are agreed with the machine vendors — open point.
+
+### 26.10 Scope & alignment notes
+1. **PPC-owned (coordination, not designed here):** campaign/day-wise production views (MQA 1/2); **batch split & merge** with weight updation, proportional end-cut/salvage weights and child numbering (MQA 25 — the UD screen hosts the action, the inventory mutation is production's); production confirmations and product-code conversion (MQA 28/29); the batch-characteristic derivation master (undefined — open point); plan production dates on the bright-bar monitor (MQA 27).
+2. **YMS-owned:** yard/location tracking, location modification and receiving acknowledgement (MQA 6). §26.2's handover record is the auto-line quality record, not location tracking.
+3. **Numbering:** this section is **§26 in this design copy and lands as §29 in the development copy** (its §25–§28 are used). No migrations are authored here; schema changes follow the development repo's approval rule.
+4. **Dev alignment:** implementation lands on the dev structures (config framework, heat-first chemistry, attribute-first capture) — the §25.10/§28.10 notes apply unchanged to this submodule.
+
+*UI inventory for this submodule: 2 new functional screens (`auto-line`, `agency-allocation`), 2 new masters (`inspection-path`, `barcode-type`), and extensions to `qc-worklist` (path chip + supplementary trigger), `instrument-checklist` (machine log books, numeric items), `test-entry` (heat-reference expected values), `usage-decision` (weight capture; barcode-type + heat-filtered bulk print). Screen family 51 → 55. New tables: 7 (§26.1 ×4, §26.2, §26.3, §26.7) → ~95 `mes_qc_*` tables.*
+
+---
+
+## 27. Submodule — JSW MM Lab additions (2026-09-04)
+
+Designed from the JSW **MM Lab** (Mechanical & Metallurgical Lab) SOW gap analysis (77 points; scope = rows owned by QA, QA + Platform, QA + L2/External interfaces). Product-agnostic per D0 — tests, ratings, plan bands, registers and interface endpoints are configuration/master data. Each subsection names the SOW rows it closes. PPC-owned points are listed in §27.9.
+
+### 27.1 Lab worklist & planning *(SOW 13–18, 27–28, 45–46; screen `lab-worklist.html`)*
+One lab view of everything the M&M lab owes: total production reaching the lab with order / grade / customer / heat / product / supply-condition filters, a per-lot **test-status matrix** (each required test with state and actual completion date), the **plan date set by Mills QA**, and **aging colour bands** against it (ON-PLAN · DUE-TODAY · OVERDUE — backlog first). Per-test drill-down opens the test record; the lot's testing clearance is reachable once all tests complete (the §10 gate pattern).
+
+- `mes_qc_sample` gains **`plan_date date`** (Y — set from Mills QA planning; the worklist bands compute from it).
+- **`mes_qc_plan_change_request`** — `request_id` PK · `heat_number varchar(100)` · `batch_id` FK (Y) · `sample_id` FK (Y) · `requested_by bigint` · `reason varchar(255)` · `tentative_date date` · `status varchar(20)` (REQUESTED / ACCEPTED / REJECTED) · `responded_by bigint` (Y) · `responded_at timestamptz` (Y) · `response_note varchar(255)` (Y) · **+ audit tail**. *(Lab → Mills QA when a plan date cannot be met; acceptance re-stamps the plan date. Notification events on both legs, §27.7.)*
+- **Additional-sample request** from the same screen = the resample request raised lab-side without a failed test (distinct reason vocabulary); the re-drawn sample re-links to the same lab plan line.
+- Report view **`v_qc_lab_worklist`** — the M&M production report (per-lot tests, states, plan vs actual completion dates).
+
+### 27.2 Test catalogue completion & result types *(SOW 19–25, 30–45)*
+The missing lab tests are **Quality-Test master rows with attributes — data, not schema** (the SMS spark-test standard). The genuine model gap is the **result type**:
+
+- `mes_qc_test_attribute` (characteristic) gains **`result_type varchar(10)`** (QUANT — default / QUAL / RATING) · **`rating_scale varchar(50)`** (Y — e.g. "ASTM E45 0.5–3.0", "Rating 1–5") ; the test result gains **`result_text varchar(255)`** (Y — qualitative/descriptive results, e.g. micro-structure). Validation: QUANT against min/max; RATING against the scale band; QUAL report-only or OK/NOT-OK.
+- `mes_qc_test` gains **`procedure_ref varchar(100)`** (Y — the work-instruction/procedure id, e.g. IMSW/TS/QA-RP/04, shown on the test screen beside the prep procedure).
+- **Choose-final override** *(SOW 23)*: when specimens are machine-fetched, the analyst may pick one specimen as the final instead of the rule aggregate — `final_override boolean` + the chosen specimen marker on the aggregate; the override is audited.
+- **Seed catalogue** (attributes → specimens · aggregation · type): Jominy (J1.5…J50 hardness series as ordered attributes; mm and inch variants as parallel sets) · BFT (mm, 10/heat) · Stepdown (mm, 10/heat) · Upset (OK/NOT-OK + rating) · Bend (OK/NOT-OK + defect type, QUAL) · Inclusion (A/B/C/D × thin/thick, RATING) · Decarb (total/partial depth mm) · Grain size (ASTM number) · Banding (direct & quench, micron) · Micro (structure, QUAL text) · GBC (RATING). Hardness scale variants (HRBW/HBW/HV) and coil tensile 3–12/heat are further rule/attribute rows.
+
+### 27.3 Test-record conditions capture *(SOW 21; feeds every register)*
+`mes_qc_test_record` gains: **`sample_condition_ok boolean`** · **`test_condition varchar(100)`** · `env_temp_c numeric(6,1)` (Y) · `env_humidity_pct numeric(5,1)` (Y) · **`received_by`** · **`operator_id`** · **`verified_by`** `bigint` (Y). Planned-vs-actual equipment already exists on the record; together these complete the register line (§27.6).
+
+### 27.4 Per-test clearance decisions *(SOW 26, 76)*
+The test clearance carries the full vocabulary — **Ok / Accepted Under Deviation / Resample / Retest / Reject** — mapped onto existing machinery exactly as chemistry's §25.3: Ok → CLEARED; AUD → CONDITIONAL + deviation ref + approval; Resample → the salvage resample loop (fresh sample); **Retest** → a new test cycle on the *same* sample (`retest_of` FK on the test record, cycle count visible); Reject → FAILED + hold. No new decision table.
+
+### 27.5 Result copy *(SOW 47)*
+Copy results from one sample/batch to others (twin samples, split batches): a role-gated dialog picks the source test record and target sample IDs/batches; values copy **with `copied_from` marked on every copied result**, validation re-runs against each target's own spec, and the action is audited. A copy never overwrites an entered result silently.
+
+### 27.6 Test registers & lab reports *(SOW 29, 48, 51–70)*
+The "log book" IS the register — one parameterized reporting view rather than fifteen bespoke outputs:
+
+- **`v_qc_test_register`** — per test type: sample details (heat, batch, grade, size, condition), §27.3 conditions and people, standard/procedure refs, specimen values, final result (numeric / text / rating), decision and dates. Each SOW register (Hardness … GBC) is this view filtered to its test.
+- **Daily lab report** — product-wise Pending / Rejection / Holding / Deviation (worklist + clearance states). **Daily mechanical / metallography reports** — the register view grouped by day and family. **Monthly tonnage** — pending tonnage from lot quantity (MT) held on every batch; rolled tonnage joins production (PPC) data.
+- The M&M production-sheet update (SOW 48) = `v_qc_lab_worklist` + register; print layouts follow the QA LAB format workbook.
+
+### 27.7 Lab notification events & prep verification *(SOW 8, 9, 74; extends §25.4)*
+- New rule events (data): **`QA_SAMPLE_REQUIRED`** — heat/order-wise sample requirement pops to online QA / operations when the sampling rule matches new production; **`QA_SAMPLE_ID_CREATED`** — to the **Sample Cutter** and **Sample Collector** recipient roles (roles are data) with heat / grade / size / PSN and the sample link; **`QA_LAB_PLAN_CHANGE`** — both legs of §27.1's request/response.
+- **Prep quality verification**: after prep completes, an explicit **Verify** decision (OK / REJECT) on the sample; REJECT auto-raises the new-sample request (§27.1 additional-sample path) with the reject reason — `prep_verified_by` + `prep_verify_result` on the sample.
+
+### 27.8 LIMS / SAP / lab-machine interface contract *(SOW 22, 72, 73 — like §25.8/§26.9, no new tables)*
+| Flow | Direction | Design |
+|---|---|---|
+| Lab machine results (UTM, hardness, impact, microscopes…) | Machine → QA | The existing instrument import path on test entry; instrument stored on the record (capture source MACHINE) |
+| LIMS results | LIMS → QA | Results stored in LIMS against the **batch ID** are copied onto the corresponding **heat and sample** records — idempotent upsert, source marked LIMS, validation re-runs on landing |
+| Test results after clearance | QA → SAP | Final results posted against the respective batches once the testing clearance is given; posting status tracked per batch (PENDING → SENT → ACKED, the §25.3 write-back pattern) |
+
+Transports and message formats with the LIMS/SAP owners — open point.
+
+### 27.9 Scope & alignment notes
+1. **PPC-owned (coordination, not designed here):** rolling-plan view screens (platform report configuration); the Annealing and Ball Mill (GMM) operations and grinding-media form in the platform vocabulary; rolled tonnage for the monthly report; the Forging operation (once routed, the standard framework applies).
+2. **Open point:** *Trials* (SOW 71) are undefined — what a trial is, who raises it and what the follow-up tracks need definition before design.
+3. **Numbering:** this section is **§27 in this design copy and lands as §30 in the development copy** (its §25–§29 are used). No migrations authored; schema changes follow the development repo's approval rule.
+4. **Dev alignment:** implementation lands on the dev structures (config framework, attribute-first capture); §25.10/§28.10 notes apply.
+
+*UI inventory for this submodule: 1 new functional screen (`lab-worklist`), and extensions to `test-entry` (conditions strip, rating/qualitative results, per-test decisions, result copy, register preview), `sample-issue` (prep verify), `master-notification-rule` (lab event seeds). Screen family 55 → 56. New tables: 1 (`mes_qc_plan_change_request`) + capture columns + 2 views → ~96 `mes_qc_*` tables.*

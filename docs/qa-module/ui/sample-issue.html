@@ -194,6 +194,14 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .labcount{display:inline-flex;align-items:center;gap:6px;align-self:center;font-size:12px;padding:5px 11px;border-radius:999px;border:1px solid var(--color-border);background:var(--color-bg-alt);color:var(--color-text-muted);white-space:nowrap;}
 .labcount b{font-variant-numeric:tabular-nums;}
 .labcount.on{background:rgba(245,124,0,.1);border-color:rgba(245,124,0,.45);color:#b25000;}
+/* ── Prep quality verification (§27.7, SOW 74): explicit OK / REJECT decision after prep — row chips + compact dialog ── */
+.pqv-chip{display:inline-block;margin-left:5px;padding:1px 7px;border-radius:9px;font-size:9.5px;font-weight:700;letter-spacing:.3px;background:rgba(56,142,60,.12);color:#2e7d32;border:1px solid rgba(56,142,60,.35);vertical-align:1px;}
+.pqv-chip.pqv-rej{background:rgba(211,47,47,.1);color:#c62828;border-color:rgba(211,47,47,.35);}
+.pqv-opts{display:flex;flex-direction:column;gap:8px;}
+.pqv-opt{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);color:var(--color-text-secondary);border:1px solid var(--color-border);border-radius:var(--r-sm);padding:9px 12px;cursor:pointer;}
+.pqv-opt:hover{border-color:var(--color-primary);background:var(--color-bg-alt);}
+.pqv-opt b{color:var(--color-text-primary);}
+.pqv-opt input{width:auto;}
 /* Print scope — active only while the sticker modal is open (body.stk-print):
    hides ALL app chrome and prints ONLY the sticker cards (block layout, borders, no shadows). */
 @media print{
@@ -225,9 +233,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="rm-inward.html"><i class="fa-solid fa-truck-ramp-box"></i> RM Quality</a>
         <a href="heat-chemistry.html"><i class="fa-solid fa-vial-circle-check"></i> Heat Chemistry</a>
         <a href="qc-worklist.html"><i class="fa-solid fa-clipboard-check"></i> Inspection</a>
+        <a href="auto-line.html"><i class="fa-solid fa-timeline"></i> Auto Line</a>
+        <a href="agency-allocation.html"><i class="fa-solid fa-building-user"></i> Agency Allocation</a>
         <a href="pit-cooling.html"><i class="fa-solid fa-temperature-arrow-down"></i> Pit Cooling</a>
         <a href="sample-issue.html" class="active"><i class="fa-solid fa-vials"></i> Sampling</a>
         <a href="test-entry.html"><i class="fa-solid fa-flask"></i> Testing</a>
+        <a href="lab-worklist.html"><i class="fa-solid fa-microscope"></i> Lab Worklist</a>
         <a href="defect-mapping.html"><i class="fa-solid fa-triangle-exclamation"></i> Defects</a>
         <a href="clearance.html"><i class="fa-solid fa-circle-check"></i> Clearance</a>
         <a href="usage-decision.html"><i class="fa-solid fa-gavel"></i> Usage Decision</a>
@@ -257,6 +268,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="master-characteristic.html"><i class="fa-solid fa-list-ol"></i> Characteristic</a>
         <a href="master-element.html"><i class="fa-solid fa-atom"></i> Element (Chemistry)</a>
         <a href="master-stage-qc-map.html"><i class="fa-solid fa-sitemap"></i> Stage-QC Map</a>
+        <a href="master-inspection-path.html"><i class="fa-solid fa-route"></i> Inspection Path</a>
         <a href="master-sample-type.html"><i class="fa-solid fa-vials"></i> Sample Type</a>
         <a href="master-sampling-rule.html"><i class="fa-solid fa-diagram-project"></i> Sampling Rule</a>
         <a href="master-size-basis.html"><i class="fa-solid fa-ruler-combined"></i> Size Basis</a>
@@ -271,6 +283,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="master-standard.html"><i class="fa-solid fa-book"></i> Standard</a>
         <a href="master-standard-limit.html"><i class="fa-solid fa-ruler-horizontal"></i> Standard Limit</a>
         <a href="master-colour-code.html"><i class="fa-solid fa-palette"></i> Colour Code</a>
+        <a href="master-barcode-type.html"><i class="fa-solid fa-barcode"></i> Barcode Type</a>
         <a href="master-end-discard.html"><i class="fa-solid fa-scissors"></i> End Discard</a>
         <a href="master-length.html"><i class="fa-solid fa-ruler-horizontal"></i> Length</a>
         <a href="master-dim-tolerance.html"><i class="fa-solid fa-arrows-left-right-to-line"></i> Dim Tolerance</a>
@@ -365,6 +378,27 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeStickers()">Close</button>
       <button class="btn btn-primary" onclick="stkPrint()"><i class="fa-solid fa-print"></i> Print</button>
+    </div>
+  </div>
+</div>
+
+<!-- Prep quality verification modal — §27.7 / SOW 74: explicit Verify decision (OK / REJECT) after prep.
+     OK stamps prep_verified_by + prep_verify_result on the sample; REJECT auto-raises the §27.1 additional-sample request. -->
+<div class="overlay" id="pqvOverlay">
+  <div class="modal sm">
+    <div class="modal-head"><span id="pqvTitle">Verify prep</span> <span class="x" onclick="pqvClose()"><i class="fa-solid fa-xmark"></i></span></div>
+    <div class="modal-body">
+      <div class="prep-ctx" id="pqvCtx"></div>
+      <div class="pqv-opts">
+        <label class="pqv-opt"><input type="radio" name="pqvRes" value="OK" checked onchange="pqvResChange()"/> <b>OK</b>&nbsp;— prep quality acceptable, release to testing</label>
+        <label class="pqv-opt"><input type="radio" name="pqvRes" value="REJECT" onchange="pqvResChange()"/> <b>REJECT</b>&nbsp;— bad prep, redraw the sample</label>
+      </div>
+      <div class="fld" style="margin-top:10px"><label>Reject reason <span style="color:var(--color-text-hint);font-weight:400;font-size:11px">— travels on the auto-raised new-sample request</span></label><input id="pqvReason" placeholder="e.g. specimen over-machined / overheated during cutting" disabled/></div>
+      <div class="note-band" style="margin-top:12px"><i class="fa-solid fa-circle-info"></i> Decision stamps <b>prep_verified_by</b> + <b>prep_verify_result</b> on the sample (§27.7, SOW 74). REJECT auto-raises a new-sample request (§27.1 additional-sample path) carrying the reason.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="pqvClose()">Cancel</button>
+      <button class="btn btn-primary" onclick="pqvSave()"><i class="fa-solid fa-user-check"></i> Record decision</button>
     </div>
   </div>
 </div>
@@ -645,6 +679,46 @@ function toggleStep(si,on){ const r=SAMPLES[curPrep]; r.prepDone = on ? Math.max
 function markPrepDone(){ const r=SAMPLES[curPrep]; r.prepDone=TYPES[r.type].prep.length; if(r.status==='IN PREP'||r.status==='ISSUED')r.status='TESTED'; r.completion=r.completion||'24-Jun 13:30'; closePrep(); render(); mesToast('Prep complete for '+(r.no||'sample')+' — ready for testing','ok'); }
 function closePrep(){document.getElementById('prepOverlay').classList.remove('open');}
 
+/* ===== Prep quality verification (§27.7, SOW 74) =====
+   After prep, an explicit Verify decision (OK / REJECT) on the sample — prep_verified_by +
+   prep_verify_result. REJECT auto-raises the new-sample request (§27.1 additional-sample path)
+   carrying the reject reason. Insert-only: cell() is wrapped, existing actions/chips untouched. */
+let pqvCur=null;
+function pqvEligible(r){var st=TYPES[r.type]?TYPES[r.type].prep.length:0;return !r.pqv&&(r.status==='IN PREP'||(r.status==='TESTED'&&(r.prepDone||0)>=st));}
+function pqvChip(r){
+  if(!r.pqv)return '';
+  return r.pqv.result==='OK'
+   ?'<span class="pqv-chip" title="prep_verified_by + prep_verify_result on the sample — §27.7, SOW 74'+(r.pqv.by?' · verified by '+r.pqv.by:'')+(r.pqv.at?' · '+r.pqv.at:'')+'">PREP VERIFIED</span>'
+   :'<span class="pqv-chip pqv-rej" title="prep_verify_result = REJECT — new-sample request raised (§27.1 additional-sample path)'+(r.pqv.reason?' · '+String(r.pqv.reason).replace(/"/g,'&quot;'):'')+'">PREP REJECTED</span>';
+}
+const pqvBaseCell=cell;
+cell=function(c,r,i){
+  let out=pqvBaseCell(c,r,i);
+  if(c.badge)out+=pqvChip(r);
+  if(c.actions&&pqvEligible(r))out='<button class="btn-icon" title="Verify prep quality — OK / REJECT (§27.7, SOW 74)" onclick="pqvOpen('+i+')"><i class="fa-solid fa-user-check"></i></button>'+out;
+  return out;
+};
+function pqvOpen(i){
+  pqvCur=i;const r=SAMPLES[i],steps=TYPES[r.type]?TYPES[r.type].prep.length:0;
+  document.getElementById('pqvTitle').textContent='Verify prep — '+(r.no||'(unissued)');
+  document.getElementById('pqvCtx').innerHTML='<span class="chip">Type <b>'+r.type+'</b></span><span class="chip">Heat <b>'+r.heat+'</b></span><span class="chip">UID <b>'+r.uid+'</b></span><span class="chip">Condition <b>'+r.condition+'</b></span><span class="chip">Prep <b>'+(r.prepDone||0)+'/'+steps+'</b></span>';
+  document.querySelector('input[name="pqvRes"][value="OK"]').checked=true;
+  var re=document.getElementById('pqvReason');re.value='';re.disabled=true;
+  document.getElementById('pqvOverlay').classList.add('open');
+}
+function pqvClose(){document.getElementById('pqvOverlay').classList.remove('open');}
+function pqvResChange(){var rej=document.querySelector('input[name="pqvRes"]:checked').value==='REJECT',re=document.getElementById('pqvReason');re.disabled=!rej;if(rej)re.focus();else re.value='';}
+function pqvSave(){
+  var r=SAMPLES[pqvCur],res=document.querySelector('input[name="pqvRes"]:checked').value,reason=document.getElementById('pqvReason').value.trim();
+  if(res==='REJECT'&&!reason){mesToast('Enter the reject reason — it travels on the new-sample request','warn');return;}
+  r.pqv={result:res,by:'QA User',at:'24-Jun 14:05',reason:res==='REJECT'?reason:''};
+  pqvClose();render();
+  if(res==='OK')mesToast('Prep verified OK — '+(r.no||'sample')+' released to testing (§27.7, SOW 74)','ok');
+  else mesToast('Prep rejected — new-sample request raised automatically (§27.1 additional-sample path)','err');
+}
+/* seed: SMP-2526-0448 (prep complete, TESTED) already verified — PREP VERIFIED state visible on load */
+(function(){var s=SAMPLES.find(function(x){return x.no==='SMP-2526-0448';});if(s)s.pqv={result:'OK',by:'S. Kulkarni',at:'24-Jun 08:55',reason:''};})();
+
 fill('fStatus',STATUSES); fill('fType',Object.keys(TYPES)); fill('fAgency',AGENCIES);
 buildHead(); render();
 </script>
@@ -652,7 +726,7 @@ buildHead(); render();
 function msToggle(e){e.preventDefault();e.stopPropagation();var g=document.getElementById('msGroup');if(g)g.classList.toggle('open');}
 (function(){var f=(location.pathname.split('/').pop()||'').toLowerCase();var g=document.getElementById('msGroup');if(!g)return;var inM=false;g.querySelectorAll('.submenu a').forEach(function(a){if((a.getAttribute('href')||'').toLowerCase()===f){a.classList.add('active');inM=true;}});if(inM||f==='masters.html'){g.classList.add('open');var p=g.querySelector('.ms-parent');if(p)p.classList.add('active');}})();
 </script>
-<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "pit-cooling.html": {"t": "Pit Cooling", "i": "fa-temperature-arrow-down"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "instrument-checklist.html": {"t": "Instrument Checklist", "i": "fa-list-check"}, "layout-audit.html": {"t": "Layout Audit", "i": "fa-vector-square"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-element.html": {"t": "Element (Chemistry)", "i": "fa-atom"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-size-basis.html": {"t": "Size Basis", "i": "fa-ruler-combined"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-colour-code.html": {"t": "Colour Code", "i": "fa-palette"}, "master-end-discard.html": {"t": "End Discard", "i": "fa-scissors"}, "master-length.html": {"t": "Length", "i": "fa-ruler-horizontal"}, "master-dim-tolerance.html": {"t": "Dim Tolerance", "i": "fa-arrows-left-right-to-line"}, "master-grade-chemistry.html": {"t": "Grade Chemistry", "i": "fa-flask-vial"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}, "master-notification-rule.html": {"t": "Notification Rule", "i": "fa-bell"}};var KEY='mesOpenTabs';
+<div class="tabmenu" id="tabmenu"><button onclick="tabAct('close')"><i class="fa-solid fa-xmark"></i> Close</button><button onclick="tabAct('others')"><i class="fa-solid fa-arrows-left-right-to-line"></i> Close others</button><button onclick="tabAct('right')"><i class="fa-solid fa-arrow-right-long"></i> Close to the right</button><div class="sep"></div><button onclick="tabAct('all')"><i class="fa-solid fa-trash-can"></i> Close all</button></div><script>(function(){var REG={"dashboard.html": {"t": "Dashboard", "i": "fa-gauge-high"}, "rm-inward.html": {"t": "RM Quality", "i": "fa-truck-ramp-box"}, "heat-chemistry.html": {"t": "Heat Chemistry", "i": "fa-vial-circle-check"}, "qc-worklist.html": {"t": "Inspection", "i": "fa-clipboard-check"}, "auto-line.html": {"t": "Auto Line", "i": "fa-timeline"}, "agency-allocation.html": {"t": "Agency Allocation", "i": "fa-building-user"}, "pit-cooling.html": {"t": "Pit Cooling", "i": "fa-temperature-arrow-down"}, "sample-issue.html": {"t": "Sampling", "i": "fa-vials"}, "test-entry.html": {"t": "Testing", "i": "fa-flask"}, "lab-worklist.html": {"t": "Lab Worklist", "i": "fa-microscope"}, "defect-mapping.html": {"t": "Defects", "i": "fa-triangle-exclamation"}, "clearance.html": {"t": "Clearance", "i": "fa-circle-check"}, "usage-decision.html": {"t": "Usage Decision", "i": "fa-gavel"}, "salvage-ncr.html": {"t": "Salvage & NCR", "i": "fa-screwdriver-wrench"}, "certificate.html": {"t": "Certificates", "i": "fa-certificate"}, "instruments.html": {"t": "Instruments", "i": "fa-ruler-combined"}, "instrument-checklist.html": {"t": "Instrument Checklist", "i": "fa-list-check"}, "layout-audit.html": {"t": "Layout Audit", "i": "fa-vector-square"}, "tdc.html": {"t": "TDC", "i": "fa-file-contract"}, "masters.html": {"t": "Masters", "i": "fa-sliders"}, "master-inspection-type.html": {"t": "Inspection Type", "i": "fa-clipboard-check"}, "master-test-type.html": {"t": "Test Type", "i": "fa-flask"}, "master-chemistry-type.html": {"t": "Chemistry Type", "i": "fa-vial"}, "master-defect-type.html": {"t": "Defect Type", "i": "fa-layer-group"}, "master-defect-reason.html": {"t": "Defect Reason", "i": "fa-magnifying-glass"}, "master-sample-status.html": {"t": "Sample Status", "i": "fa-vials"}, "master-test.html": {"t": "Quality Test", "i": "fa-flask"}, "master-defect.html": {"t": "Defect Catalogue", "i": "fa-triangle-exclamation"}, "master-characteristic.html": {"t": "Characteristic", "i": "fa-list-ol"}, "master-element.html": {"t": "Element (Chemistry)", "i": "fa-atom"}, "master-stage-qc-map.html": {"t": "Stage-QC Map", "i": "fa-sitemap"}, "master-inspection-path.html": {"t": "Inspection Path", "i": "fa-route"}, "master-sample-type.html": {"t": "Sample Type", "i": "fa-vials"}, "master-sampling-rule.html": {"t": "Sampling Rule", "i": "fa-diagram-project"}, "master-size-basis.html": {"t": "Size Basis", "i": "fa-ruler-combined"}, "master-prep-checklist.html": {"t": "Prep Checklist", "i": "fa-list-check"}, "master-material-status.html": {"t": "Material Status", "i": "fa-flag"}, "master-ud-type.html": {"t": "UD Type", "i": "fa-gavel"}, "master-ud-reason.html": {"t": "UD Reason", "i": "fa-comment-dots"}, "master-ud-action.html": {"t": "UD Action", "i": "fa-arrow-right-arrow-left"}, "master-salvage-type.html": {"t": "Salvage Type", "i": "fa-screwdriver-wrench"}, "master-ncr-category.html": {"t": "NCR Category", "i": "fa-file-circle-exclamation"}, "master-standard.html": {"t": "Standard", "i": "fa-book"}, "master-standard-limit.html": {"t": "Standard Limit", "i": "fa-ruler-horizontal"}, "master-colour-code.html": {"t": "Colour Code", "i": "fa-palette"}, "master-barcode-type.html": {"t": "Barcode Type", "i": "fa-barcode"}, "master-end-discard.html": {"t": "End Discard", "i": "fa-scissors"}, "master-length.html": {"t": "Length", "i": "fa-ruler-horizontal"}, "master-dim-tolerance.html": {"t": "Dim Tolerance", "i": "fa-arrows-left-right-to-line"}, "master-grade-chemistry.html": {"t": "Grade Chemistry", "i": "fa-flask-vial"}, "master-instrument-type.html": {"t": "Instrument Type", "i": "fa-ruler-combined"}, "master-agency.html": {"t": "Agency", "i": "fa-building"}, "master-supplier.html": {"t": "Supplier", "i": "fa-truck-field"}, "master-notification-rule.html": {"t": "Notification Rule", "i": "fa-bell"}};var KEY='mesOpenTabs';
 var here=(location.pathname.split('/').pop()||'dashboard.html').toLowerCase();
 function ld(){try{return JSON.parse(sessionStorage.getItem(KEY))||[];}catch(e){return [];}}
 function sv(a){try{sessionStorage.setItem(KEY,JSON.stringify(a));}catch(e){}}

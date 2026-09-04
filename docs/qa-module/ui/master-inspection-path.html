@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Bluemingo MES v2 — Grade Chemistry</title>
+<title>Bluemingo MES v2 — Inspection Path</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -140,6 +140,28 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .sidebar .navgrp>.s-group .gchev{margin-left:auto;font-size:9px;width:auto;transition:transform .15s;}
 .sidebar .navgrp.collapsed>.s-group .gchev{transform:rotate(-90deg);}
 .sidebar .navgrp.collapsed .grp-items{display:none;}
+
+/* ── inspection-path (ipm-) additions ───────────────────────────── */
+.ipm-tabs{display:flex;gap:6px;margin-bottom:var(--sp3);flex:none;}
+.ipm-tab{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border:1px solid var(--color-border);background:#fff;border-radius:20px;font-size:12.5px;color:var(--color-text-secondary);font-weight:500;}
+.ipm-tab i{font-size:11px;}
+.ipm-tab:hover{border-color:var(--color-primary);color:var(--color-primary);}
+.ipm-tab.ipm-active{background:var(--color-primary);border-color:var(--color-primary);color:#fff;}
+.ipm-split{display:flex;gap:var(--sp3);flex:1;min-height:0;}
+.ipm-pathcard{flex:1.15;}
+.ipm-stagecard{flex:1;}
+.ipm-stagehead{padding:10px 16px;border-bottom:1px solid var(--color-border-light);font-weight:600;font-size:13px;display:flex;align-items:center;gap:8px;flex:none;}
+.ipm-stagehead i{color:var(--color-primary);}
+.ipm-note{padding:10px 16px;border-top:1px solid var(--color-border-light);font-size:var(--fs-xs);color:var(--color-text-muted);display:flex;align-items:center;gap:8px;flex:none;background:var(--color-bg-alt);}
+.ipm-note i{color:var(--color-primary);}
+.ipm-sel td{background:#e1f5fe!important;}
+.ipm-grpchip{display:inline-block;padding:2px 7px;border-radius:10px;background:rgba(103,58,183,.12);color:#673ab7;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;cursor:help;}
+.ipm-pathchip{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:10px;background:rgba(var(--color-primary-rgb),.12);color:var(--color-primary-dark);font-size:11px;font-weight:700;}
+.ipm-pathchip i{font-size:10px;}
+.ipm-mut{color:var(--color-text-hint);font-style:italic;}
+.ipm-off td{opacity:.55;}
+.ipm-toast{position:fixed;bottom:24px;right:24px;background:#323232;color:#fff;padding:10px 18px;border-radius:6px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.3);opacity:0;transition:opacity .25s;z-index:4000;pointer-events:none;}
+.ipm-toast.ipm-show{opacity:1;}
 </style>
 </head>
 <body>
@@ -194,7 +216,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="master-characteristic.html"><i class="fa-solid fa-list-ol"></i> Characteristic</a>
         <a href="master-element.html"><i class="fa-solid fa-atom"></i> Element (Chemistry)</a>
         <a href="master-stage-qc-map.html"><i class="fa-solid fa-sitemap"></i> Stage-QC Map</a>
-        <a href="master-inspection-path.html"><i class="fa-solid fa-route"></i> Inspection Path</a>
+        <a href="master-inspection-path.html" class="active"><i class="fa-solid fa-route"></i> Inspection Path</a>
         <a href="master-sample-type.html"><i class="fa-solid fa-vials"></i> Sample Type</a>
         <a href="master-sampling-rule.html"><i class="fa-solid fa-diagram-project"></i> Sampling Rule</a>
         <a href="master-size-basis.html"><i class="fa-solid fa-ruler-combined"></i> Size Basis</a>
@@ -213,7 +235,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="master-end-discard.html"><i class="fa-solid fa-scissors"></i> End Discard</a>
         <a href="master-length.html"><i class="fa-solid fa-ruler-horizontal"></i> Length</a>
         <a href="master-dim-tolerance.html"><i class="fa-solid fa-arrows-left-right-to-line"></i> Dim Tolerance</a>
-        <a href="master-grade-chemistry.html" class="active"><i class="fa-solid fa-flask-vial"></i> Grade Chemistry</a>
+        <a href="master-grade-chemistry.html"><i class="fa-solid fa-flask-vial"></i> Grade Chemistry</a>
         <a href="master-instrument-type.html"><i class="fa-solid fa-ruler-combined"></i> Instrument Type</a>
         <a href="master-agency.html"><i class="fa-solid fa-building"></i> Agency</a>
         <a href="master-supplier.html"><i class="fa-solid fa-truck-field"></i> Supplier</a>
@@ -223,16 +245,42 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
   </nav>
   <main class="content">
     <div class="tabbar" id="tabbar"></div>
-    <div class="crumb"><a href="masters.html"><i class="fa-solid fa-arrow-left"></i> Masters</a> <span>/</span> <b>Grade Chemistry</b></div>
+    <div class="crumb"><a href="masters.html"><i class="fa-solid fa-arrow-left"></i> Masters</a> <span>/</span> <b>Inspection Path</b></div>
     <div class="page-head">
-      <div><h1><i class="fa-solid fa-flask-vial"></i> Grade Chemistry</h1><div class="sub">Works/internal chemistry spec per grade (mes_qc_grade_chemistry) — fills elements the TDC does not limit; resolution TDC → Grade → report-only. Element rows reference the Element master (mes_qc_element §5.10).</div></div>
+      <div><h1 title="Inspection paths — mes_qc_inspection_path / mes_qc_inspection_path_stage (MQA 7/8, §26.1)"><i class="fa-solid fa-route"></i> Inspection Path</h1><div class="sub">Named inspection routes + the allocation matrix — auto-allocated per lot, role-gated modification (MQA 7/8, §26.1)</div></div>
       <div class="ph-actions">
-        <select class="jump" onchange="jump(this)"><option value="">Jump to master…</option><option value="master-inspection-type.html">Inspection Type</option><option value="master-test-type.html">Test Type</option><option value="master-chemistry-type.html">Chemistry Type</option><option value="master-defect-type.html">Defect Type</option><option value="master-defect-reason.html">Defect Reason</option><option value="master-sample-status.html">Sample Status</option><option value="master-test.html">Quality Test</option><option value="master-defect.html">Defect Catalogue</option><option value="master-characteristic.html">Characteristic</option><option value="master-element.html">Element (Chemistry)</option><option value="master-stage-qc-map.html">Stage-QC Map</option><option value="master-inspection-path.html">Inspection Path</option><option value="master-sample-type.html">Sample Type</option><option value="master-sampling-rule.html">Sampling Rule</option><option value="master-size-basis.html">Size Basis</option><option value="master-prep-checklist.html">Prep Checklist</option><option value="master-material-status.html">Material Status</option><option value="master-ud-type.html">UD Type</option><option value="master-ud-reason.html">UD Reason</option><option value="master-ud-action.html">UD Action</option><option value="master-salvage-type.html">Salvage Type</option><option value="master-ncr-category.html">NCR Category</option><option value="master-standard.html">Standard</option><option value="master-standard-limit.html">Standard Limit</option><option value="master-colour-code.html">Colour Code</option><option value="master-barcode-type.html">Barcode Type</option><option value="master-end-discard.html">End Discard</option><option value="master-length.html">Length</option><option value="master-dim-tolerance.html">Dim Tolerance</option><option value="master-grade-chemistry.html">Grade Chemistry</option><option value="master-instrument-type.html">Instrument Type</option><option value="master-agency.html">Agency</option><option value="master-supplier.html">Supplier</option><option value="master-notification-rule.html">Notification Rule</option></select>
-        <button class="btn btn-primary btn-sm" onclick="openAdd()"><i class="fa-solid fa-plus"></i> Add Grade Limit</button>
+        <select class="jump" onchange="jump(this)"><option value="">Jump to master…</option><option value="master-inspection-type.html">Inspection Type</option><option value="master-test-type.html">Test Type</option><option value="master-chemistry-type.html">Chemistry Type</option><option value="master-defect-type.html">Defect Type</option><option value="master-defect-reason.html">Defect Reason</option><option value="master-sample-status.html">Sample Status</option><option value="master-test.html">Quality Test</option><option value="master-defect.html">Defect Catalogue</option><option value="master-characteristic.html">Characteristic</option><option value="master-element.html">Element (Chemistry)</option><option value="master-stage-qc-map.html">Stage-QC Map</option><option value="master-sample-type.html">Sample Type</option><option value="master-sampling-rule.html">Sampling Rule</option><option value="master-size-basis.html">Size Basis</option><option value="master-prep-checklist.html">Prep Checklist</option><option value="master-material-status.html">Material Status</option><option value="master-ud-type.html">UD Type</option><option value="master-ud-reason.html">UD Reason</option><option value="master-ud-action.html">UD Action</option><option value="master-salvage-type.html">Salvage Type</option><option value="master-ncr-category.html">NCR Category</option><option value="master-standard.html">Standard</option><option value="master-standard-limit.html">Standard Limit</option><option value="master-colour-code.html">Colour Code</option><option value="master-end-discard.html">End Discard</option><option value="master-length.html">Length</option><option value="master-dim-tolerance.html">Dim Tolerance</option><option value="master-grade-chemistry.html">Grade Chemistry</option><option value="master-instrument-type.html">Instrument Type</option><option value="master-agency.html">Agency</option><option value="master-supplier.html">Supplier</option><option value="master-notification-rule.html">Notification Rule</option><option value="master-inspection-path.html">Inspection Path</option><option value="master-barcode-type.html">Barcode Type</option></select>
+        <button class="btn btn-primary btn-sm" onclick="openAdd()" title="Add a named inspection route — mes_qc_inspection_path (§26.1)"><i class="fa-solid fa-plus"></i> Add Path</button>
       </div>
     </div>
+    <div class="ipm-tabs">
+      <button class="ipm-tab ipm-active" id="ipm-tabbtn-paths" onclick="ipmTab('paths')" title="Named inspection routes — mes_qc_inspection_path (MQA 8, §26.1)"><i class="fa-solid fa-route"></i> Paths</button>
+      <button class="ipm-tab" id="ipm-tabbtn-matrix" onclick="ipmTab('matrix')" title="Inspection path matrix — mes_qc_path_rule (MQA 7, §26.1)"><i class="fa-solid fa-table-cells"></i> Allocation matrix</button>
+    </div>
     <div class="filterbar"><span class="lbl">Filter</span><div class="fsearch"><i class="fa-solid fa-magnifying-glass"></i><input id="q" placeholder="Search..." oninput="render()"/></div><span class="meta" id="count"></span></div>
-    <div class="card"><div class="tbl-wrap"><table class="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div></div>
+    <div class="ipm-split" id="ipm-panel-paths">
+      <div class="card ipm-pathcard">
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th title="code — mes_qc_inspection_path (§26.1)">Code</th><th>Name</th><th title="Ordered stages — mes_qc_inspection_path_stage (§26.1)">Stages</th><th title="is_active (§26.1)">Active</th><th class="col-actions"></th></tr></thead>
+          <tbody id="ipm-pathbody"></tbody>
+        </table></div>
+      </div>
+      <div class="card ipm-stagecard">
+        <div class="ipm-stagehead" id="ipm-stagehead" title="Ordered stages of the selected path — mes_qc_inspection_path_stage (§26.1)"></div>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th class="num" title="sequence_no (§26.1)">Seq</th><th title="operation_code varchar(50) — stage vocabulary, as in the stage-QC map (§26.1)">Operation</th><th title="unit_group varchar(30) — e.g. AUTOLINE groups the §26.2 units">Unit group</th><th title="is_mandatory boolean (§26.1)">Mandatory</th></tr></thead>
+          <tbody id="ipm-stagebody"></tbody>
+        </table></div>
+        <div class="ipm-note"><i class="fa-solid fa-circle-info"></i> Stage vocabulary follows the stage-QC map operation codes; unit_group groups the auto-line stages under the Auto-Line screen (§26.2).</div>
+      </div>
+    </div>
+    <div class="card" id="ipm-panel-matrix" style="display:none">
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th class="num" title="first active match by priority allocates the path to the lot — mes_qc_path_rule (§26.1)">Priority</th><th title="so_characteristic varchar(100) — nullable axis (§26.1)">SO characteristic</th><th title="tdc_id FK — the PSN/TDC axis (§26.1)">TDC / PSN</th><th title="customer_id — nullable axis (§26.1)">Customer</th><th title="grade varchar(50) — nullable axis (§26.1)">Grade</th><th title="product_form varchar(30) — nullable axis (§26.1)">Product form</th><th title="supply_condition varchar(50) — nullable axis (§26.1)">Supply condition</th><th title="path_id FK → mes_qc_inspection_path (§26.1)">→ Path</th><th title="is_active (§26.1)">Active</th><th class="col-actions"></th></tr></thead>
+        <tbody id="ipm-rulebody"></tbody>
+      </table></div>
+      <div class="ipm-note"><i class="fa-solid fa-user-shield"></i> Per-batch modification is role-gated with a mandatory reason — mes_qc_material_path (MQA 7).</div>
+    </div>
   </main>
 </div>
 <div class="overlay" id="ov"><div class="modal">
@@ -240,44 +288,111 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
   <div class="modal-body"><div class="mgrid" id="form"></div></div>
   <div class="modal-foot"><button class="btn btn-ghost" onclick="closeM()">Cancel</button><button class="btn btn-primary" onclick="save()"><i class="fa-solid fa-check"></i> Save</button></div>
 </div></div>
+<div class="ipm-toast" id="ipm-toast"></div>
 <script>
-const C = {"singular": "Grade Limit", "cols": [{"k": "grade", "label": "Grade", "cls": "mono"}, {"k": "characteristic", "label": "Element"}, {"k": "min_value", "label": "Min", "cls": "num"}, {"k": "max_value", "label": "Max", "cls": "num"}, {"k": "aim_value", "label": "Aim", "cls": "num"}, {"k": "uom", "label": "UoM"}, {"k": "remarks", "label": "Remarks"}, {"k": "active", "label": "Active", "bool": true}], "rows": [{"grade": "17-4PH", "characteristic": "N", "min_value": null, "max_value": 0.05, "aim_value": null, "uom": "%", "remarks": "Residual control (works spec)", "active": true}, {"grade": "17-4PH", "characteristic": "Co", "min_value": null, "max_value": 0.15, "aim_value": null, "uom": "%", "remarks": "Residual control (works spec)", "active": true}, {"grade": "17-4PH", "characteristic": "V", "min_value": null, "max_value": 0.05, "aim_value": null, "uom": "%", "remarks": "Residual control (works spec)", "active": true}, {"grade": "17-4PH", "characteristic": "Cu", "min_value": 2.5, "max_value": 5.5, "aim_value": 4.0, "uom": "%", "remarks": "Wider than TDC Cu 3.0\u20135.0 \u2014 an applied TDC limit wins", "active": true}, {"grade": "316L", "characteristic": "Ti", "min_value": null, "max_value": 0.05, "aim_value": null, "uom": "%", "remarks": "Residual control (works spec)", "active": true}, {"grade": "316L", "characteristic": "V", "min_value": null, "max_value": 0.1, "aim_value": null, "uom": "%", "remarks": "Residual control (works spec)", "active": true}, {"grade": "304L", "characteristic": "Co", "min_value": null, "max_value": 0.25, "aim_value": null, "uom": "%", "remarks": "Residual control (works spec)", "active": true}, {"grade": "304L", "characteristic": "V", "min_value": null, "max_value": 0.1, "aim_value": null, "uom": "%", "remarks": "Residual control (works spec)", "active": true}, {"grade": "416", "characteristic": "Cu", "min_value": null, "max_value": 0.6, "aim_value": null, "uom": "%", "remarks": "Residual control (works spec)", "active": true}, {"grade": "416", "characteristic": "N", "min_value": null, "max_value": 0.08, "aim_value": null, "uom": "%", "remarks": "Residual control (works spec)", "active": true}, {"grade": "416", "characteristic": "V", "min_value": null, "max_value": 0.15, "aim_value": null, "uom": "%", "remarks": "Residual control (works spec)", "active": true}], "form": [{"k": "grade", "label": "Grade"}, {"k": "characteristic", "label": "Element", "type": "select", "options": ["C", "Mn", "Si", "S", "P", "Cr", "Ni", "Mo", "Cu", "N", "Nb", "Co", "Ti", "V"]}, {"k": "min_value", "label": "Min", "type": "number"}, {"k": "max_value", "label": "Max", "type": "number"}, {"k": "aim_value", "label": "Aim", "type": "number"}, {"k": "uom", "label": "UoM"}, {"k": "remarks", "label": "Remarks", "full": true}, {"k": "active", "label": "Active", "type": "checkbox"}]};
-let EDIT=null;
-function colorFor(v){v=(''+v).toUpperCase();
-  if(['OK','ACTIVE','YES','ACCEPT','PASS','CLEARED','APPROV','RELEASE','IN_HOUSE','MILL'].some(t=>v.includes(t)))return 'b-done';
-  if(['HOLD','REJECT','FAIL','SCRAP','RETURN','INACTIVE','BLOCK','CRITICAL'].some(t=>v.includes(t)))return 'b-hold';
-  if(['REWORK','PEND','REVIEW','DUE','MINOR','RETEST'].some(t=>v.includes(t)))return 'b-pend';
-  if(['DOWNGRADE','CONCESSION','DEVIATION','RETAIN','CONSUM','THIRD'].some(t=>v.includes(t)))return 'b-clr';
-  return 'b-info';}
-function cv(c,r){let v=r[c.k];
-  if(c.bool)return '<span class="badge '+(v?'b-done':'b-draft')+'">'+(v?'Yes':'No')+'</span>';
-  if(c.badge)return (v===''||v==null)?'—':'<span class="badge '+colorFor(v)+'">'+v+'</span>';
-  if(v===''||v==null||v===undefined)return '—';
-  return v;}
-function buildHead(){document.getElementById('thead').innerHTML='<tr>'+C.cols.map(c=>'<th class="'+(c.cls==='num'?'num':'')+'">'+c.label+'</th>').join('')+'<th class="col-actions"></th></tr>';}
-function render(){
+// §26.1 — mes_qc_inspection_path (+ _stage): named inspection routes (data rows, product-agnostic per D0)
+const PATHS=[
+ {code:'STD',name:'Standard inspection',desc:'Default route when no matrix rule matches.',active:true,stages:[
+  {seq:10,op:'OP_VISUAL',grp:null,mand:true},{seq:20,op:'OP_DIM_CHECK',grp:null,mand:true},{seq:30,op:'OP_FINAL_INSP',grp:null,mand:true}]},
+ {code:'DBL-ROLL',name:'Double rolling route',desc:'Material rolled twice — inspection after each rolling pass.',active:true,stages:[
+  {seq:10,op:'OP_VISUAL',grp:null,mand:true},{seq:20,op:'OP_DIM_CHECK',grp:null,mand:true},{seq:30,op:'OP_UT_MANUAL',grp:null,mand:true},{seq:40,op:'OP_FINAL_INSP',grp:null,mand:true}]},
+ {code:'ANNEAL',name:'Annealing supplies',desc:'Annealed supply condition — HT verification and hardness ahead of release.',active:true,stages:[
+  {seq:10,op:'OP_HT_VERIFY',grp:null,mand:true},{seq:20,op:'OP_HARDNESS',grp:null,mand:true},{seq:30,op:'OP_VISUAL',grp:null,mand:false},{seq:40,op:'OP_FINAL_INSP',grp:null,mand:true}]},
+ {code:'ANN-BB',name:'Annealed bright bar',desc:'Annealed then bright finished — HT verify, then part of the auto line.',active:true,stages:[
+  {seq:10,op:'OP_HT_VERIFY',grp:null,mand:true},{seq:20,op:'OP_HARDNESS',grp:null,mand:true},{seq:30,op:'OP_SHOT_BLAST',grp:'AUTOLINE',mand:true},{seq:40,op:'OP_AUTO_UT',grp:'AUTOLINE',mand:true},{seq:50,op:'OP_FINAL_INSP',grp:null,mand:true}]},
+ {code:'BB',name:'Bright bar supplies',desc:'Bright finished bars — surface and dimensional emphasis.',active:true,stages:[
+  {seq:10,op:'OP_VISUAL',grp:null,mand:true},{seq:20,op:'OP_DIM_CHECK',grp:null,mand:true},{seq:30,op:'OP_SURFACE_INSP',grp:null,mand:true},{seq:40,op:'OP_ECT',grp:'AUTOLINE',mand:false},{seq:50,op:'OP_FINAL_INSP',grp:null,mand:true}]},
+ {code:'SLOW-COOL',name:'Slow cooled material',desc:'Pit / slow-cooled heats — cooling verification before release.',active:true,stages:[
+  {seq:10,op:'OP_PIT_COOL_VERIFY',grp:null,mand:true},{seq:20,op:'OP_VISUAL',grp:null,mand:true},{seq:30,op:'OP_UT_MANUAL',grp:null,mand:false},{seq:40,op:'OP_FINAL_INSP',grp:null,mand:true}]},
+ {code:'AUTOLINE',name:'Auto inspection line route',desc:'Full auto inspection line — units in path sequence (§26.2).',active:true,stages:[
+  {seq:10,op:'OP_STRAIGHTEN_2R',grp:'AUTOLINE',mand:true},{seq:20,op:'OP_STRAIGHTEN_MR',grp:'AUTOLINE',mand:false},{seq:30,op:'OP_SHOT_BLAST',grp:'AUTOLINE',mand:true},{seq:40,op:'OP_AUTO_UT',grp:'AUTOLINE',mand:true},{seq:50,op:'OP_MFLT',grp:'AUTOLINE',mand:true},{seq:60,op:'OP_ECT',grp:'AUTOLINE',mand:false},{seq:70,op:'OP_END_CUT',grp:'AUTOLINE',mand:true},{seq:80,op:'OP_FINAL_INSP',grp:null,mand:true}]},
+ {code:'SUBCON-WIP',name:'Inwarded subcon WIP route',desc:'WIP received back from a subcontractor — inward verification first.',active:true,stages:[
+  {seq:10,op:'OP_SUBCON_INWARD',grp:null,mand:true},{seq:20,op:'OP_DIM_CHECK',grp:null,mand:true},{seq:30,op:'OP_VISUAL',grp:null,mand:true},{seq:40,op:'OP_FINAL_INSP',grp:null,mand:true}]}
+];
+// §26.1 — mes_qc_path_rule (the matrix): first ACTIVE match by priority allocates the path
+const RULES=[
+ {prio:10,so:'',tdc:'TDC-004275',cust:'',grade:'17-4PH',form:'Round Bar',cond:'P.S.Q.',path:'AUTOLINE',active:true},
+ {prio:20,so:'',tdc:'',cust:'',grade:'304L',form:'',cond:'Bright',path:'BB',active:true},
+ {prio:30,so:'Double rolled',tdc:'',cust:'',grade:'',form:'',cond:'',path:'DBL-ROLL',active:true},
+ {prio:40,so:'',tdc:'',cust:'',grade:'X46Cr13',form:'Round Bar',cond:'Annealed',path:'ANNEAL',active:false},
+ {prio:50,so:'',tdc:'',cust:'JSW Steel',grade:'',form:'',cond:'Slow cooled',path:'SLOW-COOL',active:true},
+ {prio:999,so:'',tdc:'',cust:'',grade:'',form:'',cond:'',path:'STD',active:true}
+];
+let TAB='paths', SEL=6, MODE='path', EDIT=null;
+const PATH_FORM=[{k:'code',label:'Code'},{k:'name',label:'Name'},{k:'desc',label:'Description',full:true},{k:'active',label:'Active',type:'checkbox'}];
+function ruleForm(){return [{k:'prio',label:'Priority',type:'number'},{k:'path',label:'Path',type:'select',options:PATHS.map(function(p){return p.code;})},{k:'so',label:'SO characteristic'},{k:'tdc',label:'TDC / PSN'},{k:'cust',label:'Customer'},{k:'grade',label:'Grade'},{k:'form',label:'Product form'},{k:'cond',label:'Supply condition'},{k:'active',label:'Active',type:'checkbox'}];}
+function toast(m){var t=document.getElementById('ipm-toast');t.textContent=m;t.classList.add('ipm-show');clearTimeout(toast._t);toast._t=setTimeout(function(){t.classList.remove('ipm-show');},1800);}
+function boolBadge(v){return '<span class="badge '+(v?'b-done':'b-draft')+'">'+(v?'Yes':'No')+'</span>';}
+function anyCell(v){return v?v:'<span class="ipm-mut">Any</span>';}
+function ipmTab(t){TAB=t;
+  document.getElementById('ipm-tabbtn-paths').classList.toggle('ipm-active',t==='paths');
+  document.getElementById('ipm-tabbtn-matrix').classList.toggle('ipm-active',t==='matrix');
+  document.getElementById('ipm-panel-paths').style.display=(t==='paths')?'flex':'none';
+  document.getElementById('ipm-panel-matrix').style.display=(t==='matrix')?'flex':'none';
+  render();}
+function render(){if(TAB==='paths'){renderPaths();renderStages();}else{renderRules();}}
+function renderPaths(){
   const q=(document.getElementById('q').value||'').toLowerCase();
-  const rows=C.rows.map((r,i)=>({r,i})).filter(x=>!q||Object.values(x.r).join(' ').toLowerCase().includes(q));
-  const tb=document.getElementById('tbody');
-  if(!rows.length){tb.innerHTML='<tr class="empty"><td colspan="'+(C.cols.length+1)+'">No records match.</td></tr>';}
-  else tb.innerHTML=rows.map(x=>'<tr>'+C.cols.map(c=>'<td class="'+(c.cls||'')+'">'+cv(c,x.r)+'</td>').join('')+'<td class="actions"><button class="btn-icon" title="Edit" onclick="openEdit('+x.i+')"><i class="fa-solid fa-pen"></i></button><button class="btn-icon danger" title="Delete" onclick="del('+x.i+')"><i class="fa-solid fa-trash"></i></button></td></tr>').join('');
-  document.getElementById('count').textContent=rows.length+' of '+C.rows.length+' records';
+  const rows=PATHS.map(function(r,i){return {r:r,i:i};}).filter(function(x){return !q||(x.r.code+' '+x.r.name+' '+(x.r.desc||'')).toLowerCase().includes(q);});
+  const tb=document.getElementById('ipm-pathbody');
+  if(!rows.length){tb.innerHTML='<tr class="empty"><td colspan="5">No paths match.</td></tr>';}
+  else tb.innerHTML=rows.map(function(x){
+    return '<tr class="'+(x.i===SEL?'ipm-sel':'')+'" title="mes_qc_inspection_path (MQA 8, §26.1) — click to view stages" onclick="ipmSel('+x.i+')">'
+      +'<td class="mono">'+x.r.code+'</td><td>'+x.r.name+'</td>'
+      +'<td><span class="badge b-info" title="Ordered stages — mes_qc_inspection_path_stage (§26.1)">'+x.r.stages.length+' stages</span></td>'
+      +'<td>'+boolBadge(x.r.active)+'</td>'
+      +'<td class="actions"><button class="btn-icon" title="Edit" onclick="event.stopPropagation();openEditPath('+x.i+')"><i class="fa-solid fa-pen"></i></button><button class="btn-icon danger" title="Delete" onclick="event.stopPropagation();delPath('+x.i+')"><i class="fa-solid fa-trash"></i></button></td></tr>';
+  }).join('');
+  document.getElementById('count').textContent=rows.length+' of '+PATHS.length+' paths';
 }
-function buildForm(r){document.getElementById('form').innerHTML=C.form.map(f=>{
-  const v=(r&&r[f.k]!==undefined)?r[f.k]:(f.type==='checkbox'?(f.k==='active'):'');
+function renderStages(){
+  const hd=document.getElementById('ipm-stagehead'), tb=document.getElementById('ipm-stagebody');
+  const p=(SEL!=null)?PATHS[SEL]:null;
+  if(!p){hd.innerHTML='<i class="fa-solid fa-list-ol"></i> Stages';tb.innerHTML='<tr class="empty"><td colspan="4">Select a path to view its ordered stages.</td></tr>';return;}
+  hd.innerHTML='<i class="fa-solid fa-list-ol"></i> Stages — <b>'+p.code+'</b>&nbsp;· '+p.name+'&nbsp;<span class="badge b-info">'+p.stages.length+'</span>';
+  tb.innerHTML=p.stages.length?p.stages.map(function(s){
+    return '<tr title="mes_qc_inspection_path_stage (§26.1)"><td class="num mono">'+s.seq+'</td><td class="mono">'+s.op+'</td>'
+      +'<td>'+(s.grp?'<span class="ipm-grpchip" title="unit_group groups these under the Auto-Line screen (§26.2)">'+s.grp+'</span>':'—')+'</td>'
+      +'<td>'+(s.mand?'<span class="badge b-done">Mandatory</span>':'<span class="badge b-draft">Optional</span>')+'</td></tr>';
+  }).join(''):'<tr class="empty"><td colspan="4">No stages configured yet.</td></tr>';
+}
+function ipmSel(i){SEL=i;renderPaths();renderStages();}
+function renderRules(){
+  const q=(document.getElementById('q').value||'').toLowerCase();
+  const rows=RULES.map(function(r,i){return {r:r,i:i};}).filter(function(x){return !q||(x.r.prio+' '+x.r.so+' '+x.r.tdc+' '+x.r.cust+' '+x.r.grade+' '+x.r.form+' '+x.r.cond+' '+x.r.path).toLowerCase().includes(q);}).sort(function(a,b){return a.r.prio-b.r.prio;});
+  const tb=document.getElementById('ipm-rulebody');
+  if(!rows.length){tb.innerHTML='<tr class="empty"><td colspan="10">No rules match.</td></tr>';}
+  else tb.innerHTML=rows.map(function(x){
+    return '<tr class="'+(x.r.active?'':'ipm-off')+'" title="Inspection path matrix — mes_qc_path_rule (MQA 7, §26.1)">'
+      +'<td class="num mono">'+x.r.prio+'</td>'
+      +'<td>'+anyCell(x.r.so)+'</td><td class="mono">'+anyCell(x.r.tdc)+'</td><td>'+anyCell(x.r.cust)+'</td>'
+      +'<td class="mono">'+anyCell(x.r.grade)+'</td><td>'+anyCell(x.r.form)+'</td><td>'+anyCell(x.r.cond)+'</td>'
+      +'<td><span class="ipm-pathchip" title="path_id FK → mes_qc_inspection_path (§26.1)"><i class="fa-solid fa-route"></i>'+x.r.path+'</span></td>'
+      +'<td>'+boolBadge(x.r.active)+'</td>'
+      +'<td class="actions"><button class="btn-icon" title="Edit" onclick="openEditRule('+x.i+')"><i class="fa-solid fa-pen"></i></button><button class="btn-icon danger" title="Delete" onclick="delRule('+x.i+')"><i class="fa-solid fa-trash"></i></button></td></tr>';
+  }).join('');
+  document.getElementById('count').textContent=rows.length+' of '+RULES.length+' rules';
+}
+function buildForm(fields,r){document.getElementById('form').innerHTML=fields.map(function(f){
+  const v=(r&&r[f.k]!==undefined)?r[f.k]:(f.type==='checkbox'?true:'');
   if(f.type==='checkbox')return '<label class="chkfld"><input type="checkbox" id="f_'+f.k+'" '+(v?'checked':'')+'/> '+f.label+'</label>';
-  if(f.type==='select')return '<div class="fld'+(f.full?' full':'')+'"><label>'+f.label+'</label><select id="f_'+f.k+'">'+f.options.map(o=>'<option '+(o===v?'selected':'')+'>'+o+'</option>').join('')+'</select></div>';
+  if(f.type==='select')return '<div class="fld'+(f.full?' full':'')+'"><label>'+f.label+'</label><select id="f_'+f.k+'">'+f.options.map(function(o){return '<option '+(o===v?'selected':'')+'>'+o+'</option>';}).join('')+'</select></div>';
   return '<div class="fld'+(f.full?' full':'')+'"><label>'+f.label+'</label><input id="f_'+f.k+'" type="'+(f.type==='number'?'number':'text')+'" step="any" value="'+(v===null?'':v)+'"/></div>';
 }).join('');}
-function openAdd(){EDIT=null;buildForm({});document.getElementById('mTitle').textContent='Add '+C.singular;document.getElementById('ov').classList.add('open');}
-function openEdit(i){EDIT=i;buildForm(C.rows[i]);document.getElementById('mTitle').textContent='Edit '+C.singular;document.getElementById('ov').classList.add('open');}
-function save(){const o={};C.form.forEach(f=>{const el=document.getElementById('f_'+f.k);o[f.k]=f.type==='checkbox'?el.checked:(f.type==='number'?(+el.value||0):el.value);});
-  if(EDIT!=null)C.rows[EDIT]=Object.assign({},C.rows[EDIT],o);else C.rows.unshift(o);
-  closeM();render();}
-function del(i){if(C._confirm!==false){} C.rows.splice(i,1);render();}
+function openAdd(){MODE='path';EDIT=null;buildForm(PATH_FORM,{active:true});document.getElementById('mTitle').textContent='Add Path';document.getElementById('ov').classList.add('open');}
+function openEditPath(i){MODE='path';EDIT=i;buildForm(PATH_FORM,PATHS[i]);document.getElementById('mTitle').textContent='Edit Path';document.getElementById('ov').classList.add('open');}
+function openEditRule(i){MODE='rule';EDIT=i;buildForm(ruleForm(),RULES[i]);document.getElementById('mTitle').textContent='Edit Rule';document.getElementById('ov').classList.add('open');}
+function save(){
+  const fields=(MODE==='path')?PATH_FORM:ruleForm();
+  const o={};fields.forEach(function(f){const el=document.getElementById('f_'+f.k);o[f.k]=f.type==='checkbox'?el.checked:(f.type==='number'?(+el.value||0):el.value);});
+  if(MODE==='path'){if(EDIT!=null)Object.assign(PATHS[EDIT],o);else PATHS.unshift(Object.assign({stages:[]},o));if(EDIT==null)SEL=0;}
+  else{if(EDIT!=null)Object.assign(RULES[EDIT],o);else RULES.push(o);}
+  closeM();render();toast('Saved (demo)');}
+function delPath(i){PATHS.splice(i,1);if(SEL===i)SEL=null;else if(SEL!=null&&SEL>i)SEL--;render();toast('Path removed (demo)');}
+function delRule(i){RULES.splice(i,1);render();toast('Rule removed (demo)');}
 function closeM(){document.getElementById('ov').classList.remove('open');}
 function jump(s){if(s.value)location.href=s.value;}
-buildHead();render();
+render();
 </script>
 <script>
 function msToggle(e){e.preventDefault();e.stopPropagation();var g=document.getElementById('msGroup');if(g)g.classList.toggle('open');}

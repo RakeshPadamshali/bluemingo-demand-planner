@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Bluemingo MES v2 — Certificates / MTC</title>
+<title>Lab Worklist — Bluemingo MES v2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -55,6 +55,7 @@ button{font-family:inherit;cursor:pointer;}
 .b-draft{background:rgba(158,158,158,.14);color:#757575;} .b-info{background:rgba(33,150,243,.12);color:#2196f3;}
 .b-pend{background:rgba(255,152,0,.12);color:#ef6c00;} .b-done{background:rgba(76,175,80,.12);color:#388e3c;}
 .b-hold{background:rgba(244,67,54,.12);color:#c62828;} .b-clr{background:rgba(103,58,183,.12);color:#673ab7;}
+/* filter bar */
 .filterbar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp2);margin-bottom:var(--sp3);}
 .filterbar .lbl{font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.4px;color:var(--color-text-muted);font-weight:600;}
 .fsearch{position:relative;}
@@ -63,11 +64,12 @@ button{font-family:inherit;cursor:pointer;}
 .filterbar select{padding:7px 10px;border:1px solid #ddd;border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;}
 .filterbar input:focus,.filterbar select:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 2px rgba(var(--color-primary-rgb),.15);}
 .filterbar .meta{margin-left:auto;font-size:var(--fs-sm);color:var(--color-text-muted);}
+/* card + table */
 .card{background:#fff;border:1px solid var(--color-border);border-radius:var(--r-lg);display:flex;flex-direction:column;min-height:0;overflow:hidden;flex:1;}
 .tbl-wrap{overflow:auto;flex:1;min-height:0;}
 table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
-.tbl thead th{position:sticky;top:0;background:#f0f4f7;z-index:2;text-align:left;font-size:var(--fs-xs);font-weight:600;text-transform:uppercase;letter-spacing:.3px;color:var(--color-text-muted);padding:9px 10px;white-space:nowrap;border-bottom:1px solid var(--color-border);cursor:pointer;user-select:none;}
-.tbl thead th.num{text-align:right;} .tbl thead th .car{font-size:9px;color:#bbb;margin-left:3px;} .tbl thead th .car.on{color:var(--color-primary);}
+.tbl thead th{position:sticky;top:0;background:#f0f4f7;z-index:2;text-align:left;font-size:var(--fs-xs);font-weight:600;text-transform:uppercase;letter-spacing:.3px;color:var(--color-text-muted);padding:9px 10px;white-space:nowrap;border-bottom:1px solid var(--color-border);user-select:none;}
+.tbl thead th.num{text-align:right;}
 .tbl tbody td{padding:5px 10px;border-bottom:1px solid #f3f3f3;white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis;}
 .tbl tbody tr:nth-child(even) td{background:#fafbfc;} .tbl tbody tr:hover td{background:#eef7fc;}
 .tbl td.mono,.tbl th.mono{font-variant-numeric:tabular-nums;}
@@ -80,40 +82,20 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 /* modal */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:1000;}
 .overlay.open{display:flex;}
-.modal{background:#fff;border-radius:var(--r-lg);width:840px;max-width:95vw;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 4px 20px rgba(0,0,0,.15);}
-.modal.sm{width:520px;}
-.modal-head{padding:14px 20px;border-bottom:1px solid var(--color-border-light);font-size:var(--fs-md);font-weight:600;display:flex;justify-content:space-between;align-items:center;}
+.modal{background:#fff;border-radius:var(--r-lg);width:660px;max-width:94vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 4px 20px rgba(0,0,0,.15);}
+.modal.sm{width:500px;}
+.modal-head{padding:16px 20px;border-bottom:1px solid var(--color-border-light);font-size:var(--fs-md);font-weight:600;display:flex;justify-content:space-between;align-items:center;}
 .modal-head .x{color:var(--color-text-hint);cursor:pointer;}
 .modal-body{padding:20px;overflow:auto;}
 .mgrid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp3) var(--sp4);}
 .fld label{display:block;font-size:var(--fs-sm);font-weight:500;color:var(--color-text-secondary);margin-bottom:4px;}
-.fld input,.fld select{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;}
-.fld input:focus,.fld select:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px rgba(var(--color-primary-rgb),.15);}
+.fld input,.fld select,.fld textarea{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px rgba(var(--color-primary-rgb),.15);}
+.fld.full{grid-column:1/-1;}
+.prep-ctx{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:var(--sp3);}
+.prep-ctx .chip{font-size:var(--fs-sm);background:var(--color-bg-alt);border:1px solid var(--color-border);border-radius:var(--r-sm);padding:3px 8px;}
+.prep-ctx .chip b{color:var(--color-text-primary);}
 .modal-foot{padding:14px 20px;border-top:1px solid var(--color-border-light);display:flex;justify-content:flex-end;gap:var(--sp3);}
-/* ===== MTC document ===== */
-.mtc{border:1px solid #888;padding:18px 20px;font-size:12px;color:#222;background:#fff;}
-.mtc-top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #333;padding-bottom:10px;margin-bottom:10px;}
-.mtc-top .co{font-size:16px;font-weight:700;}
-.mtc-top .co small{display:block;font-size:10px;font-weight:400;color:#666;}
-.mtc-top .ti{text-align:right;}
-.mtc-top .ti .t1{font-size:14px;font-weight:700;letter-spacing:.5px;}
-.mtc-top .ti .t2{font-size:10px;color:#666;}
-.mtc-meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px 0;border:1px solid #ccc;margin-bottom:12px;}
-.mtc-meta div{padding:4px 8px;border-bottom:1px solid #eee;font-size:11px;}
-.mtc-meta div b{color:#000;}
-.mtc-meta div span{color:#666;display:block;font-size:9px;text-transform:uppercase;letter-spacing:.3px;}
-.mtc-sec{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;background:#f0f4f7;border:1px solid #ccc;border-bottom:none;padding:4px 8px;}
-.mtc-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px;}
-.mtc-table th,.mtc-table td{border:1px solid #ccc;padding:3px 6px;text-align:center;font-variant-numeric:tabular-nums;}
-.mtc-table th{background:#fafafa;font-weight:600;}
-.mtc-table td.lbl{text-align:left;background:#fafafa;font-weight:500;white-space:nowrap;}
-.mtc-table td.bad{color:#c62828;font-weight:700;}
-.mtc-remarks{font-size:11px;border:1px solid #ccc;padding:6px 8px;margin-bottom:12px;}
-.mtc-remarks b{display:block;font-size:10px;text-transform:uppercase;color:#666;margin-bottom:3px;}
-.mtc-decl{font-size:10.5px;color:#444;font-style:italic;border-top:1px dashed #bbb;padding-top:8px;margin-bottom:16px;}
-.mtc-sign{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;}
-.mtc-sign div{font-size:11px;text-align:center;padding-top:26px;border-top:1px solid #333;color:#444;}
-.mtc-sign div b{display:block;color:#000;}
 
 .sidebar .ms-chev{margin-left:auto;font-size:10px;width:auto!important;padding:3px 4px;border-radius:3px;transition:transform .15s;color:rgba(255,255,255,.4);}
 .sidebar .ms-chev:hover{background:rgba(255,255,255,.15);color:#fff;}
@@ -148,22 +130,35 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .sidebar .navgrp.collapsed>.s-group .gchev{transform:rotate(-90deg);}
 .sidebar .navgrp.collapsed .grp-items{display:none;}
 
-.vrow{display:flex;justify-content:space-between;gap:18px;padding:8px 2px;border-bottom:1px solid var(--color-border-light);font-size:13px;align-items:center;}
-.vrow:last-child{border-bottom:none;}
-.vrow .vk{color:var(--color-text-muted);font-weight:500;white-space:nowrap;}
-.vrow .vv{text-align:right;color:var(--color-text-primary);}
-.vrow .vv .btn-icon{display:none;}
-
-/* ===== print: render ONLY the MTC document (hide app chrome + modal chrome) ===== */
-@media print{
-  .app,.tabmenu,#genOverlay,#viewOv{display:none!important;}
-  #mtcOverlay.open{position:static;inset:auto;display:block;background:none;z-index:auto;}
-  #mtcOverlay .modal{width:auto;max-width:100%;max-height:none;box-shadow:none;border-radius:0;}
-  #mtcOverlay .modal-head,#mtcOverlay .modal-foot{display:none!important;}
-  #mtcOverlay .modal-body{padding:0;overflow:visible;}
-  #mtcOverlay .mtc{border:none;}
-  html,body{background:#fff;}
-}
+/* ===== Lab Worklist (§27.1) page-specific — all classes/ids prefixed lw- ===== */
+.lw-cards{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:var(--sp3);margin-bottom:var(--sp3);}
+.lw-card{background:#fff;border:1px solid var(--color-border);border-radius:var(--r-md);padding:10px 14px;display:flex;flex-direction:column;gap:2px;}
+.lw-card .lw-klbl{font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.4px;color:var(--color-text-muted);font-weight:600;display:flex;align-items:center;gap:6px;}
+.lw-card .lw-klbl i{color:var(--color-primary);font-size:11px;}
+.lw-card .lw-knum{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;}
+.lw-card.lw-red .lw-knum{color:var(--color-danger);}
+.lw-card.lw-red .lw-klbl i{color:var(--color-danger);}
+.lw-legend{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:var(--sp3);font-size:var(--fs-sm);color:var(--color-text-muted);}
+.lw-lchip{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--color-border);border-radius:999px;padding:3px 10px;font-size:var(--fs-xs);font-weight:600;letter-spacing:.3px;color:var(--color-text-secondary);}
+.lw-lchip .lw-dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+.lw-dot-on{background:#43a047;} .lw-dot-due{background:#f9a825;} .lw-dot-over{background:#d32f2f;}
+.lw-band{display:inline-block;padding:2px 8px;border-radius:var(--r-sm);font-size:var(--fs-xs);font-weight:700;letter-spacing:.3px;white-space:nowrap;}
+.lw-band-on{background:rgba(67,160,71,.13);color:#2e7d32;}
+.lw-band-due{background:rgba(249,168,37,.16);color:#b26a00;}
+.lw-band-over{background:rgba(211,47,47,.13);color:#c62828;}
+.lw-tests{display:flex;flex-wrap:wrap;gap:3px;max-width:340px;}
+.lw-tchip{display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:9px;font-size:10px;font-weight:700;letter-spacing:.3px;border:1px solid transparent;cursor:default;}
+.lw-t-pass{background:rgba(76,175,80,.13);color:#2e7d32;border-color:rgba(76,175,80,.3);}
+.lw-t-prog{background:rgba(33,150,243,.12);color:#1565c0;border-color:rgba(33,150,243,.3);}
+.lw-t-pend{background:rgba(158,158,158,.13);color:#757575;border-color:rgba(158,158,158,.3);}
+.lw-t-fail{background:rgba(244,67,54,.13);color:#c62828;border-color:rgba(244,67,54,.35);}
+.lw-clr{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:.3px;background:rgba(103,58,183,.12);color:#673ab7;border:1px solid rgba(103,58,183,.3);cursor:pointer;}
+.lw-clr:hover{background:rgba(103,58,183,.2);}
+.lw-pcr{margin-left:6px;vertical-align:middle;}
+.lw-plan-old{color:var(--color-text-hint);text-decoration:line-through;font-size:var(--fs-xs);margin-right:5px;}
+.lw-note{display:flex;gap:10px;align-items:flex-start;background:var(--color-primary-light);border:1px solid #b3e5fc;border-radius:var(--r-sm);padding:9px 14px;margin-top:var(--sp3);font-size:var(--fs-sm);color:var(--color-text-secondary);flex:none;}
+.lw-note i{color:var(--color-primary-dark);margin-top:2px;}
+.lw-note code{background:rgba(37,169,224,.12);border-radius:3px;padding:0 4px;font-size:11px;color:#1E8FBF;}
 </style>
 </head>
 <body>
@@ -171,7 +166,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
   <header class="header">
     <div class="logo"><span class="dot"><i class="fa-solid fa-feather"></i></span> Bluemingo MES v2</div>
     <div class="module">Quality</div><div class="spacer"></div>
-    <div class="h-search"><i class="fa-solid fa-magnifying-glass"></i><input placeholder="Search TC, heat…" /></div>
+    <div class="h-search"><i class="fa-solid fa-magnifying-glass"></i><input placeholder="Search heat / batch…" /></div>
     <div class="avatar">QA</div>
   </header>
       <nav class="sidebar">
@@ -188,12 +183,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="pit-cooling.html"><i class="fa-solid fa-temperature-arrow-down"></i> Pit Cooling</a>
         <a href="sample-issue.html"><i class="fa-solid fa-vials"></i> Sampling</a>
         <a href="test-entry.html"><i class="fa-solid fa-flask"></i> Testing</a>
-        <a href="lab-worklist.html"><i class="fa-solid fa-microscope"></i> Lab Worklist</a>
+        <a href="lab-worklist.html" class="active"><i class="fa-solid fa-microscope"></i> Lab Worklist</a>
         <a href="defect-mapping.html"><i class="fa-solid fa-triangle-exclamation"></i> Defects</a>
         <a href="clearance.html"><i class="fa-solid fa-circle-check"></i> Clearance</a>
         <a href="usage-decision.html"><i class="fa-solid fa-gavel"></i> Usage Decision</a>
         <a href="salvage-ncr.html"><i class="fa-solid fa-screwdriver-wrench"></i> Salvage &amp; NCR</a>
-        <a href="certificate.html" class="active"><i class="fa-solid fa-certificate"></i> Certificates</a>
+        <a href="certificate.html"><i class="fa-solid fa-certificate"></i> Certificates</a>
       </div>
     </div>
     <div class="navgrp" data-g="Equipment">
@@ -248,178 +243,270 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
   <main class="content">
     <div class="tabbar" id="tabbar"></div>
     <div class="page-head">
-      <div><h1>Certificates / MTC</h1><div class="sub">Generate the Mill Test Certificate from heat chemistry + test results against the TDC — spec vs actual, in the customer's format</div></div>
-      <button class="btn btn-primary btn-sm" onclick="openGen()"><i class="fa-solid fa-plus"></i> Generate MTC</button>
+      <div><h1>MM Lab Worklist</h1><div class="sub">Everything the M&amp;M lab owes — test status per lot, plan dates from Mills QA, aging bands, plan-change requests (MM 3/MM 4, §27.1)</div></div>
     </div>
-    <div class="filterbar">
+    <div class="lw-cards">
+      <div class="lw-card" title="Lots whose Mills-QA plan date is today (SOW 16, §27.1)"><span class="lw-klbl"><i class="fa-solid fa-calendar-day"></i> Due today</span><span class="lw-knum" id="lwCDue">0</span></div>
+      <div class="lw-card lw-red" title="Lots past the Mills-QA plan date — backlog, sorted on top (SOW 16, §27.1)"><span class="lw-klbl"><i class="fa-solid fa-triangle-exclamation"></i> Overdue</span><span class="lw-knum" id="lwCOver">0</span></div>
+      <div class="lw-card" title="Required tests not yet completed across the worklist — per-lot test-status matrix (SOW 14, §27.1)"><span class="lw-klbl"><i class="fa-solid fa-flask"></i> Pending tests</span><span class="lw-knum" id="lwCPend">0</span></div>
+      <div class="lw-card" title="Plan-change requests awaiting a Mills-QA response — mes_qc_plan_change_request, status REQUESTED (SOW 17, §27.1/§27.7)"><span class="lw-klbl"><i class="fa-solid fa-calendar-pen"></i> Plan-change requests open</span><span class="lw-knum" id="lwCPcr">0</span></div>
+    </div>
+    <div class="filterbar" title="Total production reaching the lab, filterable by order / grade / customer / heat / product / supply condition (SOW 13, §27.1)">
       <span class="lbl">Filters</span>
-      <div class="fsearch"><i class="fa-solid fa-magnifying-glass"></i><input id="search" placeholder="TC / heat / UID / customer / grade…" oninput="render()"/></div>
-      <select id="fStatus" onchange="render()"><option value="">All statuses</option></select>
-      <select id="fCustomer" onchange="render()"><option value="">All customers</option></select>
-      <select id="fGrade" onchange="render()"><option value="">All grades</option></select>
-      <span class="meta" id="meta"></span>
+      <div class="fsearch"><i class="fa-solid fa-magnifying-glass"></i><input id="lwSearch" placeholder="Heat / batch / order…" oninput="lwRender()"/></div>
+      <select id="lwFGrade" onchange="lwRender()"><option value="">All grades</option></select>
+      <select id="lwFCust" onchange="lwRender()"><option value="">All customers</option></select>
+      <select id="lwFForm" onchange="lwRender()"><option value="">All product forms</option></select>
+      <select id="lwFCond" onchange="lwRender()"><option value="">All supply conditions</option></select>
+      <select id="lwFBand" onchange="lwRender()" title="Aging band computed against the Mills-QA plan date (SOW 16, §27.1)"><option value="">All aging bands</option><option>ON-PLAN</option><option>DUE-TODAY</option><option>OVERDUE</option></select>
+      <span class="meta" id="lwMeta"></span>
+    </div>
+    <div class="lw-legend" title="Aging computed against the Mills-QA plan date (SOW 16, §27.1)">
+      <span class="lbl" style="font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.4px;font-weight:600;">Aging</span>
+      <span class="lw-lchip"><span class="lw-dot lw-dot-on"></span> ON-PLAN</span>
+      <span class="lw-lchip"><span class="lw-dot lw-dot-due"></span> DUE-TODAY</span>
+      <span class="lw-lchip"><span class="lw-dot lw-dot-over"></span> OVERDUE</span>
+      <span style="font-size:var(--fs-xs);color:var(--color-text-hint);">· demo clock 04-Sep-2026</span>
     </div>
     <div class="card">
-      <div class="tbl-wrap"><table class="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
-      <div class="pager"><span id="rowCount"></span></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr>
+        <th class="mono">Heat</th>
+        <th class="mono">Batch</th>
+        <th>Grade</th>
+        <th>Product</th>
+        <th>Customer</th>
+        <th>Supply cond.</th>
+        <th title="Plan date set by Mills QA — mes_qc_sample.plan_date (SOW 15, §27.1)">Plan date</th>
+        <th title="Aging band vs the Mills-QA plan date; rows sort backlog-first — OVERDUE on top (SOW 16, §27.1)">Aging</th>
+        <th title="Per-test status matrix — each required test with state and actual completion date (SOW 14, §27.1)">Tests</th>
+        <th class="num" title="Completed tests / required tests (v_qc_lab_worklist, §27.6)">Done</th>
+        <th class="col-actions"></th>
+      </tr></thead><tbody id="lwTbody"></tbody></table></div>
+      <div class="pager"><span id="lwRowCount"></span></div>
     </div>
+    <div class="lw-note"><i class="fa-solid fa-circle-info"></i><span>This view is the M&amp;M production report — <code>v_qc_lab_worklist</code> (§27.6); actual completion dates update automatically from test clearances (SOW 14/28).</span></div>
   </main>
 </div>
-
-<!-- MTC preview modal -->
-<div class="overlay" id="mtcOverlay">
-  <div class="modal">
-    <div class="modal-head">Mill Test Certificate — Preview <span class="x" onclick="closeMtc()"><i class="fa-solid fa-xmark"></i></span></div>
-    <div class="modal-body"><div class="mtc" id="mtcDoc"></div></div>
+<!-- Plan-change request modal (mes_qc_plan_change_request, SOW 17, §27.1) -->
+<div class="overlay" id="lwPcOv">
+  <div class="modal sm">
+    <div class="modal-head">Plan-change request → Mills QA <span class="x" onclick="lwClosePc()"><i class="fa-solid fa-xmark"></i></span></div>
+    <div class="modal-body">
+      <div class="prep-ctx" id="lwPcCtx"></div>
+      <div class="mgrid">
+        <div class="fld"><label>Current plan date</label><input id="lwPcCur" readonly title="Plan date set by Mills QA — mes_qc_sample.plan_date (SOW 15, §27.1)"/></div>
+        <div class="fld"><label>Tentative completion date <span style="color:var(--color-danger)">*</span></label><input id="lwPcDate" type="date" title="mes_qc_plan_change_request.tentative_date (SOW 17, §27.1)"/></div>
+        <div class="fld full"><label>Reason <span style="color:var(--color-danger)">*</span></label><textarea id="lwPcReason" rows="3" placeholder="Why the plan date cannot be met — e.g. UTM breakdown, specimen re-machining, furnace queue…" title="mes_qc_plan_change_request.reason — mandatory (SOW 17, §27.1)"></textarea></div>
+      </div>
+    </div>
     <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeMtc()">Close</button>
-      <button class="btn btn-ghost" onclick="window.print()"><i class="fa-solid fa-print"></i> Print</button>
-      <button class="btn btn-primary" onclick="closeMtc()"><i class="fa-solid fa-paper-plane"></i> Issue &amp; sign</button>
+      <button class="btn btn-ghost" onclick="lwClosePc()">Cancel</button>
+      <button class="btn btn-primary" onclick="lwSendPc()" title="Raises QA_LAB_PLAN_CHANGE to Mills QA; acceptance re-stamps the plan date (§27.1/§27.7)"><i class="fa-solid fa-paper-plane"></i> Send request</button>
     </div>
   </div>
 </div>
 
-<!-- Generate modal -->
-<div class="overlay" id="genOverlay">
+<!-- Additional-sample request dialog (lab-side resample without a failed test, SOW 18, §27.1) -->
+<div class="overlay" id="lwAsOv">
   <div class="modal sm">
-    <div class="modal-head">Generate MTC <span class="x" onclick="closeGen()"><i class="fa-solid fa-xmark"></i></span></div>
+    <div class="modal-head">Additional-sample request <span class="x" onclick="lwCloseAs()"><i class="fa-solid fa-xmark"></i></span></div>
     <div class="modal-body">
+      <div class="prep-ctx" id="lwAsCtx"></div>
       <div class="mgrid">
-        <div class="fld full"><label>Heat / lot</label><select id="gHeat"></select></div>
-        <div class="fld"><label>Certificate type</label><select id="gType"><option>EN 10204 3.1</option><option>EN 10204 3.2</option><option>EN 10204 2.2</option></select></div>
-        <div class="fld"><label>Customer</label><select id="gCustomer"></select></div>
+        <div class="fld full"><label>Reason <span style="color:var(--color-danger)">*</span></label>
+          <select id="lwAsReason" title="Distinct lab-side reason vocabulary — not the failed-test resample loop (SOW 18, §27.1)">
+            <option value="">— select —</option>
+            <option>Quality reject (prep / specimen)</option>
+            <option>Extra test</option>
+            <option>Customer requirement</option>
+          </select>
+        </div>
+        <div class="fld full"><label>Note (optional)</label><input id="lwAsNote" placeholder="e.g. burnt edge on specimen — re-draw from same billet end"/></div>
       </div>
-      <div style="font-size:12px;color:#666;margin-top:12px"><i class="fa-solid fa-circle-info"></i> The MTC pulls TDC characteristics flagged <b>print</b>, joins heat chemistry + test actuals, and renders spec-vs-actual.</div>
+      <div style="font-size:var(--fs-xs);color:var(--color-text-hint);margin-top:8px;">The re-drawn sample re-links to this plan line; QA_SAMPLE_ID_CREATED notifies the Sample Cutter &amp; Collector (§27.7).</div>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeGen()">Cancel</button>
-      <button class="btn btn-primary" onclick="genMtc()"><i class="fa-solid fa-file-circle-check"></i> Build &amp; preview</button>
+      <button class="btn btn-ghost" onclick="lwCloseAs()">Cancel</button>
+      <button class="btn btn-primary" onclick="lwSendAs()"><i class="fa-solid fa-vial"></i> Raise request</button>
     </div>
   </div>
 </div>
 
 <script>
-const STATUSES=['DRAFT','ISSUED','SIGNED','SENT','CANCELLED'];
-const STB={'DRAFT':'b-draft','ISSUED':'b-info','SIGNED':'b-clr','SENT':'b-done','CANCELLED':'b-hold'};
-const CUSTOMERS=['Ambica Steels','JSW Steel','Bharat Forge','L&T Valves'];
-const GRADES=['316L','17-4PH','304L','416'];
-/* MTC chemical lines come from the Element master (mes_qc_element §5.10) — CHEM_DICT source = element master;
-   mechanical lines from the Characteristic dictionary (mes_global_attributes). Spec = the APPLIED TDC limits
-   flagged print; actual = heat chemistry + mechanical test results. (Mock data below bundles spec + actual per grade.) */
-const CHEM_DICT={C:'Carbon',Si:'Silicon',Mn:'Manganese',P:'Phosphorus',S:'Sulphur',Cr:'Chromium',Ni:'Nickel',Mo:'Molybdenum',N:'Nitrogen',Cu:'Copper',Nb:'Niobium'};
-const GRADE_DATA={
- '316L':{chem:[['C',0,0.030,0.022],['Si',0,1.00,0.45],['Mn',0,2.00,1.62],['P',0,0.045,0.031],['S',0,0.030,0.004],['Cr',16.0,18.0,16.8],['Ni',10.0,14.0,10.4],['Mo',2.0,3.0,2.1],['N',0,0.10,0.04]],
-   mech:[['Yield Strength Rp0.2','N/mm²','≥170',285],['Tensile Strength Rm','N/mm²','≥485',595],['Elongation A','%','≥40',52],['Reduction of Area','%','≥50',68],['Hardness','HRB','≤95',84]]},
- '17-4PH':{chem:[['C',0,0.07,0.045],['Si',0,1.00,0.62],['Mn',0,1.00,0.71],['P',0,0.040,0.028],['S',0,0.030,0.005],['Cr',15.0,17.5,15.8],['Ni',3.0,5.0,4.3],['Cu',3.0,5.0,3.4],['Nb',0.15,0.45,0.28]],
-   mech:[['Yield Strength Rp0.2','N/mm²','≥795',865],['Tensile Strength Rm','N/mm²','≥965',1010],['Elongation A','%','≥10',16],['Reduction of Area','%','≥45',54],['Hardness','HRC','≤36',33]]},
- '304L':{chem:[['C',0,0.030,0.019],['Si',0,1.00,0.42],['Mn',0,2.00,1.55],['P',0,0.045,0.029],['S',0,0.030,0.003],['Cr',18.0,20.0,18.4],['Ni',8.0,12.0,8.6],['N',0,0.10,0.05]],
-   mech:[['Yield Strength Rp0.2','N/mm²','≥170',295],['Tensile Strength Rm','N/mm²','≥485',610],['Elongation A','%','≥40',55],['Reduction of Area','%','≥50',70],['Hardness','HRB','≤92',82]]},
- '416':{chem:[['C',0.08,0.15,0.12],['Si',0,1.00,0.55],['Mn',0,1.25,0.92],['P',0,0.060,0.022],['S',0.15,0.35,0.27],['Cr',12.0,14.0,12.8]],
-   mech:[['Yield Strength Rp0.2','N/mm²','≥415',585],['Tensile Strength Rm','N/mm²','≥620',758],['Elongation A','%','≥18',22],['Reduction of Area','%','≥45',52],['Hardness','HRC','24–32',28]]}
-};
-const REMARKS='Material manufactured by Electric Arc Furnace + AOD route, fully killed. Free from mercury contamination. Marking: heat no. + grade + Bluemingo logo. Colour code as per TDC.';
+/* ============================================================
+   §27.1 — MM Lab worklist & planning (JSW MM Lab SOW 13–18, 27–28, 45–46).
+   One row per lot / sample group: per-test status matrix (SOW 14),
+   Mills-QA plan date (mes_qc_sample.plan_date, SOW 15), aging bands
+   vs plan date, backlog-first (SOW 16), plan-change requests to
+   Mills QA (mes_qc_plan_change_request + QA_LAB_PLAN_CHANGE, SOW 17,
+   §27.7), additional-sample requests (SOW 18), and the testing-
+   clearance hook once all tests complete (§27.4/§10; SOW 27–28, 45–46).
+   Backed by report view v_qc_lab_worklist (§27.6).
+   ============================================================ */
+var LW_TODAY='2026-09-04';           /* fixed demo clock so aging renders deterministically */
+var LW_MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function lwFmtD(iso){var p=iso.split('-');return p[2]+'-'+LW_MONS[+p[1]-1];}
+function lwDays(a,b){return Math.round((new Date(b)-new Date(a))/86400000);}
+function lwBand(r){var d=lwDays(LW_TODAY,r.plan);if(d<0)return 'OVERDUE';if(d===0)return 'DUE-TODAY';return 'ON-PLAN';}
 
-const CERTS=[
- {tc:'TC-2526-0488',date:'2026-06-24',type:'EN 10204 3.1',heat:'2526-16783',uid:'A002668',grade:'316L',customer:'Ambica Steels',so:'SO-2526-0712',wo:'FPO-2526-0344',std:'ASTM A276',size:'23 Hex',form:'Hex Bar',qty:12.2,htc:'Solution Annealed',status:'ISSUED',by:'A. Mehta'},
- {tc:'TC-2526-0489',date:'2026-06-24',type:'EN 10204 3.1',heat:'2526-16496',uid:'B030268',grade:'17-4PH',customer:'JSW Steel',so:'SO-2526-0708',wo:'FPO-2526-0341',std:'ASTM A564',size:'68 Dia',form:'Round Bar',qty:18.6,htc:'H1150',status:'SIGNED',by:'A. Mehta'},
- {tc:'TC-2526-0486',date:'2026-06-23',type:'EN 10204 3.1',heat:'2526-16798',uid:'E122319',grade:'304L',customer:'Ambica Steels',so:'SO-2526-0705',wo:'FPO-2526-0339',std:'ASTM A276',size:'40 Dia',form:'Round Bar',qty:9.8,htc:'Annealed',status:'SENT',by:'R. Iyer'},
- {tc:'TC-2526-0490',date:'2026-06-24',type:'EN 10204 3.2',heat:'2526-16482',uid:'B030840',grade:'416',customer:'Bharat Forge',so:'SO-2526-0714',wo:'FPO-2526-0345',std:'ASTM A582',size:'26 Dia',form:'Round Bar',qty:20.5,htc:'Q&T (T)',status:'DRAFT',by:'R. Iyer'},
- {tc:'TC-2526-0491',date:'2026-06-24',type:'EN 10204 3.1',heat:'2526-16819',uid:'B031104',grade:'316L',customer:'Ambica Steels',so:'SO-2526-0716',wo:'FPO-2526-0347',std:'ASTM A276',size:'19 Hex',form:'Hex Bar',qty:6.4,htc:'Solution Annealed',status:'DRAFT',by:'A. Mehta'},
- {tc:'TC-2526-0485',date:'2026-06-22',type:'EN 10204 3.1',heat:'2526-16480',uid:'E120774',grade:'304L',customer:'L&T Valves',so:'SO-2526-0701',wo:'FPO-2526-0336',std:'ASTM A479',size:'32 Dia',form:'Round Bar',qty:14.2,htc:'Annealed',status:'SENT',by:'R. Iyer'},
- {tc:'TC-2526-0492',date:'2026-06-24',type:'EN 10204 3.1',heat:'2526-16496',uid:'B030269',grade:'17-4PH',customer:'JSW Steel',so:'SO-2526-0709',wo:'FPO-2526-0342',std:'ASTM A564',size:'68 Dia',form:'Round Bar',qty:7.2,htc:'H1075',status:'DRAFT',by:'A. Mehta'}
+/* Test states: PASS / INPROG / PENDING / FAIL (SOW 14). d = actual completion date from the test clearance. */
+var LW_ROWS=[
+ {heat:'2526-16482',batch:'B030840',order:'FPO-26-0412',grade:'304L',form:'Bar',cust:'Ambica Steels',cond:'Annealed',plan:'2026-09-02',pcr:null,
+  tests:[{c:'TEN',n:'Tensile (YS/UTS/Elong)',s:'PASS',d:'2026-09-01'},{c:'HRD',n:'Hardness (HBW)',s:'PASS',d:'2026-09-01'},{c:'IMP',n:'Impact (Charpy)',s:'INPROG'},{c:'INCL',n:'Inclusion rating (ASTM E45 A/B/C/D)',s:'PENDING'},{c:'JOM',n:'Jominy hardenability (J1.5–J50)',s:'PENDING'}]},
+ {heat:'2526-16493',batch:'B030068',order:'FPO-26-0418',grade:'316L',form:'RCS',cust:'JSW Salem',cond:'As Rolled',plan:'2026-09-03',pcr:null,
+  tests:[{c:'TEN',n:'Tensile (YS/UTS/Elong)',s:'PASS',d:'2026-09-02'},{c:'HRD',n:'Hardness (HBW)',s:'FAIL',d:'2026-09-03'},{c:'MIC',n:'Micro-structure (qualitative)',s:'INPROG'}]},
+ {heat:'2526-16495',batch:'E120636',order:'FPO-26-0421',grade:'416',form:'Coil',cust:'Viraj Profiles',cond:'Spheroidize Annealed',plan:'2026-09-04',pcr:null,
+  tests:[{c:'TEN',n:'Coil tensile (3–12/heat rule)',s:'INPROG'},{c:'HRD',n:'Hardness (HRBW)',s:'PASS',d:'2026-09-03'},{c:'DEC',n:'Decarburization depth (total/partial, mm)',s:'PENDING'}]},
+ {heat:'2526-16426',batch:'E120808',order:'FPO-26-0399',grade:'17-4PH',form:'Bar',cust:'Sunflag Iron',cond:'Solution Annealed (HT-16)',plan:'2026-09-04',pcr:null,
+  tests:[{c:'TEN',n:'Tensile (YS/UTS/Elong)',s:'PASS',d:'2026-09-02'},{c:'HRD',n:'Hardness (HRC)',s:'PASS',d:'2026-09-02'},{c:'IMP',n:'Impact (Charpy)',s:'PASS',d:'2026-09-03'},{c:'INCL',n:'Inclusion rating (ASTM E45)',s:'INPROG'}]},
+ {heat:'2526-16776',batch:'E121717',order:'FPO-26-0433',grade:'X46Cr13',form:'Flat',cust:'Mukand Ltd',cond:'Hardened & Tempered',plan:'2026-09-06',
+  pcr:{status:'REQUESTED',to:'2026-09-09',why:'Jominy furnace under maintenance'},
+  tests:[{c:'JOM',n:'Jominy hardenability (J1.5–J50)',s:'PENDING'},{c:'HRD',n:'Hardness (HV)',s:'PENDING'},{c:'GS',n:'Grain size (ASTM No.)',s:'PENDING'}]},
+ {heat:'2526-16798',batch:'E122319',order:'FPO-26-0436',grade:'304L',form:'Bar',cust:'Ambica Steels',cond:'Bright (Cold Drawn)',plan:'2026-09-05',
+  pcr:{status:'ACCEPTED',from:'2026-09-03',to:'2026-09-05',why:'UTM calibration day'},
+  tests:[{c:'TEN',n:'Tensile (YS/UTS/Elong)',s:'PASS',d:'2026-09-03'},{c:'HRD',n:'Hardness (HBW)',s:'INPROG'}]},
+ {heat:'2526-16866',batch:'E121724',order:'FPO-26-0440',grade:'316L',form:'RCS',cust:'JSW Salem',cond:'As Rolled',plan:'2026-09-08',pcr:null,
+  tests:[{c:'TEN',n:'Tensile (YS/UTS/Elong)',s:'PENDING'},{c:'INCL',n:'Inclusion rating (ASTM E45)',s:'PENDING'},{c:'MIC',n:'Micro-structure (qualitative)',s:'PENDING'},{c:'DEC',n:'Decarburization depth (mm)',s:'PENDING'}]},
+ {heat:'2526-16030',batch:'E122956',order:'FPO-26-0407',grade:'416',form:'Bar',cust:'Viraj Profiles',cond:'Annealed',plan:'2026-09-04',pcr:null,
+  tests:[{c:'TEN',n:'Tensile (YS/UTS/Elong)',s:'PASS',d:'2026-09-03'},{c:'HRD',n:'Hardness (HRBW)',s:'PASS',d:'2026-09-03'},{c:'IMP',n:'Impact (Charpy)',s:'PASS',d:'2026-09-04'}]}
 ];
 
-const COLS=[
- {k:'tc',label:'TC No',cls:'mono'},{k:'date',label:'Date'},{k:'type',label:'Type'},{k:'heat',label:'Heat No',cls:'mono'},{k:'uid',label:'UID',cls:'mono'},
- {k:'grade',label:'Grade'},{k:'customer',label:'Customer'},{k:'wo',label:'Work Order',cls:'mono'},{k:'std',label:'Standard'},
- {k:'size',label:'Size'},{k:'qty',label:'Qty(MT)',cls:'num'},{k:'status',label:'Status',badge:true},{k:'by',label:'Prepared by'},
- {k:'actions',label:'',actions:true}
-];
-let sortKey=null,sortDir=1;
+var LW_ST={PASS:{cls:'lw-t-pass',g:'✓',lbl:'PASS'},INPROG:{cls:'lw-t-prog',g:'⏳',lbl:'IN PROG'},PENDING:{cls:'lw-t-pend',g:'○',lbl:'PENDING'},FAIL:{cls:'lw-t-fail',g:'✗',lbl:'FAIL'}};
+var LW_BANDCLS={'ON-PLAN':'lw-band-on','DUE-TODAY':'lw-band-due','OVERDUE':'lw-band-over'};
+var lwCurPc=-1,lwCurAs=-1;
 
-function fill(sel,arr){document.getElementById(sel).insertAdjacentHTML('beforeend',arr.map(o=>`<option>${o}</option>`).join(''));}
-function cell(c,r,i){
-  if(c.actions) return `<button class="btn-icon" title="Preview MTC" onclick="openMtc(${i})"><i class="fa-solid fa-file-lines"></i></button>`+
-                       `<button class="btn-icon" title="Print" onclick="openMtc(${i})"><i class="fa-solid fa-print"></i></button>`+
-                       `<button class="btn-icon" title="View" onclick="openViewEl(${i})"><i class="fa-solid fa-eye"></i></button>`;
-  if(c.badge) return `<span class="badge ${STB[r.status]}">${r.status}</span>`;
-  let v=r[c.k]; if(c.k==='qty')v=(+v).toFixed(1); if(v===''||v==null)v='-'; return v;
+function lwFill(id,vals){document.getElementById(id).insertAdjacentHTML('beforeend',vals.map(function(v){return '<option>'+v+'</option>';}).join(''));}
+function lwDone(r){return r.tests.filter(function(t){return t.s==='PASS';}).length;}
+function lwTestChip(t){
+  var st=LW_ST[t.s];
+  var tip=t.n+' — '+st.lbl+(t.s==='PASS'?', completed '+lwFmtD(t.d):(t.s==='FAIL'?' on '+lwFmtD(t.d)+' — per-test decision on the test record (§27.4)':''))+' (actual state/date from the test clearance, SOW 14, §27.1)';
+  return '<span class="lw-tchip '+st.cls+'" title="'+tip+'" onclick="lwDrill(\''+t.c+'\')">'+t.c+' '+st.g+'</span>';
 }
-function cmp(a,b){return (''+(a??'')).localeCompare(''+(b??''),undefined,{numeric:true,sensitivity:'base'});}
-function passes(r){
-  const q=(document.getElementById('search').value||'').toLowerCase();
-  const fs=document.getElementById('fStatus').value,fc=document.getElementById('fCustomer').value,fg=document.getElementById('fGrade').value;
-  if(q&&!(r.tc+' '+r.heat+' '+r.uid+' '+r.customer+' '+r.grade+' '+r.wo).toLowerCase().includes(q))return false;
-  if(fs&&r.status!==fs)return false; if(fc&&r.customer!==fc)return false; if(fg&&r.grade!==fg)return false;
+function lwPlanCell(r){
+  var h='';
+  if(r.pcr&&r.pcr.status==='ACCEPTED')h+='<span class="lw-plan-old" title="Original Mills-QA plan date before the accepted re-stamp (mes_qc_plan_change_request, SOW 17, §27.1)">'+lwFmtD(r.pcr.from)+'</span>';
+  h+='<span title="Plan date set by Mills QA — mes_qc_sample.plan_date (SOW 15, §27.1)">'+lwFmtD(r.plan)+'</span>';
+  if(r.pcr&&r.pcr.status==='REQUESTED')h+='<span class="badge b-pend lw-pcr" title="Plan-change requested → Mills QA: '+r.pcr.why+' · tentative '+lwFmtD(r.pcr.to)+' — mes_qc_plan_change_request, status REQUESTED (SOW 17, §27.1/§27.7)">REQUESTED</span>';
+  if(r.pcr&&r.pcr.status==='ACCEPTED')h+='<span class="badge b-done lw-pcr" title="Plan change accepted by Mills QA — plan date re-stamped '+lwFmtD(r.pcr.from)+' → '+lwFmtD(r.pcr.to)+' ('+r.pcr.why+') — mes_qc_plan_change_request, SOW 17, §27.1">ACCEPTED</span>';
+  return h;
+}
+function lwAgingCell(r){
+  var b=lwBand(r),extra='';
+  if(b==='OVERDUE')extra=' +'+(-lwDays(LW_TODAY,r.plan))+'d';
+  return '<span class="lw-band '+LW_BANDCLS[b]+'" title="Aging computed against the Mills-QA plan date '+lwFmtD(r.plan)+' (SOW 16, §27.1)">'+b+extra+'</span>';
+}
+function lwDoneCell(r){
+  var n=lwDone(r),m=r.tests.length;
+  var h='<span class="mono">'+n+'/'+m+'</span>';
+  if(n===m)h+=' <span class="lw-clr" onclick="lwClr(\''+r.batch+'\')" title="All required tests complete — testing clearance reachable; the stage clears only when all gates clear (§27.4/§10; SOW 28/45)"><i class="fa-solid fa-circle-check"></i> Clearance ready</span>';
+  return h;
+}
+function lwPasses(r){
+  var q=(document.getElementById('lwSearch').value||'').toLowerCase();
+  if(q&&!(r.heat+' '+r.batch+' '+r.order).toLowerCase().includes(q))return false;
+  if(document.getElementById('lwFGrade').value&&r.grade!==document.getElementById('lwFGrade').value)return false;
+  if(document.getElementById('lwFCust').value&&r.cust!==document.getElementById('lwFCust').value)return false;
+  if(document.getElementById('lwFForm').value&&r.form!==document.getElementById('lwFForm').value)return false;
+  if(document.getElementById('lwFCond').value&&r.cond!==document.getElementById('lwFCond').value)return false;
+  if(document.getElementById('lwFBand').value&&lwBand(r)!==document.getElementById('lwFBand').value)return false;
   return true;
 }
-function buildHead(){
-  document.getElementById('thead').innerHTML='<tr>'+COLS.map(c=>{
-    if(c.actions)return '<th class="col-actions"></th>';
-    const car=sortKey===c.k?`<span class="car on">${sortDir>0?'▲':'▼'}</span>`:'<span class="car">⇅</span>';
-    return `<th class="${c.cls==='num'?'num':''}" onclick="sortBy('${c.k}')">${c.label} ${car}</th>`;
-  }).join('')+'</tr>';
+var LW_BANDRANK={'OVERDUE':0,'DUE-TODAY':1,'ON-PLAN':2};
+function lwRender(){
+  var rows=LW_ROWS.map(function(r,i){return {r:r,i:i};}).filter(function(x){return lwPasses(x.r);});
+  /* backlog-first: OVERDUE on top, then DUE-TODAY, then ON-PLAN; earliest plan date first (SOW 16) */
+  rows.sort(function(a,b){
+    var d=LW_BANDRANK[lwBand(a.r)]-LW_BANDRANK[lwBand(b.r)];
+    if(d)return d;
+    return a.r.plan<b.r.plan?-1:(a.r.plan>b.r.plan?1:0);
+  });
+  var tb=document.getElementById('lwTbody');
+  if(!rows.length){tb.innerHTML='<tr class="empty"><td colspan="11">No lots match the filters.</td></tr>';}
+  else tb.innerHTML=rows.map(function(x){
+    var r=x.r,i=x.i;
+    return '<tr>'+
+      '<td class="mono">'+r.heat+'</td>'+
+      '<td class="mono" title="Order '+r.order+'">'+r.batch+'</td>'+
+      '<td>'+r.grade+'</td>'+
+      '<td>'+r.form+'</td>'+
+      '<td>'+r.cust+'</td>'+
+      '<td>'+r.cond+'</td>'+
+      '<td>'+lwPlanCell(r)+'</td>'+
+      '<td>'+lwAgingCell(r)+'</td>'+
+      '<td><div class="lw-tests">'+r.tests.map(lwTestChip).join('')+'</div></td>'+
+      '<td class="num">'+lwDoneCell(r)+'</td>'+
+      '<td class="actions">'+
+        '<button class="btn btn-primary btn-sm" onclick="lwOpenPc('+i+')" title="Ask Mills QA to move the plan date — mes_qc_plan_change_request (SOW 17, §27.1)"><i class="fa-solid fa-calendar-pen"></i> Plan change</button> '+
+        '<button class="btn btn-ghost btn-sm" style="margin-left:4px" onclick="lwOpenAs('+i+')" title="Lab-side additional-sample request without a failed test — re-links to this plan line (SOW 18, §27.1)"><i class="fa-solid fa-vial"></i> Add. sample</button>'+
+      '</td></tr>';
+  }).join('');
+  document.getElementById('lwRowCount').textContent=rows.length+' of '+LW_ROWS.length+' lots · sorted backlog-first (OVERDUE on top, SOW 16)';
+  var due=0,over=0,pend=0,pcr=0;
+  LW_ROWS.forEach(function(r){
+    var b=lwBand(r);
+    if(b==='DUE-TODAY')due++; if(b==='OVERDUE')over++;
+    pend+=r.tests.filter(function(t){return t.s!=='PASS';}).length;
+    if(r.pcr&&r.pcr.status==='REQUESTED')pcr++;
+  });
+  document.getElementById('lwCDue').textContent=due;
+  document.getElementById('lwCOver').textContent=over;
+  document.getElementById('lwCPend').textContent=pend;
+  document.getElementById('lwCPcr').textContent=pcr;
+  document.getElementById('lwMeta').textContent=over+' overdue · '+due+' due today · '+pend+' tests pending';
 }
-function sortBy(k){ if(sortKey===k){ if(sortDir>0)sortDir=-1; else {sortKey=null;sortDir=1;} } else {sortKey=k;sortDir=1;} buildHead(); render(); }
-function render(){
-  let rows=CERTS.map((r,i)=>({r,i})).filter(x=>passes(x.r));
-  if(sortKey) rows.sort((a,b)=>cmp(a.r[sortKey],b.r[sortKey])*sortDir);
-  const tb=document.getElementById('tbody');
-  if(!rows.length){tb.innerHTML=`<tr class="empty"><td colspan="${COLS.length}">No certificates match the filters.</td></tr>`;}
-  else tb.innerHTML=rows.map(({r,i})=>`<tr>${COLS.map(c=>`<td class="${c.cls||''}${c.actions?' actions':''}">${cell(c,r,i)}</td>`).join('')}</tr>`).join('');
-  document.getElementById('rowCount').textContent=`${rows.length} of ${CERTS.length} certificates`;
-  const draft=CERTS.filter(r=>r.status==='DRAFT').length;
-  document.getElementById('meta').textContent=`${draft} draft · ${CERTS.length-draft} issued/sent`;
+function lwDrill(code){mesToast('Per-test drill-down → test record '+code+' on the Testing screen (§27.1)','ok');}
+function lwClr(batch){mesToast('Testing clearance for '+batch+' — opens on the Clearance screen once all gates clear (§27.4/§10; SOW 28/45)','ok');}
+
+/* ===== Plan-change request (SOW 17) ===== */
+function lwCtxChips(r){
+  return '<span class="chip">Heat <b>'+r.heat+'</b></span><span class="chip">Batch <b>'+r.batch+'</b></span>'+
+    '<span class="chip">Grade <b>'+r.grade+'</b></span><span class="chip">'+r.form+' · '+r.cond+'</span>'+
+    '<span class="chip">Customer <b>'+r.cust+'</b></span>';
+}
+function lwOpenPc(i){
+  lwCurPc=i;var r=LW_ROWS[i];
+  document.getElementById('lwPcCtx').innerHTML=lwCtxChips(r);
+  document.getElementById('lwPcCur').value=lwFmtD(r.plan)+'-2026';
+  document.getElementById('lwPcDate').value='';
+  document.getElementById('lwPcReason').value='';
+  document.getElementById('lwPcOv').classList.add('open');
+}
+function lwClosePc(){document.getElementById('lwPcOv').classList.remove('open');}
+function lwSendPc(){
+  var r=LW_ROWS[lwCurPc];
+  var why=document.getElementById('lwPcReason').value.trim();
+  var to=document.getElementById('lwPcDate').value;
+  if(!why){mesToast('Reason is mandatory — mes_qc_plan_change_request.reason (SOW 17)','err');return;}
+  if(!to){mesToast('Enter the tentative completion date','err');return;}
+  r.pcr={status:'REQUESTED',to:to,why:why};
+  lwClosePc();lwRender();
+  mesToast('Plan-change request sent to Mills QA — QA_LAB_PLAN_CHANGE (§27.7)','ok');
 }
 
-/* ===== MTC preview ===== */
-function chk(min,max,act){const a=+act;const okMin=(min===0||min==null)?true:a>=min;const okMax=(max==null||max==='')?true:a<=max;return okMin&&okMax;}
-function openMtc(i){
-  const r=CERTS[i], gd=GRADE_DATA[r.grade]||GRADE_DATA['316L'];
-  const chemHead=gd.chem.map(c=>`<th title="${CHEM_DICT[c[0]]||c[0]} — Element master (mes_qc_element)">${c[0]}</th>`).join('');
-  const chemSpec=gd.chem.map(c=>`<td>${c[1]>0?c[1].toFixed(3)+'–':'≤'}${c[2].toFixed(3)}</td>`).join('');
-  const chemAct =gd.chem.map(c=>`<td class="${chk(c[1],c[2],c[3])?'':'bad'}">${(+c[3]).toFixed(3)}</td>`).join('');
-  const mechRows=gd.mech.map(m=>`<tr><td class="lbl">${m[0]}</td><td>${m[1]}</td><td>${m[2]}</td><td>${m[3]}</td></tr>`).join('');
-  document.getElementById('mtcDoc').innerHTML=`
-    <div class="mtc-top">
-      <div class="co">BLUEMINGO STEELS<small>Stainless Long Products · Plant: Unit-1 · GST 27ABCDE1234F1Z5</small></div>
-      <div class="ti"><div class="t1">MILL TEST CERTIFICATE</div><div class="t2">${r.type} &nbsp;·&nbsp; ${r.tc} &nbsp;·&nbsp; ${r.date}</div></div>
-    </div>
-    <div class="mtc-meta">
-      <div><span>Customer</span><b>${r.customer}</b></div><div><span>Sales Order</span><b>${r.so}</b></div><div><span>Work Order</span><b>${r.wo}</b></div>
-      <div><span>Grade</span><b>${r.grade}</b></div><div><span>Specification</span><b>${r.std}</b></div><div><span>TDC</span><b>TDC-${r.grade}-01</b></div>
-      <div><span>Heat No</span><b>${r.heat}</b></div><div><span>Size / Form</span><b>${r.size} · ${r.form}</b></div><div><span>Quantity</span><b>${r.qty} MT</b></div>
-      <div><span>Condition / HT</span><b>${r.htc}</b></div><div><span>Marking</span><b>Heat + Grade</b></div><div><span>Result</span><b style="color:#388e3c">ACCEPTED</b></div>
-    </div>
-    <div class="mtc-sec">Chemical Composition (% by mass) <span style="font-weight:400;color:#888;font-size:11px">— elements (mes_qc_element) · spec = applied TDC (print-flagged)</span></div>
-    <table class="mtc-table"><thead><tr><th class="lbl">Element</th>${chemHead}</tr></thead>
-      <tbody><tr><td class="lbl">Specified</td>${chemSpec}</tr><tr><td class="lbl">Found</td>${chemAct}</tr></tbody></table>
-    <div class="mtc-sec">Mechanical Properties <span style="font-weight:400;color:#888;font-size:11px">— dictionary characteristics · spec = applied TDC</span></div>
-    <table class="mtc-table"><thead><tr><th class="lbl">Property</th><th>Unit</th><th>Specified</th><th>Actual</th></tr></thead><tbody>${mechRows}</tbody></table>
-    <div class="mtc-remarks"><b>Remarks</b>${REMARKS}</div>
-    <div class="mtc-decl">We hereby certify that the material described above has been manufactured, sampled, tested and inspected in accordance with ${r.std} and the applicable TDC, and the results meet the specified requirements. ${r.type==='EN 10204 3.2'?'Verified by the authorised independent inspector.':''}</div>
-    <div class="mtc-sign"><div>Prepared by<b>${r.by}</b></div><div>Approved by<b>Quality Head</b></div><div>Authorised Signatory<b>Plant Head</b></div></div>`;
-  document.getElementById('mtcOverlay').classList.add('open');
+/* ===== Additional-sample request (SOW 18) ===== */
+function lwOpenAs(i){
+  lwCurAs=i;var r=LW_ROWS[i];
+  document.getElementById('lwAsCtx').innerHTML=lwCtxChips(r);
+  document.getElementById('lwAsReason').value='';
+  document.getElementById('lwAsNote').value='';
+  document.getElementById('lwAsOv').classList.add('open');
 }
-function closeMtc(){document.getElementById('mtcOverlay').classList.remove('open');}
-
-/* ===== Generate ===== */
-function openGen(){
-  document.getElementById('gHeat').innerHTML=[...new Set(CERTS.map(c=>`${c.heat} · ${c.grade}`))].map(h=>`<option>${h}</option>`).join('');
-  document.getElementById('gCustomer').innerHTML=CUSTOMERS.map(c=>`<option>${c}</option>`).join('');
-  document.getElementById('genOverlay').classList.add('open');
-}
-function closeGen(){document.getElementById('genOverlay').classList.remove('open');}
-function genMtc(){
-  const sel=document.getElementById('gHeat').value, heat=sel.split(' · ')[0], grade=sel.split(' · ')[1];
-  const n=493+CERTS.length;
-  CERTS.unshift({tc:'TC-2526-0'+n,date:'2026-06-24',type:document.getElementById('gType').value,heat,grade,uid:(CERTS.find(c=>c.heat===heat)||{}).uid||'',customer:document.getElementById('gCustomer').value,
-    so:'SO-2526-07'+n,wo:'FPO-2526-03'+n,std:grade==='17-4PH'?'ASTM A564':'ASTM A276',size:'—',form:'Round Bar',qty:0,htc:'As per TDC',status:'DRAFT',by:'A. Mehta'});
-  closeGen(); render(); openMtc(0);
+function lwCloseAs(){document.getElementById('lwAsOv').classList.remove('open');}
+function lwSendAs(){
+  if(!document.getElementById('lwAsReason').value){mesToast('Pick a reason for the additional sample (SOW 18)','err');return;}
+  lwCloseAs();
+  mesToast('Additional-sample request raised — re-links to this plan line (SOW 18)','ok');
 }
 
-fill('fStatus',STATUSES); fill('fCustomer',CUSTOMERS); fill('fGrade',GRADES);
-buildHead(); render();
+/* ===== Toast helper (standalone — this screen has no shell toast) ===== */
+function mesToast(m,k){var h=document.getElementById('mesToastHost');if(!h){h=document.createElement('div');h.id='mesToastHost';h.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px';document.body.appendChild(h);}var t=document.createElement('div');t.textContent=m;t.style.cssText='padding:10px 14px;border-radius:8px;font:13px Roboto,sans-serif;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;background:'+({ok:'#2e7d32',warn:'#ed6c02',err:'#c62828'}[k]||'#333');h.appendChild(t);requestAnimationFrame(function(){t.style.opacity='1';});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},250);},2600);}
+
+/* ===== Init ===== */
+lwFill('lwFGrade',[...new Set(LW_ROWS.map(function(r){return r.grade;}))].sort());
+lwFill('lwFCust',[...new Set(LW_ROWS.map(function(r){return r.cust;}))].sort());
+lwFill('lwFForm',[...new Set(LW_ROWS.map(function(r){return r.form;}))].sort());
+lwFill('lwFCond',[...new Set(LW_ROWS.map(function(r){return r.cond;}))].sort());
+lwRender();
 </script>
 <script>
 function msToggle(e){e.preventDefault();e.stopPropagation();var g=document.getElementById('msGroup');if(g)g.classList.toggle('open');}
@@ -450,21 +537,6 @@ render();})();</script>
 <script>
 function grpToggle(h){var g=h.closest('.navgrp');if(!g)return;g.classList.toggle('collapsed');var s={};document.querySelectorAll('.sidebar .navgrp').forEach(function(x){s[x.getAttribute('data-g')]=x.classList.contains('collapsed');});try{localStorage.setItem('mesNav',JSON.stringify(s));}catch(e){}}
 (function(){var s={};try{s=JSON.parse(localStorage.getItem('mesNav')||'{}');}catch(e){}document.querySelectorAll('.sidebar .navgrp').forEach(function(g){var k=g.getAttribute('data-g');if(k in s)g.classList.toggle('collapsed',!!s[k]);});var a=document.querySelector('.sidebar .grp-items a.active');if(a){var g=a.closest('.navgrp');if(g)g.classList.remove('collapsed');}var sb=document.querySelector('.sidebar');if(sb){try{var y=sessionStorage.getItem('mesNavScroll');if(y!=null)sb.scrollTop=+y;else if(a)a.scrollIntoView({block:'center'});}catch(e){}sb.addEventListener('scroll',function(){try{sessionStorage.setItem('mesNavScroll',sb.scrollTop);}catch(e){}});}})();
-</script>
-<div class="overlay" id="viewOv"><div class="modal sm"><div class="modal-head">Record details <span class="x" onclick="document.getElementById('viewOv').classList.remove('open')"><i class="fa-solid fa-xmark"></i></span></div><div class="modal-body"><div id="viewBody"></div></div><div class="modal-foot"><button class="btn btn-ghost" onclick="document.getElementById('viewOv').classList.remove('open')">Close</button></div></div></div><script>
-function openViewEl(i){var r=CERTS[i];if(!r)return;
-  var pairs=[
-    ['TC No',r.tc],['Date',r.date],['Certificate type',r.type],
-    ['Heat No',r.heat],['UID (bar / bundle)',r.uid],['Grade',r.grade],
-    ['Standard',r.std],['TDC','TDC-'+r.grade+'-01'],['Customer',r.customer],
-    ['Sales Order',r.so],['Work Order',r.wo],['Size / Form',[r.size,r.form].filter(Boolean).join(' \u00B7 ')],
-    ['Quantity',(r.qty!=null&&r.qty!=='')?(+r.qty).toFixed(1)+' MT':''],['Condition / HT',r.htc],['Prepared by',r.by]
-  ];
-  var h=pairs.map(function(p){var v=(p[1]===''||p[1]==null)?'-':p[1];
-    return '<div class="vrow"><span class="vk">'+p[0]+'</span><span class="vv">'+v+'</span></div>';}).join('');
-  h+='<div class="vrow"><span class="vk">Status</span><span class="vv"><span class="badge '+STB[r.status]+'">'+r.status+'</span></span></div>';
-  document.getElementById('viewBody').innerHTML=h;
-  document.getElementById('viewOv').classList.add('open');}
 </script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Bluemingo MES v2 — Instrument Checklist</title>
+<title>Agency Allocation — Bluemingo MES v2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -137,55 +137,53 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .sidebar .navgrp.collapsed>.s-group .gchev{transform:rotate(-90deg);}
 .sidebar .navgrp.collapsed .grp-items{display:none;}
 
-/* ===== Instrument Checklist (SMSQA3 / SMSQA8) page-specific ===== */
+.vrow{display:flex;justify-content:space-between;gap:18px;padding:8px 2px;border-bottom:1px solid var(--color-border-light);font-size:13px;align-items:center;}
+.vrow:last-child{border-bottom:none;}
+.vrow .vk{color:var(--color-text-muted);font-weight:500;white-space:nowrap;}
+.vrow .vv{text-align:right;color:var(--color-text-primary);}
+.vrow .vv .btn-icon,.vrow .vv .btn{display:none;}
+
+/* ===== shared page components (chips / banner / subcard — from shell) ===== */
 .chipstrip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:var(--sp3);}
 .ichip{display:inline-flex;align-items:center;gap:7px;font-size:var(--fs-sm);background:#fff;border:1px solid var(--color-border);border-radius:999px;padding:5px 12px;color:var(--color-text-secondary);}
 .ichip i{color:var(--color-primary);font-size:11px;}
 .ichip b{color:var(--color-text-primary);font-weight:600;}
-.gatebanner{display:flex;align-items:center;gap:10px;background:#fff8e1;border:1px solid #ffe082;border-radius:var(--r-sm);padding:9px 14px;margin-bottom:var(--sp3);font-size:var(--fs-sm);color:#795548;}
-.gatebanner i{color:#f57c00;}
-.gatebanner .glink{margin-left:auto;color:var(--color-primary);font-weight:600;cursor:pointer;white-space:nowrap;}
-.gatebanner .glink:hover{text-decoration:underline;}
-.b-on{background:rgba(76,175,80,.12);color:#388e3c;} .b-off{background:rgba(158,158,158,.14);color:#757575;}
-.b-on i,.b-off i{font-size:9px;margin-right:3px;}
-.cntchip{display:inline-block;min-width:20px;text-align:center;background:rgba(158,158,158,.16);color:#616161;border-radius:9px;font-size:10px;font-weight:700;padding:1px 7px;}
-.okratio{font-variant-numeric:tabular-nums;font-weight:600;}
-.okratio.all{color:var(--color-success);} .okratio.part{color:#ef6c00;} .okratio.none{color:var(--color-text-hint);}
-.chk-list{list-style:none;margin:0;padding:0;}
-.chk-list li{display:grid;grid-template-columns:1fr auto;gap:6px 12px;padding:10px 12px;border:1px solid var(--color-border-light);border-radius:var(--r-sm);margin-bottom:8px;align-items:center;}
-.chk-list li.bad{border-color:#f5c6c6;background:#fff8f8;}
-.chk-name{font-size:13px;}
-.chk-name .chk-ico{color:var(--color-primary);width:18px;display:inline-block;text-align:center;margin-right:4px;font-size:12px;}
-.seg{display:inline-flex;border:1px solid var(--color-border);border-radius:var(--r-sm);overflow:hidden;flex:none;}
-.seg button{border:none;background:#fff;padding:5px 13px;font-size:11px;font-weight:700;letter-spacing:.4px;color:var(--color-text-hint);}
-.seg button.on-ok{background:var(--color-success);color:#fff;}
-.seg button.on-nok{background:var(--color-danger);color:#fff;}
-.chk-rem{grid-column:1/-1;}
-.chk-rem input{width:100%;padding:6px 9px;border:1px solid #e4e4e4;border-radius:var(--r-sm);font-size:12px;font-family:inherit;}
-.chk-rem input:focus{outline:none;border-color:var(--color-primary);}
-.chk-rem input.need{border-color:var(--color-danger);background:#fff5f5;}
-.ro-badge{font-size:10px;font-weight:700;letter-spacing:.4px;padding:2px 8px;border-radius:9px;white-space:nowrap;}
-.ro-ok{background:rgba(76,175,80,.12);color:#388e3c;} .ro-nok{background:rgba(244,67,54,.12);color:#c62828;}
-.ro-rem{grid-column:1/-1;font-size:12px;color:var(--color-text-muted);}
-.ro-rem i{font-size:10px;margin-right:5px;color:#bbb;}
-.locknote{display:flex;gap:12px;align-items:flex-start;background:#ffebee;border:1px solid #ffcdd2;border-radius:var(--r-sm);padding:12px 14px;font-size:13px;color:#b71c1c;margin-bottom:var(--sp3);}
-.locknote i{font-size:20px;margin-top:2px;}
-.locknote .ln-sub{margin-top:6px;font-weight:400;color:#8d3b3b;font-size:12px;}
+.depbanner{display:flex;gap:10px;align-items:flex-start;background:var(--color-primary-light);border:1px solid #b3e5fc;border-radius:var(--r-sm);padding:9px 14px;margin-bottom:var(--sp3);font-size:var(--fs-sm);color:var(--color-text-secondary);}
+.depbanner i{color:var(--color-primary-dark);margin-top:2px;}
+.srcchip{display:inline-block;margin-left:6px;padding:0 6px;border-radius:9px;font-size:9px;font-weight:700;letter-spacing:.3px;background:rgba(37,169,224,.14);color:#1E8FBF;vertical-align:middle;}
+.subcard{background:#fff;border:1px solid var(--color-border);border-radius:var(--r-lg);margin-top:var(--sp3);flex:none;display:flex;flex-direction:column;max-height:225px;overflow:hidden;}
+.subcard .sc-head{padding:10px 16px;border-bottom:1px solid var(--color-border-light);font-weight:600;font-size:13px;display:flex;align-items:center;gap:8px;flex:none;}
+.subcard .sc-head i{color:var(--color-primary);font-size:12px;}
+.subcard .sc-head .meta{margin-left:auto;font-weight:400;font-size:var(--fs-sm);color:var(--color-text-muted);}
+.subcard .sc-wrap{overflow:auto;min-height:0;}
 
-/* ===== mlog: MACHINE LOG BOOKS (§26.4, MQA 10–12 & 18) — insert-only additions ===== */
-.mlog-mc{display:inline-flex;align-items:center;gap:6px;cursor:help;}
-.mlog-mc i{color:var(--color-primary);font-size:11px;}
-.mlog-code{font-weight:600;font-variant-numeric:tabular-nums;}
-.mlog-mname{color:var(--color-text-muted);}
-.mlog-th{cursor:help;border-bottom:1px dotted #aab7c0;}
-.mlog-b-scope{background:rgba(0,137,123,.12);color:#00796b;}
-.mlog-b-scope i{font-size:9px;margin-right:3px;}
-.chk-list li.mlog-li{grid-template-columns:1fr auto auto;}
-.mlog-val{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;cursor:help;}
-.mlog-val input{width:76px;padding:5px 8px;border:1px solid #ddd;border-radius:var(--r-sm);font-size:12px;font-family:inherit;text-align:right;font-variant-numeric:tabular-nums;}
-.mlog-val input:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 2px rgba(var(--color-primary-rgb),.15);}
-.mlog-uom{font-size:11px;color:var(--color-text-muted);white-space:nowrap;font-weight:400;}
-.mlog-val-ro{font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;cursor:help;}
+/* ===== Agency Allocation (MQA 17, §26.3) page-specific — aga- prefix ===== */
+.content.aga-scroll{overflow-y:auto;}
+.subcard.aga-pendcard{margin-top:0;max-height:240px;}
+.subcard.aga-alloccard{max-height:360px;}
+.subcard.aga-scancard{max-height:none;}
+.aga-viewwrap{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.aga-viewwrap select{padding:7px 10px;border:1px solid #ddd;border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;}
+.aga-seg{display:inline-flex;border:1px solid var(--color-border);border-radius:var(--r-sm);overflow:hidden;background:#fff;}
+.aga-seg button{border:none;background:transparent;padding:7px 14px;font-size:var(--fs-sm);color:var(--color-text-secondary);display:inline-flex;align-items:center;gap:6px;}
+.aga-seg button:hover{background:rgba(var(--color-primary-rgb),.08);}
+.aga-seg button.aga-on{background:var(--color-primary);color:#fff;}
+.aga-route{display:inline-block;padding:2px 9px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:.3px;white-space:nowrap;}
+.aga-route.aga-post{background:rgba(37,169,224,.14);color:#1E8FBF;}
+.aga-route.aga-direct{background:rgba(158,158,158,.18);color:#616161;}
+.aga-late{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:9px;font-size:10px;font-weight:700;background:rgba(244,67,54,.15);color:#c62828;vertical-align:middle;}
+.aga-scanbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:14px 16px 6px;}
+.aga-scanbar .aga-lbl{font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.4px;color:var(--color-text-muted);font-weight:600;}
+.aga-scanbar select,.aga-scanbar input{padding:8px 10px;border:1px solid #ddd;border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;}
+.aga-scanbar input{width:260px;}
+.aga-scanbar input:focus,.aga-scanbar select:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 2px rgba(var(--color-primary-rgb),.15);}
+.aga-scanres{padding:6px 16px 2px;min-height:36px;}
+.aga-chip-ok,.aga-chip-bad{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:6px 13px;font-size:var(--fs-sm);font-weight:600;}
+.aga-chip-ok{background:rgba(76,175,80,.12);color:#2e7d32;border:1px solid rgba(76,175,80,.45);}
+.aga-chip-bad{background:rgba(244,67,54,.1);color:#c62828;border:1px solid rgba(244,67,54,.4);}
+.aga-hint{font-size:var(--fs-xs);color:var(--color-text-hint);padding:4px 16px 0;}
+.aga-note{display:flex;gap:8px;align-items:flex-start;font-size:var(--fs-xs);color:var(--color-text-muted);padding:8px 16px 14px;}
+.aga-note i{color:var(--color-primary);margin-top:1px;}
 </style>
 </head>
 <body>
@@ -193,7 +191,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
   <header class="header">
     <div class="logo"><span class="dot"><i class="fa-solid fa-feather"></i></span> Bluemingo MES v2</div>
     <div class="module">Quality</div><div class="spacer"></div>
-    <div class="h-search"><i class="fa-solid fa-magnifying-glass"></i><input placeholder="Search checklist…" /></div>
+    <div class="h-search"><i class="fa-solid fa-magnifying-glass"></i><input placeholder="Search heat / batch…" /></div>
     <div class="avatar">QA</div>
   </header>
       <nav class="sidebar">
@@ -206,7 +204,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="heat-chemistry.html"><i class="fa-solid fa-vial-circle-check"></i> Heat Chemistry</a>
         <a href="qc-worklist.html"><i class="fa-solid fa-clipboard-check"></i> Inspection</a>
         <a href="auto-line.html"><i class="fa-solid fa-timeline"></i> Auto Line</a>
-        <a href="agency-allocation.html"><i class="fa-solid fa-building-user"></i> Agency Allocation</a>
+        <a href="agency-allocation.html" class="active"><i class="fa-solid fa-building-user"></i> Agency Allocation</a>
         <a href="pit-cooling.html"><i class="fa-solid fa-temperature-arrow-down"></i> Pit Cooling</a>
         <a href="sample-issue.html"><i class="fa-solid fa-vials"></i> Sampling</a>
         <a href="test-entry.html"><i class="fa-solid fa-flask"></i> Testing</a>
@@ -222,7 +220,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
       <div class="s-group" onclick="grpToggle(this)">Equipment<i class="fa-solid fa-chevron-down gchev"></i></div>
       <div class="grp-items">
         <a href="instruments.html"><i class="fa-solid fa-ruler-combined"></i> Instruments</a>
-        <a href="instrument-checklist.html" class="active"><i class="fa-solid fa-list-check"></i> Instrument Checklist</a>
+        <a href="instrument-checklist.html"><i class="fa-solid fa-list-check"></i> Instrument Checklist</a>
         <a href="layout-audit.html"><i class="fa-solid fa-vector-square"></i> Layout Audit</a>
       </div>
     </div>
@@ -267,358 +265,271 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
       </div>
     </div>
   </nav>
-  <main class="content">
+  <main class="content aga-scroll">
     <div class="tabbar" id="tabbar"></div>
     <div class="page-head">
-      <div><h1>Instrument Checklist</h1><div class="sub">Shift-wise measuring-instrument verification — completed once per shift per role; gates the inspection screens until done (SMSQA3 / SMSQA8)</div></div>
+      <div><h1>Agency Allocation</h1><div class="sub">Allocate pending material to inspection agencies — plan vs actual, station interlock (MQA 17, §26.3)</div></div>
     </div>
+    <div class="depbanner" id="agaBanner" style="display:none"><i class="fa-solid fa-user-lock"></i><span><b>Agency view</b> — Agency users see only material allocated to them (allocation + role-screen access). Unallocated pending material and other agencies&#39; allocations are hidden; result entry is additionally gated by the server-side station interlock (§26.3).</span></div>
     <div class="chipstrip">
-      <span class="ichip"><i class="fa-solid fa-lock"></i> Gated screens <b>Online Inspection · Final Inspection</b></span>
-      <span class="ichip"><i class="fa-solid fa-rotate"></i> Frequency <b>SHIFT</b></span>
-      <span class="ichip"><i class="fa-solid fa-user-check"></i> Role <b>QA Inspector</b></span>
-    </div>
-    <div class="gatebanner" id="gateBanner">
-      <i class="fa-solid fa-triangle-exclamation"></i>
-      <span><b>Shift A (21-Aug-2026)</b> — the ONLINE instrument checklist is still pending. Online / Final Inspection stay locked for role QA Inspector until it is completed.</span>
-      <span class="glink" onclick="openRun(gateIdx())">Run checklist now →</span>
+      <span class="ichip" title="Agencies are mes_qc_agency master rows — nothing hard-coded (MQA 17, §26.3)"><i class="fa-solid fa-building"></i> Agency master <b>MET Labs · SGS-Insp · TUV-Q</b></span>
+      <span class="ichip" title="Stations and per-station agency users are role data (§26.3)"><i class="fa-solid fa-location-dot"></i> Stations <b>Bed-1 · Bed-2 · Bed-3</b></span>
+      <span class="ichip"><i class="fa-solid fa-clock"></i> Demo clock <b>21-Aug 09:15</b></span>
     </div>
     <div class="filterbar">
       <span class="lbl">Filters</span>
-      <div class="fsearch"><i class="fa-solid fa-magnifying-glass"></i><input id="search" placeholder="Checklist no / user / shift…" oninput="render()"/></div>
-      <select id="fScope" onchange="render()"><option value="">All scopes</option><option>ONLINE</option><option>OFFLINE</option><option>AUTOLINE_UNIT</option><option>MPI</option></select>
-      <select id="fStatus" onchange="render()"><option value="">All statuses</option><option>PENDING</option><option>COMPLETED</option><option>LOCKED-OUT</option></select>
-      <select id="fShift" onchange="render()"><option value="">All shifts</option><option>A</option><option>B</option><option>C</option></select>
-      <span class="meta" id="meta"></span>
+      <div class="fsearch"><i class="fa-solid fa-magnifying-glass"></i><input id="agaSearch" placeholder="Heat / batch / allocation…" oninput="agaRender()"/></div>
+      <select id="agaFAgency" onchange="agaRender()" title="Agency master values — mes_qc_agency (§26.3)"><option value="">All agencies</option></select>
+      <select id="agaFStatus" onchange="agaRender()" title="mes_qc_agency_allocation.status — PLANNED / IN_PROGRESS / DONE / CANCELLED (§26.3)"><option value="">All statuses</option><option>PLANNED</option><option>IN_PROGRESS</option><option>DONE</option><option>CANCELLED</option></select>
+      <div class="aga-viewwrap">
+        <span class="lbl" title="Agency isolation = allocation + role-screen access (MQA 17, §26.3)">View as</span>
+        <div class="aga-seg">
+          <button id="agaSegQa" class="aga-on" onclick="agaSetView('qa')" title="Full QA view — all pending material and all allocations"><i class="fa-solid fa-user-shield"></i> QA</button>
+          <button id="agaSegAg" onclick="agaSetView('agency')" title="Agency users see only material allocated to them (allocation + role-screen access, MQA 17, §26.3)"><i class="fa-solid fa-building-user"></i> Agency</button>
+        </div>
+        <select id="agaViewAgency" style="display:none" onchange="agaRender()" title="Simulated signed-in agency user (role-screen access, §26.3)"></select>
+      </div>
     </div>
-    <div class="card">
-      <div class="tbl-wrap"><table class="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
-      <div class="pager"><span id="rowCount"></span></div>
+
+    <div class="subcard aga-pendcard">
+      <div class="sc-head" title="Material lands here after auto-line completion, or directly when the allocated inspection path has no auto-line (§26.1); allocate it to an inspection agency — mes_qc_agency_allocation (MQA 17, §26.3)"><i class="fa-solid fa-boxes-stacked"></i> Pending material — awaiting agency allocation <span class="meta" id="agaPendMeta"></span></div>
+      <div class="sc-wrap"><table class="tbl">
+        <thead><tr><th>Heat No</th><th>Batch</th><th>Grade</th><th>Form / Size</th><th class="num">Bars</th><th class="num">Wt (t)</th><th title="Material arrives here after auto-line completion, or directly when the path has no auto-line (§26.1)">From route</th><th class="col-actions"></th></tr></thead>
+        <tbody id="agaPendBody"></tbody>
+      </table></div>
+    </div>
+
+    <div class="subcard aga-alloccard">
+      <div class="sc-head" title="plan vs actual tracked from the allocation dates (MQA 17)"><i class="fa-solid fa-building-circle-check"></i> Allocations — plan vs actual <span class="meta" id="agaAllocMeta"></span></div>
+      <div class="sc-wrap"><table class="tbl">
+        <thead><tr><th>Allocation No</th><th>Batch</th><th>Heat No</th><th title="mes_qc_agency master row (§26.3)">Agency</th><th title="Station on the allocation — per-station users are role data (§26.3)">Station</th><th title="plan vs actual tracked from the allocation dates (MQA 17)">Planned date</th><th title="plan vs actual tracked from the allocation dates (MQA 17)">Actual start</th><th title="plan vs actual tracked from the allocation dates (MQA 17)">Actual complete</th><th title="PLANNED / IN_PROGRESS / DONE / CANCELLED — mes_qc_agency_allocation.status (MQA 17, §26.3)">Status</th><th>Remarks</th><th class="col-actions"></th></tr></thead>
+        <tbody id="agaAllocBody"></tbody>
+      </table></div>
+    </div>
+
+    <div class="subcard aga-scancard">
+      <div class="sc-head" title="Server-side interlock: result entry is accepted only when an active allocation links the material to the entering user's agency and the scanned physical barcode matches the batch — scan_verified / scanned_code captured on the inspection/test record (MQA 17, §26.3)"><i class="fa-solid fa-barcode"></i> Station interlock — result entry gate: scan to enter <span class="meta">mes_qc_agency_allocation ⋈ signed-in agency</span></div>
+      <div class="aga-scanbar">
+        <span class="aga-lbl">Signed-in as</span>
+        <select id="agaScanUser" title="Per-station agency users are role data — the interlock checks the entering user's agency (§26.3)"></select>
+        <span class="aga-lbl">Barcode</span>
+        <input id="agaScanCode" placeholder="Scan / type batch barcode… e.g. E120636" onkeydown="if(event.key==='Enter')agaVerify()"/>
+        <button class="btn btn-primary btn-sm" onclick="agaVerify()" title="Server-side interlock — active allocation to the entering user's agency + barcode must match the batch (MQA 17, §26.3)"><i class="fa-solid fa-qrcode"></i> Verify scan</button>
+      </div>
+      <div class="aga-scanres" id="agaScanRes"></div>
+      <div class="aga-hint">Demo codes: <b>E120636</b> — active allocation to MET Labs @ Bed-1 · <b>E122319</b> — belongs to SGS-Insp · any other code has no active allocation.</div>
+      <div class="aga-note"><i class="fa-solid fa-circle-info"></i><span>On a verified scan the result record stores <b>scan_verified</b> + <b>scanned_code</b>; test-wise <b>actual date stamps</b> land on the record and <b>image capture</b> is available on each station (evidence capture, §25 test-entry extension).</span></div>
     </div>
   </main>
 </div>
 
-<!-- Run / View checklist modal -->
-<div class="overlay" id="runOv">
-  <div class="modal">
-    <div class="modal-head"><span id="runTitle">Run Checklist</span> <span class="x" onclick="closeRun()"><i class="fa-solid fa-xmark"></i></span></div>
-    <div class="modal-body">
-      <div class="prep-ctx" id="runCtx"></div>
-      <div id="runNote" style="display:none;font-size:13px;color:var(--color-text-muted);background:var(--color-bg-alt);border:1px dashed var(--color-border);border-radius:var(--r-sm);padding:14px;"></div>
-      <ul class="chk-list" id="runList"></ul>
-      <div class="result-band" id="runBand"><span>Items OK</span> <b id="runOkN">6/6</b> <span>·</span> <span id="runHint">Every NOT OK item needs a remark before the checklist can be completed</span></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" id="runCancel" onclick="closeRun()">Cancel</button>
-      <button class="btn btn-primary" id="runDone" onclick="completeRun()"><i class="fa-solid fa-check"></i> Complete checklist</button>
-    </div>
-  </div>
-</div>
-
-<!-- Gating lock modal (auto-opens while the current shift's checklist is PENDING) -->
-<div class="overlay" id="lockOv">
+<!-- Allocate modal -->
+<div class="overlay" id="agaOv">
   <div class="modal sm">
-    <div class="modal-head">Screen locked — checklist pending <span class="x" onclick="closeLock()"><i class="fa-solid fa-xmark"></i></span></div>
+    <div class="modal-head">Allocate to inspection agency <span class="x" onclick="agaCloseAlloc()"><i class="fa-solid fa-xmark"></i></span></div>
     <div class="modal-body">
-      <div class="locknote"><i class="fa-solid fa-lock"></i>
-        <div><b>SMS QA Online Inspection is locked for Shift A until the instrument checklist is completed.</b>
-          <div class="ln-sub">Final Inspection is gated the same way (SMSQA8). Complete the Shift A measuring-instrument checklist for role QA Inspector to unlock result entry on both screens.</div>
-        </div>
+      <div class="prep-ctx" id="agaCtx"></div>
+      <div class="mgrid">
+        <div class="fld"><label>Agency *</label><select id="agaMAgency" title="mes_qc_agency master rows — MET Labs / SGS-Insp / TUV-Q (§26.3)"><option value="">— select agency —</option></select></div>
+        <div class="fld"><label>Station</label><select id="agaMStation" title="Station on the allocation — per-station users are role data (§26.3)"></select></div>
+        <div class="fld"><label>Planned inspection date *</label><input id="agaMDate" type="date" value="2026-08-22"/></div>
+        <div class="fld"><label>Remarks</label><input id="agaMRem" placeholder="e.g. customer witness required…"/></div>
       </div>
-      <div style="font-size:12px;color:var(--color-text-muted);">Checklist <b>ICL-2526-0141</b> · Scope <b>ONLINE</b> · Shift <b>A · 21-Aug-2026</b> · User <b>R. Sahoo</b></div>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeLock()">Close</button>
-      <button class="btn btn-primary" onclick="closeLock();openRun(gateIdx())"><i class="fa-solid fa-list-check"></i> Run checklist now</button>
+      <button class="btn btn-ghost" onclick="agaCloseAlloc()">Cancel</button>
+      <button class="btn btn-primary" onclick="agaSaveAlloc()" title="Material-to-agency allocation with planned date — mes_qc_agency_allocation (MQA 17, §26.3)"><i class="fa-solid fa-building-circle-check"></i> Allocate</button>
     </div>
   </div>
 </div>
 
 <script>
 /* ============================================================
-   GATE (SMSQA3 / SMSQA8): in the real system the gate is enforced
-   SERVER-SIDE per user + shift + role against mes_qc_instrument_check_record —
-   the Online / Final Inspection result-entry APIs refuse writes until the
-   shift's checklist row is COMPLETED for that user+role. The lock pop-up is a
-   platform session hook that fires on the first login of the shift; this
-   static demo re-creates it on page load while the seeded row is PENDING.
+   §26.3 — Agency material allocation & station interlock (JSW Mills QA, MQA 17).
+   Pending material lands here after auto-line completion, or directly when the
+   allocated inspection path (§26.1) has no auto-line. "Allocate" writes
+   mes_qc_agency_allocation (batch → agency + station + planned_date); the
+   actual_start / actual_complete stamps give plan vs actual from the dates.
+   Result entry is gated by a SERVER-SIDE interlock: an active allocation must
+   link the material to the entering user's agency AND the scanned physical
+   barcode must match the batch — scan_verified / scanned_code are captured on
+   the inspection/test record. Agencies (MET Labs / SGS-Insp / TUV-Q) are
+   mes_qc_agency master rows; stations & per-station users are role data —
+   nothing hard-coded (product-agnostic per D0).
    ============================================================ */
-const NOW_TXT='21-Aug 07:40';                                /* fixed demo clock: Shift A of 21-Aug-2026 (06:00-14:00) */
-const CUR={shift:'A',date:'21-Aug-2026',user:'R. Sahoo'};    /* logged-in demo user, role QA Inspector */
+const NOW='2026-08-21T09:15';                 /* fixed demo clock so stamps render deterministically */
+const MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function p2(n){return String(n).padStart(2,'0');}
+function dOf(v){return v instanceof Date?v:new Date(v);}
+function fmtD(v){const x=dOf(v);return p2(x.getDate())+'-'+MONS[x.getMonth()];}
+function fmtDT(v){const x=dOf(v);return p2(x.getDate())+'-'+MONS[x.getMonth()]+' '+p2(x.getHours())+':'+p2(x.getMinutes());}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-const CHECK_ITEMS=[
- {ico:'fa-ruler-horizontal',n:'Vernier caliper — zero error within ±0.02 mm'},
- {ico:'fa-ruler',n:'Micrometer — calibration valid (sticker in date)'},
- {ico:'fa-tape',n:'Measuring tape — condition OK, no kinks / worn markings'},
- {ico:'fa-cubes',n:'Gauge block set — complete per box list'},
- {ico:'fa-compress',n:'Hardness tester — verified on standard test block'},
- {ico:'fa-wave-square',n:'UT probe — couplant available, probe &amp; cable OK'}
-];
-function resRow(noks,rems){return CHECK_ITEMS.map(function(_,i){return {ok:!(noks&&noks.indexOf(i)>=0),rem:(rems&&rems[i])||''};});}
+const AGENCIES=['MET Labs','SGS-Insp','TUV-Q'];   /* seeded mes_qc_agency master values */
+const STATIONS=['Bed-1','Bed-2','Bed-3'];
 
-/* ===== mlog (§26.4, MQA 10–12 & 18): MACHINE LOG BOOKS =====
-   A checklist bound to a machine/unit (mes_qc_instrument_checklist.instrument_id FK)
-   IS that unit's shift log book. Such rows carry machine/machineName + their OWN items[];
-   items with valueNum+uom are MEASURED entries (value_num + uom on
-   mes_qc_instrument_check_record_item) beside the OK/remark. Plain role checklists
-   keep using CHECK_ITEMS above — untouched. */
-const MLOG_STR_ITEMS=[
- {ico:'fa-gauge-high',n:'Hydraulic pressure — straightening rolls',valueNum:142,uom:'bar'},
- {ico:'fa-arrows-left-right-to-line',n:'Roll gap check — set vs size table'},
- {ico:'fa-ruler-horizontal',n:'Entry / exit guide alignment OK'},
- {ico:'fa-temperature-half',n:'Roll cooling water temperature',valueNum:31,uom:'°C'},
- {ico:'fa-oil-can',n:'Lubrication level — gearbox &amp; bearings OK'},
- {ico:'fa-rotate',n:'Roll surface condition — no pick-up / scoring'}
+/* Pending material — landed post auto-line (§26.1 AUTOLINE unit group) or direct */
+let PENDING=[
+ {heat:'2526-16496',batch:'B030268',grade:'17-4PH', form:'RO 68 Dia',  pcs:42, wt:12.4,route:'post'},
+ {heat:'2526-16482',batch:'B030840',grade:'304L',   form:'RO 32 Dia',  pcs:180,wt:8.6, route:'direct'},
+ {heat:'2526-16493',batch:'B030068',grade:'316L',   form:'Hex 23',     pcs:260,wt:6.9, route:'post'},
+ {heat:'2526-16426',batch:'E120808',grade:'X46Cr13',form:'RO 41 Dia',  pcs:96, wt:9.8, route:'direct'},
+ {heat:'2526-16776',batch:'E121717',grade:'416',    form:'Flat 100 x 6',pcs:120,wt:7.2,route:'post'}
 ];
-const MLOG_MPI_ITEMS=[
- {ico:'fa-flask',n:'Bath concentration — settling test',valueNum:1.2,uom:'%'},
- {ico:'fa-lightbulb',n:'UV light intensity at inspection surface',valueNum:1250,uom:'µW/cm²'},
- {ico:'fa-bolt',n:'Magnetising current check',valueNum:1800,uom:'A'},
- {ico:'fa-eye-slash',n:'Darkened viewing area — ambient light OK'}
-];
-function mlogRes(items,noks,rems){return items.map(function(it,i){return {ok:!(noks&&noks.indexOf(i)>=0),rem:(rems&&rems[i])||'',valueNum:(it.valueNum!=null?it.valueNum:null),uom:it.uom||null};});}
 
-/* gate:true = the current shift+role+scope record that locks the inspection screens */
-const ROWS=[
- {no:'ICL-2526-0141',scope:'ONLINE', shift:'A',date:'21-Aug-2026',user:'R. Sahoo',status:'PENDING',   done:'',            res:null,gate:true},
- /* mlog: machine log books of the current shift (§26.4) — MPI process log pending, straightener log done */
- {no:'ICL-2526-0143',scope:'MPI',machine:'MPI-01',machineName:'MPI Machine',mtip:'MPI process-control log — bath &amp; UV per format IMSR/TS/QA-RP/12 (§26.4, MQA 18)',shift:'A',date:'21-Aug-2026',user:'D. Patil',status:'PENDING',done:'',res:null,items:MLOG_MPI_ITEMS},
- {no:'ICL-2526-0142',scope:'AUTOLINE_UNIT',machine:'STR-2R-L3',machineName:'Two-Roll Straightener Line-3',mtip:'Two-Roll Straightener shift log book — checklist bound via instrument_id (§26.4, MQA 10)',shift:'A',date:'21-Aug-2026',user:'K. Yadav',status:'COMPLETED',done:'21-Aug 06:35',items:MLOG_STR_ITEMS,res:mlogRes(MLOG_STR_ITEMS,[],{1:'Gap rechecked after first bar — 68 dia campaign'})},
- {no:'ICL-2526-0140',scope:'OFFLINE',shift:'A',date:'21-Aug-2026',user:'M. Iyer', status:'COMPLETED', done:'21-Aug 06:22',res:resRow([],{2:'Tape T-04 replaced — old unit scrapped'})},
- {no:'ICL-2526-0139',scope:'ONLINE', shift:'C',date:'20-Aug-2026',user:'S. Khan', status:'COMPLETED', done:'21-Aug 00:14',res:resRow([],null)},
- {no:'ICL-2526-0138',scope:'OFFLINE',shift:'C',date:'20-Aug-2026',user:'S. Khan', status:'COMPLETED', done:'21-Aug 00:26',res:resRow([3],{3:'Gauge block 5 mm missing — reported to stores, set quarantined'})},
- {no:'ICL-2526-0137',scope:'ONLINE', shift:'B',date:'20-Aug-2026',user:'R. Sahoo',status:'COMPLETED', done:'20-Aug 14:19',res:resRow([],{4:'Standard test block due for re-certification next week'})},
- {no:'ICL-2526-0136',scope:'OFFLINE',shift:'B',date:'20-Aug-2026',user:'V. Naik', status:'LOCKED-OUT',done:'',            res:null},
- {no:'ICL-2526-0134',scope:'ONLINE', shift:'A',date:'20-Aug-2026',user:'R. Sahoo',status:'COMPLETED', done:'20-Aug 06:31',res:resRow([],{0:'Zero reset done before check',5:'New couplant bottle issued'})}
+/* Seeded allocations — plan vs actual from the dates; E120636 is the green-scan demo row */
+let ALLOC=[
+ {no:'AGA-2526-041',batch:'E120636',heat:'2526-16495',agency:'MET Labs',station:'Bed-1',planned:'2026-08-20',start:'2026-08-20T08:10',done:null,               status:'IN_PROGRESS',rem:''},
+ {no:'AGA-2526-040',batch:'E122319',heat:'2526-16798',agency:'SGS-Insp',station:'Bed-2',planned:'2026-08-18',start:'2026-08-20T10:05',done:'2026-08-20T17:40', status:'DONE',       rem:'Agency crew unavailable 18–19 Aug'},
+ {no:'AGA-2526-039',batch:'E121724',heat:'2526-16866',agency:'TUV-Q',   station:'Bed-3',planned:'2026-08-22',start:null,               done:null,               status:'PLANNED',    rem:'Customer witness — third-party UT'},
+ {no:'AGA-2526-038',batch:'E122956',heat:'2526-16030',agency:'MET Labs',station:'Bed-2',planned:'2026-08-19',start:'2026-08-19T08:05',done:'2026-08-19T15:20', status:'DONE',       rem:''},
+ {no:'AGA-2526-036',batch:'B030112',heat:'2526-16311',agency:'SGS-Insp',station:'Bed-1',planned:'2026-08-17',start:null,               done:null,               status:'CANCELLED',  rem:'Batch rerouted to salvage — allocation cancelled'}
 ];
-function gateIdx(){for(var i=0;i<ROWS.length;i++)if(ROWS[i].gate)return i;return 0;}
-function okOf(r){return r.res?r.res.filter(function(x){return x.ok;}).length:0;}
-function remCount(r){return r.res?r.res.filter(function(x){return x.rem;}).length:0;}
+let nextNo=42,curPend=-1,viewMode='qa';
+const SB={PLANNED:'b-info',IN_PROGRESS:'b-pend',DONE:'b-done',CANCELLED:'b-hold'};
 
-const STATUS_B={'PENDING':'b-pend','COMPLETED':'b-done','LOCKED-OUT':'b-hold'};
-const COLS=[
- {k:'no',label:'Checklist No',cls:'mono'},
- {k:'scope',label:'Scope',scope:true},
- {k:'machine',label:'<span class="mlog-th" title="checklist bound to a machine = its shift log book — mes_qc_instrument_checklist.instrument_id (§26.4, MQA 10–12)">Machine / Unit</span>',machinecol:true},
- {k:'shiftd',label:'Shift',calc:function(r){return r.shift+' · '+r.date.slice(0,6);}},
- {k:'user',label:'User'},
- {k:'ok',label:'Items OK/Total',ratio:true,cls:'num'},
- {k:'status',label:'Status',badge:true},
- {k:'done',label:'Completed at',calc:function(r){return r.done||'—';}},
- {k:'rem',label:'Remarks',remchip:true},
- {k:'actions',label:'',actions:true}
-];
-let sortKey=null,sortDir=1;
+function agaVAg(){return document.getElementById('agaViewAgency').value;}
+/* delay in whole days: latest actual date vs planned date (plan vs actual, MQA 17) */
+function agaLate(a){
+  const ref=a.done||a.start;if(!ref)return 0;
+  const d1=dOf(ref),d0=new Date(a.planned+'T00:00:00');
+  const days=Math.round((Date.UTC(d1.getFullYear(),d1.getMonth(),d1.getDate())-Date.UTC(d0.getFullYear(),d0.getMonth(),d0.getDate()))/864e5);
+  return days>0?days:0;
+}
 
-function cell(c,r,i){
-  if(c.actions){
-    if(r.status==='PENDING')return '<button class="btn btn-primary btn-sm" onclick="openRun('+i+')"><i class="fa-solid fa-play"></i> Run check</button>';
-    return '<button class="btn btn-ghost btn-sm" onclick="openView('+i+')"><i class="fa-solid fa-eye"></i> View</button>';
+/* ===== render ===== */
+function agaRenderPending(){
+  const q=(document.getElementById('agaSearch').value||'').toLowerCase();
+  const tb=document.getElementById('agaPendBody');
+  let rows=[];
+  if(viewMode!=='agency'){ /* agency view: pending (unallocated) material is not allocated to the agency → hidden */
+    rows=PENDING.map(function(r,i){return {r:r,i:i};}).filter(function(x){
+      return !q||(x.r.heat+' '+x.r.batch+' '+x.r.grade+' '+x.r.form).toLowerCase().indexOf(q)>=0;});
   }
-  /* mlog (§26.4): machine log books — bound unit cell + unit-scoped badge; plain rows fall through */
-  if(c.machinecol)return r.machine
-    ?'<span class="mlog-mc" title="'+(r.mtip||'machine log book — checklist bound via mes_qc_instrument_checklist.instrument_id (§26.4)')+'"><i class="fa-solid fa-gears"></i><span class="mlog-code">'+r.machine+'</span><span class="mlog-mname">· '+r.machineName+'</span></span>'
-    :'—';
-  if(c.scope&&r.machine)return '<span class="badge mlog-b-scope" title="unit-scoped log book — the shift gate applies per unit (§26.4)"><i class="fa-solid fa-gears"></i>'+r.scope+'</span>';
-  if(c.scope)return r.scope==='ONLINE'
-    ?'<span class="badge b-on" title="Gates SMS QA Online Inspection (SMSQA3)"><i class="fa-solid fa-wifi"></i>ONLINE</span>'
-    :'<span class="badge b-off" title="Gates Final (offline) Inspection (SMSQA8)"><i class="fa-solid fa-clipboard"></i>OFFLINE</span>';
-  if(c.ratio&&r.items){const mt=r.items.length; /* mlog: a log book counts its OWN items (§26.4) */
-    if(r.status==='PENDING')return '<span class="okratio none">0/'+mt+'</span>';
-    if(r.status==='LOCKED-OUT')return '<span class="okratio none">—/'+mt+'</span>';
-    const mn=okOf(r);return '<span class="okratio '+(mn===mt?'all':'part')+'">'+mn+'/'+mt+'</span>';}
-  if(c.ratio){const t=CHECK_ITEMS.length;
-    if(r.status==='PENDING')return '<span class="okratio none">0/'+t+'</span>';
-    if(r.status==='LOCKED-OUT')return '<span class="okratio none">—/'+t+'</span>';
-    const n=okOf(r);return '<span class="okratio '+(n===t?'all':'part')+'">'+n+'/'+t+'</span>';}
-  if(c.badge){return '<span class="badge '+(STATUS_B[r.status]||'b-draft')+'">'+r.status+'</span>';}
-  if(c.remchip){const n=remCount(r);return n?'<span class="cntchip" title="'+n+' item remark(s) recorded">'+n+'</span>':'—';}
-  if(c.calc)return c.calc(r);
-  let v=r[c.k];if(v===''||v==null)v='—';return v;
-}
-function cmp(a,b){return (''+(a==null?'':a)).localeCompare(''+(b==null?'':b),undefined,{numeric:true,sensitivity:'base'});}
-function sortVal(r,k){
-  if(k==='ok')return okOf(r);if(k==='rem')return remCount(r);
-  if(k==='shiftd')return r.date+' '+r.shift;
-  return r[k];
-}
-function passes(r){
-  const q=(document.getElementById('search').value||'').toLowerCase();
-  const fs=document.getElementById('fScope').value,ft=document.getElementById('fStatus').value,fh=document.getElementById('fShift').value;
-  if(q&&!(r.no+' '+r.user+' '+r.scope+' '+r.shift+' '+r.date+' '+r.status).toLowerCase().includes(q))return false;
-  if(fs&&r.scope!==fs)return false;if(ft&&r.status!==ft)return false;if(fh&&r.shift!==fh)return false;
-  return true;
-}
-function buildHead(){
-  document.getElementById('thead').innerHTML='<tr>'+COLS.map(function(c){
-    if(c.actions)return '<th class="col-actions"></th>';
-    const car=sortKey===c.k?'<span class="car on">'+(sortDir>0?'▲':'▼')+'</span>':'<span class="car">⇅</span>';
-    return '<th class="'+(c.cls==='num'?'num':'')+'" onclick="sortBy(\''+c.k+'\')">'+c.label+' '+car+'</th>';
-  }).join('')+'</tr>';
-}
-function sortBy(k){if(sortKey===k){if(sortDir>0)sortDir=-1;else{sortKey=null;sortDir=1;}}else{sortKey=k;sortDir=1;}buildHead();render();}
-function render(){
-  let rows=ROWS.map(function(r,i){return {r:r,i:i};}).filter(function(x){return passes(x.r);});
-  if(sortKey)rows.sort(function(a,b){return cmp(sortVal(a.r,sortKey),sortVal(b.r,sortKey))*sortDir;});
-  const tb=document.getElementById('tbody');
-  if(!rows.length){tb.innerHTML='<tr class="empty"><td colspan="'+COLS.length+'">No checklists match the filters.</td></tr>';}
-  else tb.innerHTML=rows.map(function(x){return '<tr>'+COLS.map(function(c){return '<td class="'+(c.cls||'')+(c.actions?' actions':'')+'">'+cell(c,x.r,x.i)+'</td>';}).join('')+'</tr>';}).join('');
-  document.getElementById('rowCount').textContent=rows.length+' of '+ROWS.length+' checklists';
-  const pend=ROWS.filter(function(r){return r.status==='PENDING';}).length;
-  const lo=ROWS.filter(function(r){return r.status==='LOCKED-OUT';}).length;
-  document.getElementById('meta').textContent=pend+' pending · '+lo+' locked-out';
-  document.getElementById('gateBanner').style.display=ROWS[gateIdx()].status==='PENDING'?'':'none';
-}
-
-/* ===== Run / View modal ===== */
-let curRun=-1,runState=[];
-let mlogRunItems=null; /* mlog: item set of the machine log book open in the run dialog (§26.4) */
-function ctxChips(r,extra){
-  let c=[['Checklist',r.no],['Scope',r.scope],['Shift',r.shift+' · '+r.date],['User',r.user]];
-  if(extra)c=c.concat(extra);
-  return c.map(function(p){return '<span class="chip">'+p[0]+' <b>'+p[1]+'</b></span>';}).join('');
-}
-function openRun(i){
-  curRun=i;const r=ROWS[i];
-  runState=CHECK_ITEMS.map(function(){return {ok:true,rem:''};});
-  document.getElementById('runTitle').textContent='Run Checklist — Shift '+r.shift+' ('+r.date.slice(0,6)+') · '+r.user;
-  document.getElementById('runCtx').innerHTML=ctxChips(r,[['Time',NOW_TXT]]);
-  document.getElementById('runNote').style.display='none';
-  document.getElementById('runList').innerHTML=CHECK_ITEMS.map(function(it,idx){
-    return '<li data-i="'+idx+'">'+
-      '<span class="chk-name"><i class="fa-solid '+it.ico+' chk-ico"></i>'+it.n+'</span>'+
-      '<span class="seg">'+
-        '<button type="button" class="t-ok on-ok" onclick="setTog('+idx+',true)">OK</button>'+
-        '<button type="button" class="t-nok" onclick="setTog('+idx+',false)">NOT OK</button>'+
-      '</span>'+
-      '<span class="chk-rem"><input placeholder="Remark (optional)" oninput="setRem('+idx+',this)"/></span>'+
-    '</li>';
-  }).join('');
-  /* mlog (§26.4, MQA 10–12 & 18): a machine log book runs its OWN item set — numeric value
-     items get an input + UoM (value_num + uom on the check-record item) beside the OK toggle. */
-  mlogRunItems=r.items||null;
-  if(mlogRunItems){
-    document.getElementById('runTitle').textContent='Machine log book — '+r.machine+' · Shift '+r.shift+' ('+r.date.slice(0,6)+')';
-    document.getElementById('runCtx').innerHTML=ctxChips(r,[['Machine',r.machine+' · '+r.machineName],['Time',NOW_TXT]]);
-    runState=mlogRunItems.map(function(it){return {ok:true,rem:'',valueNum:(it.valueNum!=null?it.valueNum:null),uom:it.uom||null};});
-    document.getElementById('runList').innerHTML=mlogRunItems.map(function(it,idx){
-      return '<li data-i="'+idx+'" class="'+(it.uom?'mlog-li':'')+'">'+
-        '<span class="chk-name"><i class="fa-solid '+it.ico+' chk-ico"></i>'+it.n+'</span>'+
-        (it.uom?'<span class="mlog-val" title="measured entries — value_num + uom on the check-record item (§26.4)"><input type="number" step="any" value="'+(it.valueNum!=null?it.valueNum:'')+'" oninput="mlogSetVal('+idx+',this)"/><span class="mlog-uom">'+it.uom+'</span></span>':'')+
-        '<span class="seg">'+
-          '<button type="button" class="t-ok on-ok" onclick="setTog('+idx+',true)">OK</button>'+
-          '<button type="button" class="t-nok" onclick="setTog('+idx+',false)">NOT OK</button>'+
-        '</span>'+
-        '<span class="chk-rem"><input placeholder="Remark (optional)" oninput="setRem('+idx+',this)"/></span>'+
-      '</li>';
-    }).join('');
-  }
-  document.getElementById('runBand').style.display='';
-  document.getElementById('runHint').textContent='Every NOT OK item needs a remark before the checklist can be completed';
-  updateOkN();
-  document.getElementById('runCancel').textContent='Cancel';
-  document.getElementById('runDone').style.display='';
-  document.getElementById('runOv').classList.add('open');
-}
-function setTog(idx,ok){
-  runState[idx].ok=ok;
-  const li=document.querySelector('#runList li[data-i="'+idx+'"]');if(!li)return;
-  li.querySelector('.t-ok').classList.toggle('on-ok',ok);
-  li.querySelector('.t-nok').classList.toggle('on-nok',!ok);
-  li.classList.toggle('bad',!ok);
-  const inp=li.querySelector('.chk-rem input');
-  inp.placeholder=ok?'Remark (optional)':'Remark required for NOT OK (SOW remark column)';
-  if(ok)inp.classList.remove('need');
-  updateOkN();
-}
-function setRem(idx,el){runState[idx].rem=el.value;el.classList.remove('need');}
-function mlogSetVal(idx,el){var v=parseFloat(el.value);runState[idx].valueNum=isNaN(v)?null:v;} /* mlog: measured entry — value_num (§26.4) */
-function updateOkN(){
-  if(mlogRunItems){document.getElementById('runOkN').textContent=runState.filter(function(s){return s.ok;}).length+'/'+mlogRunItems.length;return;} /* mlog: log book's own denominator (§26.4) */
-  const n=runState.filter(function(s){return s.ok;}).length;
-  document.getElementById('runOkN').textContent=n+'/'+CHECK_ITEMS.length;
-}
-function completeRun(){
-  /* NOT OK requires a remark — the SOW-requested per-item remark column */
-  let firstBad=null;
-  runState.forEach(function(st,idx){
-    if(!st.ok&&!st.rem.trim()){
-      const li=document.querySelector('#runList li[data-i="'+idx+'"]');
-      if(li){const inp=li.querySelector('.chk-rem input');inp.classList.add('need');if(!firstBad)firstBad=inp;}
-    }
-  });
-  if(firstBad){firstBad.focus();mesToast('Remark is required for every NOT OK item','err');return;}
-  const r=ROWS[curRun];
-  r.res=runState.map(function(st){return {ok:st.ok,rem:st.rem.trim()};});
-  r.status='COMPLETED';r.done=NOW_TXT;
-  /* mlog (§26.4): persist value_num + uom on the record items; toast with the log book's own item count */
-  if(mlogRunItems){
-    r.res=runState.map(function(st){return {ok:st.ok,rem:st.rem.trim(),valueNum:(st.valueNum!=null?st.valueNum:null),uom:st.uom||null};});
-    mlogRunItems=null;closeRun();render();
-    mesToast('Checklist '+r.no+' completed — '+okOf(r)+'/'+r.res.length+' OK','ok');
-    return;
-  }
-  closeRun();render();
-  mesToast('Checklist '+r.no+' completed — '+okOf(r)+'/'+CHECK_ITEMS.length+' OK','ok');
-  if(r.gate){mesToast('Inspection screens unlocked for this shift','ok');}
-}
-function openView(i){
-  curRun=i;const r=ROWS[i];
-  document.getElementById('runTitle').textContent='Checklist — '+r.no;
-  document.getElementById('runCtx').innerHTML=ctxChips(r,r.done?[['Completed at',r.done]]:[]);
-  const note=document.getElementById('runNote'),list=document.getElementById('runList'),band=document.getElementById('runBand');
-  /* mlog (§26.4): a completed machine log book renders its OWN items — measured value beside OK.
-     Early return so the plain CHECK_ITEMS mapping below never runs against a shorter res array. */
-  if(r.items&&r.res){
-    document.getElementById('runTitle').textContent='Machine log book — '+r.no+' · '+r.machine;
-    document.getElementById('runCtx').innerHTML=ctxChips(r,[['Machine',r.machine+' · '+r.machineName]].concat(r.done?[['Completed at',r.done]]:[]));
-    note.style.display='none';band.style.display='';
-    list.innerHTML=r.items.map(function(it,idx){
-      const st=r.res[idx]||{ok:true,rem:''};
-      return '<li class="'+(it.uom?'mlog-li ':'')+(st.ok?'':'bad')+'">'+
-        '<span class="chk-name"><i class="fa-solid '+it.ico+' chk-ico"></i>'+it.n+'</span>'+
-        (it.uom?'<span class="mlog-val-ro" title="measured entries — value_num + uom on the check-record item (§26.4)">'+(st.valueNum!=null?st.valueNum:'—')+' <span class="mlog-uom">'+(st.uom||it.uom)+'</span></span>':'')+
-        '<span class="ro-badge '+(st.ok?'ro-ok':'ro-nok')+'">'+(st.ok?'OK':'NOT OK')+'</span>'+
-        (st.rem?'<span class="ro-rem"><i class="fa-solid fa-comment-dots"></i>'+st.rem+'</span>':'')+
-      '</li>';
-    }).join('');
-    document.getElementById('runOkN').textContent=okOf(r)+'/'+r.items.length;
-    document.getElementById('runHint').textContent='Completed '+(r.done||'—')+' by '+r.user;
-    document.getElementById('runCancel').textContent='Close';
-    document.getElementById('runDone').style.display='none';
-    document.getElementById('runOv').classList.add('open');
-    return;
-  }
-  if(!r.res){ /* LOCKED-OUT: shift ended without completion — screens stayed locked; kept for compliance reporting */
-    note.style.display='';list.innerHTML='';band.style.display='none';
-    note.innerHTML='<i class="fa-solid fa-ban" style="color:var(--color-danger);margin-right:8px;"></i>Not performed — the checklist window elapsed without completion. Online / Final Inspection remained <b>locked</b> for '+r.user+' through Shift '+r.shift+' ('+r.date.slice(0,6)+'). Recorded for compliance reporting.';
+  if(!rows.length){
+    tb.innerHTML='<tr class="empty"><td colspan="8">'+(viewMode==='agency'
+      ?'Agency view ('+esc(agaVAg())+') — unallocated pending material is hidden: agency users see only material allocated to them (allocation + role-screen access, §26.3).'
+      :'No pending material matches the filters.')+'</td></tr>';
   }else{
-    note.style.display='none';band.style.display='';
-    list.innerHTML=CHECK_ITEMS.map(function(it,idx){
-      const st=r.res[idx];
-      return '<li class="'+(st.ok?'':'bad')+'">'+
-        '<span class="chk-name"><i class="fa-solid '+it.ico+' chk-ico"></i>'+it.n+'</span>'+
-        '<span class="ro-badge '+(st.ok?'ro-ok':'ro-nok')+'">'+(st.ok?'OK':'NOT OK')+'</span>'+
-        (st.rem?'<span class="ro-rem"><i class="fa-solid fa-comment-dots"></i>'+st.rem+'</span>':'')+
-      '</li>';
+    tb.innerHTML=rows.map(function(x){const r=x.r;
+      const route=r.route==='post'
+        ?'<span class="aga-route aga-post" title="Material arrives here after auto-line completion — the allocated inspection path routes through the AUTOLINE unit group (§26.1)">post Auto-line</span>'
+        :'<span class="aga-route aga-direct" title="Material arrives here directly — the allocated inspection path has no auto-line (§26.1)">direct</span>';
+      return '<tr><td class="mono">'+r.heat+'</td><td class="mono">'+r.batch+'</td><td>'+r.grade+'</td><td>'+r.form+'</td>'+
+        '<td class="num">'+r.pcs+'</td><td class="num">'+r.wt.toFixed(1)+'</td><td>'+route+'</td>'+
+        '<td class="actions"><button class="btn btn-primary btn-sm" onclick="agaOpenAlloc('+x.i+')" title="Material-to-agency allocation with planned date — mes_qc_agency_allocation (MQA 17, §26.3)"><i class="fa-solid fa-building-circle-arrow-right"></i> Allocate</button></td></tr>';
     }).join('');
-    document.getElementById('runOkN').textContent=okOf(r)+'/'+CHECK_ITEMS.length;
-    document.getElementById('runHint').textContent='Completed '+(r.done||'—')+' by '+r.user;
   }
-  document.getElementById('runCancel').textContent='Close';
-  document.getElementById('runDone').style.display='none';
-  document.getElementById('runOv').classList.add('open');
+  document.getElementById('agaPendMeta').textContent=(viewMode==='agency'?0:rows.length)+' of '+PENDING.length+' pending';
 }
-function closeRun(){document.getElementById('runOv').classList.remove('open');}
-function closeLock(){document.getElementById('lockOv').classList.remove('open');}
+function agaRenderAlloc(){
+  const q=(document.getElementById('agaSearch').value||'').toLowerCase();
+  const fa=viewMode==='agency'?agaVAg():document.getElementById('agaFAgency').value;
+  const fs=document.getElementById('agaFStatus').value;
+  const rows=ALLOC.map(function(a,i){return {a:a,i:i};}).filter(function(x){const a=x.a;
+    if(q&&(a.no+' '+a.batch+' '+a.heat+' '+a.agency+' '+a.station).toLowerCase().indexOf(q)<0)return false;
+    if(fa&&a.agency!==fa)return false;
+    if(fs&&a.status!==fs)return false;
+    return true;});
+  const tb=document.getElementById('agaAllocBody');
+  if(!rows.length){tb.innerHTML='<tr class="empty"><td colspan="11">No allocations match the filters.</td></tr>';}
+  else tb.innerHTML=rows.map(function(x){const a=x.a;
+    const ld=agaLate(a);
+    const late=ld>0?'<span class="aga-late" title="Actual ran '+ld+' day(s) past the planned inspection date — plan vs actual from the allocation dates (MQA 17)">+'+ld+'d</span>':'';
+    let act='<button class="btn-icon" title="View" onclick="openViewEl(this)"><i class="fa-solid fa-eye"></i></button>';
+    if(a.status==='PLANNED')act+=' <button class="btn-icon" title="Stamp actual_start — plan vs actual from the allocation dates (MQA 17, §26.3)" onclick="agaStart('+x.i+')"><i class="fa-solid fa-play"></i></button>';
+    else if(a.status==='IN_PROGRESS')act+=' <button class="btn-icon" title="Stamp actual_complete — plan vs actual from the allocation dates (MQA 17, §26.3)" onclick="agaComplete('+x.i+')"><i class="fa-solid fa-flag-checkered"></i></button>';
+    return '<tr><td class="mono">'+a.no+'</td><td class="mono">'+a.batch+'</td><td class="mono">'+a.heat+'</td><td>'+a.agency+'</td><td>'+a.station+'</td>'+
+      '<td>'+fmtD(a.planned+'T00:00:00')+'</td><td>'+(a.start?fmtDT(a.start):'—')+'</td><td>'+(a.done?fmtDT(a.done):'—')+'</td>'+
+      '<td><span class="badge '+(SB[a.status]||'b-draft')+'">'+a.status+'</span>'+late+'</td>'+
+      '<td>'+(a.rem?esc(a.rem):'—')+'</td><td class="actions">'+act+'</td></tr>';
+  }).join('');
+  const nLate=rows.filter(function(x){return agaLate(x.a)>0;}).length;
+  document.getElementById('agaAllocMeta').textContent=rows.length+' of '+ALLOC.length+' allocations · '+nLate+' delayed';
+}
+function agaRender(){agaRenderPending();agaRenderAlloc();}
+
+/* ===== View as: QA / Agency (agency isolation = allocation + role-screen access) ===== */
+function agaSetView(m){
+  viewMode=m;
+  document.getElementById('agaSegQa').classList.toggle('aga-on',m==='qa');
+  document.getElementById('agaSegAg').classList.toggle('aga-on',m==='agency');
+  document.getElementById('agaViewAgency').style.display=m==='agency'?'':'none';
+  document.getElementById('agaBanner').style.display=m==='agency'?'flex':'none';
+  document.getElementById('agaFAgency').disabled=(m==='agency');
+  agaRender();
+}
+
+/* ===== allocate modal ===== */
+function agaOpenAlloc(i){
+  curPend=i;const r=PENDING[i];
+  document.getElementById('agaCtx').innerHTML=
+    '<span class="chip">Heat <b>'+r.heat+'</b></span><span class="chip">Batch <b>'+r.batch+'</b></span>'+
+    '<span class="chip">Grade <b>'+r.grade+'</b></span><span class="chip">'+r.form+'</span>'+
+    '<span class="chip">'+r.pcs+' bars · '+r.wt.toFixed(1)+' t</span>';
+  document.getElementById('agaMAgency').value='';
+  document.getElementById('agaMStation').value='Bed-1';
+  document.getElementById('agaMDate').value='2026-08-22';
+  document.getElementById('agaMRem').value='';
+  document.getElementById('agaOv').classList.add('open');
+}
+function agaCloseAlloc(){document.getElementById('agaOv').classList.remove('open');}
+function agaSaveAlloc(){
+  const ag=document.getElementById('agaMAgency').value;
+  const dt=document.getElementById('agaMDate').value;
+  if(!ag){mesToast('Select the inspection agency','err');return;}
+  if(!dt||isNaN(new Date(dt+'T00:00:00').getTime())){mesToast('Set the planned inspection date','err');return;}
+  const r=PENDING[curPend];
+  ALLOC.unshift({no:'AGA-2526-'+String(nextNo++).padStart(3,'0'),batch:r.batch,heat:r.heat,agency:ag,
+    station:document.getElementById('agaMStation').value,planned:dt,start:null,done:null,status:'PLANNED',
+    rem:(document.getElementById('agaMRem').value||'').trim()});
+  PENDING.splice(curPend,1);curPend=-1;
+  agaCloseAlloc();agaRender();
+  mesToast('Allocated — mes_qc_agency_allocation','ok');
+}
+
+/* ===== plan vs actual stamps ===== */
+function agaStart(i){const a=ALLOC[i];a.start=NOW;a.status='IN_PROGRESS';agaRender();mesToast('Actual start stamped '+fmtDT(NOW)+' — plan vs actual (MQA 17)','ok');}
+function agaComplete(i){const a=ALLOC[i];a.done=NOW;a.status='DONE';agaRender();mesToast('Actual complete stamped — allocation '+a.no+' DONE','ok');}
+
+/* ===== station interlock: scan to enter (server-side rule demoed client-side) ===== */
+function agaVerify(){
+  const code=(document.getElementById('agaScanCode').value||'').trim();
+  const parts=document.getElementById('agaScanUser').value.split('|');
+  const ag=parts[0];
+  const res=document.getElementById('agaScanRes');
+  if(!code){res.innerHTML='';mesToast('Scan or type a batch barcode first','warn');return;}
+  const active=ALLOC.filter(function(a){return a.status==='PLANNED'||a.status==='IN_PROGRESS';});
+  let mine=null,other=null;
+  active.forEach(function(a){
+    if(a.batch.toUpperCase()!==code.toUpperCase())return;
+    if(a.agency===ag)mine=a;else other=a;
+  });
+  if(mine){
+    res.innerHTML='<span class="aga-chip-ok" title="scan_verified=true · scanned_code='+esc(code)+' captured on the inspection/test record (MQA 17, §26.3)"><i class="fa-solid fa-lock-open"></i> scan_verified — entry unlocked for '+esc(ag)+' @ '+esc(mine.station)+'</span>';
+    mesToast('Scan verified — result entry unlocked','ok');
+  }else{
+    const msg=other
+      ?'not allocated to this agency — entry blocked (server-side interlock §26.3)'
+      :'no active allocation for '+esc(code)+' — entry blocked (server-side interlock §26.3)';
+    res.innerHTML='<span class="aga-chip-bad" title="Result entry is accepted only when an active allocation links the material to the entering user&#39;s agency and the scanned barcode matches the batch (MQA 17, §26.3)"><i class="fa-solid fa-lock"></i> '+msg+'</span>';
+    mesToast('Entry blocked by station interlock','err');
+  }
+}
 
 /* ===== Toast helper (standalone — this screen has no shell toast) ===== */
 function mesToast(m,k){var h=document.getElementById('mesToastHost');if(!h){h=document.createElement('div');h.id='mesToastHost';h.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px';document.body.appendChild(h);}var t=document.createElement('div');t.textContent=m;t.style.cssText='padding:10px 14px;border-radius:8px;font:13px Roboto,sans-serif;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;background:'+({ok:'#2e7d32',warn:'#ed6c02',err:'#c62828'}[k]||'#333');h.appendChild(t);requestAnimationFrame(function(){t.style.opacity='1';});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},250);},2600);}
 
 /* ===== Init ===== */
-buildHead();render();
-/* Gating demo: the current shift's checklist (ONLINE · Shift A · R. Sahoo) is seeded PENDING,
-   so the session-hook lock pop-up opens straight away. Completing the checklist unlocks. */
-if(ROWS[gateIdx()].status==='PENDING'){document.getElementById('lockOv').classList.add('open');}
+(function(){
+  const opts=AGENCIES.map(function(a){return '<option>'+a+'</option>';}).join('');
+  document.getElementById('agaFAgency').insertAdjacentHTML('beforeend',opts);
+  document.getElementById('agaMAgency').insertAdjacentHTML('beforeend',opts);
+  document.getElementById('agaViewAgency').innerHTML=opts;
+  document.getElementById('agaMStation').innerHTML=STATIONS.map(function(s){return '<option>'+s+'</option>';}).join('');
+  document.getElementById('agaScanUser').innerHTML=AGENCIES.map(function(a,i){const st=STATIONS[i%STATIONS.length];return '<option value="'+a+'|'+st+'">'+a+' @ '+st+'</option>';}).join('');
+})();
+agaRender();
 </script>
 <script>
 function msToggle(e){e.preventDefault();e.stopPropagation();var g=document.getElementById('msGroup');if(g)g.classList.toggle('open');}
@@ -649,6 +560,9 @@ render();})();</script>
 <script>
 function grpToggle(h){var g=h.closest('.navgrp');if(!g)return;g.classList.toggle('collapsed');var s={};document.querySelectorAll('.sidebar .navgrp').forEach(function(x){s[x.getAttribute('data-g')]=x.classList.contains('collapsed');});try{localStorage.setItem('mesNav',JSON.stringify(s));}catch(e){}}
 (function(){var s={};try{s=JSON.parse(localStorage.getItem('mesNav')||'{}');}catch(e){}document.querySelectorAll('.sidebar .navgrp').forEach(function(g){var k=g.getAttribute('data-g');if(k in s)g.classList.toggle('collapsed',!!s[k]);});var a=document.querySelector('.sidebar .grp-items a.active');if(a){var g=a.closest('.navgrp');if(g)g.classList.remove('collapsed');}var sb=document.querySelector('.sidebar');if(sb){try{var y=sessionStorage.getItem('mesNavScroll');if(y!=null)sb.scrollTop=+y;else if(a)a.scrollIntoView({block:'center'});}catch(e){}sb.addEventListener('scroll',function(){try{sessionStorage.setItem('mesNavScroll',sb.scrollTop);}catch(e){}});}})();
+</script>
+<div class="overlay" id="viewOv"><div class="modal sm"><div class="modal-head">Record details <span class="x" onclick="document.getElementById('viewOv').classList.remove('open')"><i class="fa-solid fa-xmark"></i></span></div><div class="modal-body"><div id="viewBody"></div></div><div class="modal-foot"><button class="btn btn-ghost" onclick="document.getElementById('viewOv').classList.remove('open')">Close</button></div></div></div><script>
+function openViewEl(btn){var tr=btn.closest('tr');if(!tr)return;var tbl=tr.closest('table');var ths=tbl?tbl.querySelectorAll('thead tr:first-child th'):[];var labs=[].map.call(ths,function(th){return th.textContent.replace(/[▲▼⇅]/g,'').trim();});var tds=tr.children,h='';for(var k=0;k<tds.length;k++){if(tds[k].classList.contains('actions'))continue;var lab=labs[k]||'';if(!lab)continue;h+='<div class="vrow"><span class="vk">'+lab+'</span><span class="vv">'+tds[k].innerHTML+'</span></div>';}document.getElementById('viewBody').innerHTML=h;document.getElementById('viewOv').classList.add('open');}
 </script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Bluemingo MES v2 — Pit Cooling</title>
+<title>Auto Inspection Line — Bluemingo MES v2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -143,7 +143,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .vrow .vv{text-align:right;color:var(--color-text-primary);}
 .vrow .vv .btn-icon,.vrow .vv .btn{display:none;}
 
-/* ===== Pit Cooling (SMSQA5) page-specific ===== */
+/* ===== shared page chrome (chips, banner, subcard) — from shell template ===== */
 .chipstrip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:var(--sp3);}
 .ichip{display:inline-flex;align-items:center;gap:7px;font-size:var(--fs-sm);background:#fff;border:1px solid var(--color-border);border-radius:999px;padding:5px 12px;color:var(--color-text-secondary);}
 .ichip i{color:var(--color-primary);font-size:11px;}
@@ -156,6 +156,58 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
 .subcard .sc-head i{color:var(--color-primary);font-size:12px;}
 .subcard .sc-head .meta{margin-left:auto;font-weight:400;font-size:var(--fs-sm);color:var(--color-text-muted);}
 .subcard .sc-wrap{overflow:auto;min-height:0;}
+
+/* ===== Auto Inspection Line (§26.2) page-specific — all new classes/ids use the al- prefix ===== */
+.al-lsel{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;padding-top:4px;}
+.al-lchip{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;border:1px solid var(--color-border);background:#fff;color:var(--color-text-secondary);font:500 var(--fs-sm) var(--font);}
+.al-lchip:hover{border-color:var(--color-primary);color:var(--color-primary);}
+.al-lchip.al-on{background:var(--color-primary);border-color:var(--color-primary);color:#fff;}
+.al-scroll{flex:1;min-height:0;overflow:auto;padding-right:2px;}
+.al-toprow{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:var(--sp3);align-items:stretch;margin-bottom:var(--sp3);}
+@media (max-width:1150px){.al-toprow{grid-template-columns:1fr;}}
+.al-panel{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--r-lg);display:flex;flex-direction:column;min-width:0;overflow:hidden;margin-bottom:var(--sp3);}
+.al-toprow .al-panel{margin-bottom:0;}
+.al-p-head{padding:10px 16px;border-bottom:1px solid var(--color-border-light);font-weight:600;font-size:13px;display:flex;align-items:center;gap:8px;flex:none;}
+.al-p-head i{color:var(--color-primary);font-size:12px;}
+.al-p-head .al-meta{margin-left:auto;font-weight:400;font-size:var(--fs-sm);color:var(--color-text-muted);text-align:right;}
+.al-p-body{padding:12px 16px;}
+.al-mat{border:1px solid var(--color-border);border-radius:var(--r-md);padding:9px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.al-mat+.al-mat{margin-top:8px;}
+.al-mat .al-take{margin-left:auto;}
+.al-tag{display:inline-block;font-size:var(--fs-xs);background:var(--color-bg-alt);border:1px solid var(--color-border);border-radius:var(--r-sm);padding:2px 8px;color:var(--color-text-secondary);white-space:nowrap;}
+.al-tag b{color:var(--color-text-primary);font-weight:600;}
+.al-trwrap{overflow:auto;min-height:0;flex:1;}
+.al-tot{display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px;border-top:1px solid var(--color-border-light);}
+.al-utabs{display:flex;align-items:stretch;overflow-x:auto;border-bottom:1px solid var(--color-border);background:var(--color-bg-alt);padding:0 6px;flex:none;}
+.al-utab{display:flex;align-items:center;gap:7px;padding:10px 12px;font-size:12.5px;color:var(--color-text-secondary);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;user-select:none;flex:none;}
+.al-utab:hover{background:#fff;}
+.al-utab.al-on{background:#fff;color:var(--color-text-primary);font-weight:600;border-bottom-color:var(--color-primary);}
+.al-utab .al-uic{color:var(--color-primary);font-size:11px;}
+.al-utab .al-seq{width:17px;height:17px;border-radius:50%;background:#dde5ec;color:var(--color-text-muted);display:grid;place-items:center;font-size:10px;font-weight:700;flex:none;}
+.al-utab.al-on .al-seq{background:var(--color-primary);color:#fff;}
+.al-utab .al-cnt{min-width:17px;height:17px;border-radius:9px;background:rgba(33,150,243,.14);color:#1565c0;display:grid;place-items:center;font-size:10px;font-weight:700;padding:0 5px;}
+.al-arrow{align-self:center;color:#b9c4cd;font-size:10px;flex:none;padding:0 1px;}
+.al-uq{padding:12px 16px;display:flex;flex-direction:column;gap:10px;}
+.al-row{border:1px solid var(--color-border);border-radius:var(--r-md);padding:10px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;}
+.al-row.al-locked{background:var(--color-bg-alt);}
+.al-row.al-locked .al-tag{background:#fff;}
+.al-id{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.al-entrywrap{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;flex:1;min-width:300px;}
+.al-entry{display:inline-flex;flex-wrap:wrap;align-items:center;gap:7px;font-size:var(--fs-sm);color:var(--color-text-secondary);}
+.al-entry input[type="number"]{width:76px;padding:6px 8px;border:1px solid #ddd;border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;}
+.al-entry input[type="text"]{padding:6px 8px;border:1px solid #ddd;border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;}
+.al-entry select{padding:6px 8px;border:1px solid #ddd;border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;background:#fff;}
+.al-entry input:focus,.al-entry select:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 2px rgba(var(--color-primary-rgb),.15);}
+.al-entry input:disabled,.al-entry select:disabled{background:#f2f2f2;color:#a5a5a5;}
+.al-ck{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--color-text-secondary);cursor:pointer;}
+.al-vs{color:var(--color-text-muted);}
+.al-acts{margin-left:auto;display:flex;gap:8px;align-items:center;flex:none;}
+.al-acts .btn:disabled{opacity:.55;cursor:not-allowed;}
+.al-logchip{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-xs);border:1px solid var(--color-border);border-radius:999px;padding:3px 9px;color:var(--color-text-secondary);text-decoration:none;background:#fff;white-space:nowrap;}
+.al-logchip:hover{border-color:var(--color-primary);color:var(--color-primary);}
+.al-logchip i{font-size:10px;color:var(--color-primary);}
+.al-note{font-size:var(--fs-xs);color:var(--color-text-muted);max-width:260px;white-space:normal;}
+.al-empty{font-size:var(--fs-sm);color:var(--color-text-hint);font-style:italic;padding:4px 2px;}
 </style>
 </head>
 <body>
@@ -163,7 +215,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
   <header class="header">
     <div class="logo"><span class="dot"><i class="fa-solid fa-feather"></i></span> Bluemingo MES v2</div>
     <div class="module">Quality</div><div class="spacer"></div>
-    <div class="h-search"><i class="fa-solid fa-magnifying-glass"></i><input placeholder="Search heat / pit…" /></div>
+    <div class="h-search"><i class="fa-solid fa-magnifying-glass"></i><input placeholder="Search heat / batch…" /></div>
     <div class="avatar">QA</div>
   </header>
       <nav class="sidebar">
@@ -175,9 +227,9 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
         <a href="rm-inward.html"><i class="fa-solid fa-truck-ramp-box"></i> RM Quality</a>
         <a href="heat-chemistry.html"><i class="fa-solid fa-vial-circle-check"></i> Heat Chemistry</a>
         <a href="qc-worklist.html"><i class="fa-solid fa-clipboard-check"></i> Inspection</a>
-        <a href="auto-line.html"><i class="fa-solid fa-timeline"></i> Auto Line</a>
+        <a href="auto-line.html" class="active"><i class="fa-solid fa-timeline"></i> Auto Line</a>
         <a href="agency-allocation.html"><i class="fa-solid fa-building-user"></i> Agency Allocation</a>
-        <a href="pit-cooling.html" class="active"><i class="fa-solid fa-temperature-arrow-down"></i> Pit Cooling</a>
+        <a href="pit-cooling.html"><i class="fa-solid fa-temperature-arrow-down"></i> Pit Cooling</a>
         <a href="sample-issue.html"><i class="fa-solid fa-vials"></i> Sampling</a>
         <a href="test-entry.html"><i class="fa-solid fa-flask"></i> Testing</a>
         <a href="lab-worklist.html"><i class="fa-solid fa-microscope"></i> Lab Worklist</a>
@@ -240,206 +292,319 @@ table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
   <main class="content">
     <div class="tabbar" id="tabbar"></div>
     <div class="page-head">
-      <div><h1>Pit Cooling</h1><div class="sub">Controlled pit cooling — entry from the inspection flow, out-time from the spec hours, reminder before due (SMSQA5)</div></div>
+      <div><h1>Auto Inspection Line</h1><div class="sub">Materials on the auto-line route — receipt, unit-by-unit results with sequential clearance, rework (MQA 8/9, §26.2)</div></div>
+      <div class="al-lsel" id="al-lsel"></div>
     </div>
-    <div class="depbanner"><i class="fa-solid fa-circle-info"></i><span>Pit entry time &amp; pit location are captured at the <b>Consolidated Inspection</b> step (PPC-owned route data) — shown here read-only. This screen records only the actual out-time.</span></div>
-    <div class="chipstrip">
-      <span class="ichip"><i class="fa-solid fa-bell"></i> Reminder rule <b>NTF-PIT-01</b> · Email + In-app · 30 min before due — see Notification Rules master</span>
-      <span class="ichip"><i class="fa-solid fa-clock"></i> Demo clock <b>21-Aug 07:40</b></span>
-    </div>
-    <div class="filterbar">
-      <span class="lbl">Filters</span>
-      <div class="fsearch"><i class="fa-solid fa-magnifying-glass"></i><input id="search" placeholder="Heat / batch / pit…" oninput="render()"/></div>
-      <select id="fStatus" onchange="render()"><option value="">All statuses</option><option>IN_PIT</option><option>OVERDUE</option><option>OUT</option></select>
-      <select id="fPit" onchange="render()"><option value="">All pits</option></select>
-      <span class="meta" id="meta"></span>
-    </div>
-    <div class="card">
-      <div class="tbl-wrap"><table class="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
-      <div class="pager"><span id="rowCount"></span></div>
-    </div>
-    <div class="subcard">
-      <div class="sc-head"><i class="fa-solid fa-clipboard-list"></i> Completed cool-downs (report) <span class="meta" id="repMeta"></span></div>
-      <div class="sc-wrap"><table class="tbl"><thead><tr><th>Heat No</th><th>Batch</th><th>Pit</th><th>Entry</th><th>Due out</th><th>Actual out</th><th class="num">Duration</th><th>On-time?</th><th>Remarks</th></tr></thead><tbody id="repBody"></tbody></table></div>
+    <div class="al-scroll">
+      <div class="depbanner"><i class="fa-solid fa-circle-info"></i><span>Materials whose <b>allocated inspection path</b> (mes_qc_material_path, §26.1) routes through the <b>AUTOLINE</b> unit group appear here. Path allocation and role-gated modification live on the Inspection worklist (MQA 7/8); the unit tabs below come from the path&#8217;s stages — data, in path sequence.</span></div>
+      <div class="al-toprow">
+        <div class="al-panel">
+          <div class="al-p-head"><i class="fa-solid fa-hand-holding-hand" title="Quality record IMSR/TS/QA-AIL/04 — handing over / taking over of material at the auto inspection line, stored in mes_qc_handover (MQA 9, §26.2)"></i> Pending receipt (taking-over) <span class="al-meta" id="al-pendMeta"></span></div>
+          <div class="al-p-body" id="al-pendList"></div>
+        </div>
+        <div class="al-panel">
+          <div class="al-p-head"><i class="fa-solid fa-chart-simple" title="Tracking of material on the auto line — per-unit status plus bundle/bar totals; reads worklist + handover + clearances (MQA 9, §26.2)"></i> Line tracking <span class="al-meta" id="al-trackMeta"></span></div>
+          <div class="al-trwrap"><table class="tbl"><thead><tr><th>Unit (path sequence)</th><th class="num">Pending</th><th class="num">Cleared</th><th class="num">Rework</th></tr></thead><tbody id="al-trackBody"></tbody></table></div>
+          <div class="al-tot" id="al-tot"></div>
+        </div>
+      </div>
+      <div class="al-panel">
+        <div class="al-p-head"><i class="fa-solid fa-list" title="Materials taken over onto the line — order, heat, batch, counts, current unit and status (MQA 9, §26.2)"></i> Materials on line <span class="al-meta" id="al-lineMeta"></span></div>
+        <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Line</th><th>Order</th><th>Heat No</th><th>Batch</th><th>Grade</th><th>Form / Size</th><th class="num">Bundles</th><th class="num">Bars</th><th title="First unit not yet cleared — path sequence (§26.2)">Current unit</th><th>Status</th><th class="col-actions"></th></tr></thead><tbody id="al-lineBody"></tbody></table></div>
+      </div>
+      <div class="al-panel">
+        <div class="al-p-head"><i class="fa-solid fa-diagram-next" title="Unit tabs = the allocated path&#8217;s stages with unit_group AUTOLINE (mes_qc_inspection_path_stage, §26.1) — data, in path sequence; unit-by-unit results with sequential clearance and rework (MQA 8, §26.2)"></i> Unit results — path sequence <span class="al-meta">sequential clearance per batch · rework → salvage (§26.2 / §12)</span></div>
+        <div class="al-utabs" id="al-utabs"></div>
+        <div class="al-uq" id="al-uq"></div>
+      </div>
     </div>
   </main>
 </div>
 
-<!-- Mark out modal -->
-<div class="overlay" id="outOv">
+<!-- Taking-over modal -->
+<div class="overlay" id="al-toOv">
   <div class="modal sm">
-    <div class="modal-head">Mark out of pit <span class="x" onclick="closeOut()"><i class="fa-solid fa-xmark"></i></span></div>
+    <div class="modal-head">Taking-over — auto inspection line <span class="x" onclick="closeTake()"><i class="fa-solid fa-xmark"></i></span></div>
     <div class="modal-body">
-      <div class="prep-ctx" id="outCtx"></div>
+      <div class="prep-ctx" id="al-toCtx"></div>
+      <div class="depbanner"><i class="fa-solid fa-file-signature"></i><span>Records the <b>TAKE_OVER</b> leg in <b>mes_qc_handover</b> — quality record <b>IMSR/TS/QA-AIL/04</b> for handing over / taking over; piece counts cross-check production counts (MQA 9, §26.2).</span></div>
       <div class="mgrid">
-        <div class="fld"><label>Actual out time</label><input id="oTime" type="datetime-local" value="2026-08-21T07:40"/></div>
-        <div class="fld"><label>Removed by</label><input id="oBy" value="R. Sahoo"/></div>
-        <div class="fld full"><label>Remarks</label><input id="oRem" placeholder="e.g. shifted to rolling bank / reason for delay…"/></div>
+        <div class="fld"><label>Bundles received</label><input id="al-toBundles" type="number" min="0"/></div>
+        <div class="fld"><label>Bars received</label><input id="al-toBars" type="number" min="0"/></div>
+        <div class="fld"><label>Received by</label><input id="al-toBy" value="S. Prasad"/></div>
+        <div class="fld"><label>Remarks</label><input id="al-toRem" placeholder="condition on receipt, shortages…"/></div>
       </div>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeOut()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveOut()"><i class="fa-solid fa-check"></i> Mark OUT</button>
+      <button class="btn btn-ghost" onclick="closeTake()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTake()" title="Auto-line taking-over record — mes_qc_handover (MQA 9, §26.2)"><i class="fa-solid fa-check"></i> Confirm taking-over</button>
     </div>
   </div>
 </div>
 
 <script>
 /* ============================================================
-   SMSQA5 — Pit Cooling.
-   pit entry_time & pit_no arrive from the PPC "Consolidated Inspection"
-   production confirmation (route/operation data owned by PPC) and are mirrored
-   read-only into mes_qc_pit_cooling; spec_hours comes from the TDC / Process
-   Standard Note for the grade. This screen writes only actual_out_time /
-   removed_by / remarks. Reminder NTF-PIT-01 (Email + In-app, 30 min before
-   due_out) is a Notification Rules master entry evaluated server-side.
+   §26.2 Auto inspection line (JSW Mills QA — MQA 8, 9).
+   Materials whose allocated inspection path (mes_qc_material_path, §26.1)
+   routes through the AUTOLINE unit group appear here. Taking-over writes
+   mes_qc_handover (direction TAKE_OVER; quality record IMSR/TS/QA-AIL/04,
+   MQA 9). Unit tabs = the path's stages (mes_qc_inspection_path_stage,
+   unit_group AUTOLINE) in sequence_no order — configuration data, not
+   hardcoded. Clearance is sequential per batch; a rework decision routes
+   to salvage (§12). Auto UT / MFLT / Eddy Current results land over the
+   machine interface (capture source MACHINE, §26.9, MQA 13/14/15);
+   end-cut capture uses the End Discard master (§25.5/§25.6, MQA 16).
+   Demo-level only: seed state + toasts, no persistence.
    ============================================================ */
-const NOW=new Date('2026-08-21T07:40:00');   /* fixed demo clock so countdowns render deterministically */
-const MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-function p2(n){return String(n).padStart(2,'0');}
-function dOf(v){return v instanceof Date?v:new Date(v);}
-function fmtDT(v){const x=dOf(v);return p2(x.getDate())+'-'+MONS[x.getMonth()]+' '+p2(x.getHours())+':'+p2(x.getMinutes());}
-function fmtDur(ms){ms=Math.abs(ms);const m=Math.round(ms/60000),h=Math.floor(m/60),mm=m%60;return (h?h+'h ':'')+mm+'m';}
-function dueOf(r){return new Date(dOf(r.entry).getTime()+r.spec*3600000);}
-function statusOf(r){if(r.out)return 'OUT';return (dueOf(r)-NOW)<0?'OVERDUE':'IN_PIT';}
-
-/* Seeded vs demo-now 21-Aug 07:40 → 2 overdue · 3 due-soon (≤60 min) · 2 comfortably in pit · 2 already out */
-const PITS=[
- {heat:'2526-16482',batch:'B030840',pit:'P-03',entry:'2026-08-20T15:00',spec:12,out:null,rem:'',by:''},
- {heat:'2526-16493',batch:'B030068',pit:'P-01',entry:'2026-08-20T18:30',spec:12,out:null,rem:'',by:''},
- {heat:'2526-16495',batch:'E120636',pit:'P-04',entry:'2026-08-20T20:10',spec:12,out:null,rem:'',by:''},
- {heat:'2526-16426',batch:'E120808',pit:'P-02',entry:'2026-08-21T00:20',spec:8, out:null,rem:'',by:''},
- {heat:'2526-16776',batch:'E121717',pit:'P-05',entry:'2026-08-20T22:30',spec:10,out:null,rem:'',by:''},
- {heat:'2526-16798',batch:'E122319',pit:'P-06',entry:'2026-08-21T02:00',spec:16,out:null,rem:'',by:''},
- {heat:'2526-16866',batch:'E121724',pit:'P-07',entry:'2026-08-21T05:45',spec:24,out:null,rem:'',by:''},
- {heat:'2526-16030',batch:'E122956',pit:'P-02',entry:'2026-08-20T06:00',spec:12,out:'2026-08-20T18:10',rem:'',by:'V. Naik'},
- {heat:'2526-16496',batch:'B030268',pit:'P-01',entry:'2026-08-19T20:00',spec:12,out:'2026-08-20T06:35',rem:'Pulled early for rolling slot — deviation DEV-118',by:'M. Iyer'}
+const LINES=['Line-3','Line-4'];   /* auto-line instances — configuration data, not hardcoded logic */
+const REASONS=['Pipe end','End crack','Off-size end','Lap / seam end','Test sample'];   /* End Discard master rows (§25.5) */
+const UNITS=[   /* mes_qc_inspection_path_stage rows, unit_group AUTOLINE, sequence_no order (§26.1) */
+ {code:'TRS',name:'Two-Roll Straightener',icon:'fa-grip-lines',kind:'straight',limit:1.0},
+ {code:'MRS',name:'Multi-Roll Straightener',icon:'fa-bars-staggered',kind:'straight',limit:0.5},
+ {code:'SB',name:'Shot Blasting',icon:'fa-spray-can-sparkles',kind:'shot'},
+ {code:'AUT',name:'Auto UT',icon:'fa-wave-square',kind:'machine'},
+ {code:'MFL',name:'MFLT',icon:'fa-magnet',kind:'machine'},
+ {code:'EC',name:'Eddy Current',icon:'fa-bolt',kind:'machine'},
+ {code:'ECC',name:'End Cut & Chamfer',icon:'fa-scissors',kind:'endcut'}
 ];
 
-const STATUS_B={'IN_PIT':'b-info','OVERDUE':'b-hold','OUT':'b-done'};
-const COLS=[
- {k:'heat',label:'Heat No',cls:'mono'},
- {k:'batch',label:'Batch',cls:'mono'},
- {k:'pit',label:'Pit'},
- {k:'entry',label:'Entry time',calc:function(r){return fmtDT(r.entry);}},
- {k:'spec',label:'Spec hrs',cls:'num',spec:true},
- {k:'due',label:'Due out',due:true},
- {k:'cd',label:'Countdown',cd:true},
- {k:'out',label:'Actual out',calc:function(r){return r.out?fmtDT(r.out):'—';}},
- {k:'status',label:'Status',badge:true},
- {k:'actions',label:'',actions:true}
+/* Handed over by the previous area — awaiting the taking-over leg at the line boundary */
+const PENDING=[
+ {line:'Line-3',order:'FPO-26-0421',heat:'2526-16783',batch:'E121717',grade:'316L',size:'RO 68 Dia',bundles:4,bars:120,from:'Bright Bar Finishing'},
+ {line:'Line-4',order:'FPO-26-0427',heat:'2526-16791',batch:'E121802',grade:'304L',size:'23 Hex',bundles:6,bars:240,from:'Bright Bar Finishing'}
 ];
-let sortKey=null,sortDir=1,curOut=-1;
 
-function fill(sel,arr){document.getElementById(sel).insertAdjacentHTML('beforeend',arr.map(function(o){return '<option>'+o+'</option>';}).join(''));}
-function cell(c,r,i){
-  if(c.actions){
-    let h='<button class="btn-icon" title="View" onclick="openViewEl(this)"><i class="fa-solid fa-eye"></i></button>';
-    if(!r.out)h+=' <button class="btn btn-primary btn-sm" onclick="openOut('+i+')" style="margin-left:4px"><i class="fa-solid fa-arrow-up-from-bracket"></i> Mark out</button>';
-    return h;
-  }
-  if(c.spec)return r.spec+' h <span class="srcchip" title="Required pit-cooling hours from the TDC / Process Standard Note for the grade">TDC/PSN</span>';
-  if(c.due)return fmtDT(dueOf(r));
-  if(c.cd){
-    if(r.out)return '—';
-    const diff=dueOf(r)-NOW;
-    if(diff<0)return '<span class="badge b-hold" title="Past due-out — reminder escalated">OVERDUE '+fmtDur(diff)+'</span>';
-    if(diff<=3600000)return '<span class="badge b-pend" title="Due within the 30-min reminder window soon">DUE IN '+fmtDur(diff)+'</span>';
-    return 'in '+fmtDur(diff);
-  }
-  if(c.badge){const s=statusOf(r);return '<span class="badge '+(STATUS_B[s]||'b-draft')+'">'+s+'</span>';}
-  if(c.calc)return c.calc(r);
-  let v=r[c.k];if(v===''||v==null)v='—';return v;
-}
-function cmp(a,b){return (''+(a==null?'':a)).localeCompare(''+(b==null?'':b),undefined,{numeric:true,sensitivity:'base'});}
-function sortVal(r,k){
-  if(k==='due'||k==='cd')return dueOf(r).getTime();
-  if(k==='status')return statusOf(r);
-  if(k==='out')return r.out||'';
-  return r[k];
-}
-function passes(r){
-  const q=(document.getElementById('search').value||'').toLowerCase();
-  const fs=document.getElementById('fStatus').value,fp=document.getElementById('fPit').value;
-  if(q&&!(r.heat+' '+r.batch+' '+r.pit).toLowerCase().includes(q))return false;
-  if(fs&&statusOf(r)!==fs)return false;
-  if(fp&&r.pit!==fp)return false;
-  return true;
-}
-function buildHead(){
-  document.getElementById('thead').innerHTML='<tr>'+COLS.map(function(c){
-    if(c.actions)return '<th class="col-actions"></th>';
-    const car=sortKey===c.k?'<span class="car on">'+(sortDir>0?'▲':'▼')+'</span>':'<span class="car">⇅</span>';
-    return '<th class="'+(c.cls==='num'?'num':'')+'" onclick="sortBy(\''+c.k+'\')">'+c.label+' '+car+'</th>';
-  }).join('')+'</tr>';
-}
-function sortBy(k){if(sortKey===k){if(sortDir>0)sortDir=-1;else{sortKey=null;sortDir=1;}}else{sortKey=k;sortDir=1;}buildHead();render();}
-function render(){
-  let rows=PITS.map(function(r,i){return {r:r,i:i};}).filter(function(x){return passes(x.r);});
-  if(sortKey)rows.sort(function(a,b){return cmp(sortVal(a.r,sortKey),sortVal(b.r,sortKey))*sortDir;});
-  const tb=document.getElementById('tbody');
-  if(!rows.length){tb.innerHTML='<tr class="empty"><td colspan="'+COLS.length+'">No pit-cooling records match the filters.</td></tr>';}
-  else tb.innerHTML=rows.map(function(x){return '<tr>'+COLS.map(function(c){return '<td class="'+(c.cls||'')+(c.actions?' actions':'')+'">'+cell(c,x.r,x.i)+'</td>';}).join('')+'</tr>';}).join('');
-  document.getElementById('rowCount').textContent=rows.length+' of '+PITS.length+' pit-cooling records';
-  const ov=PITS.filter(function(r){return statusOf(r)==='OVERDUE';}).length;
-  const ds=PITS.filter(function(r){return !r.out&&(dueOf(r)-NOW)>=0&&(dueOf(r)-NOW)<=3600000;}).length;
-  const out=PITS.filter(function(r){return !!r.out;}).length;
-  document.getElementById('meta').textContent=ov+' overdue · '+ds+' due soon · '+out+' out';
-  renderReport();
-}
+/* Taken-over materials — per-unit state st: P pending · C cleared · R rework */
+const MATS=[
+ {line:'Line-3',order:'FPO-26-0405',heat:'2526-16482',batch:'B030841',grade:'316L',size:'RO 68 Dia',bundles:4,bars:120,
+  u:{TRS:{st:'C',act:0.6},MRS:{st:'C',act:0.4},SB:{st:'C',ok:true,rem:'Uniform matt, no residual scale'},AUT:{st:'P',insp:120,good:117,rej:3},MFL:{st:'P'},EC:{st:'P'},ECC:{st:'P'}}},
+ {line:'Line-3',order:'FPO-26-0411',heat:'2526-16493',batch:'B030072',grade:'304L',size:'RO 42 Dia',bundles:3,bars:96,
+  u:{TRS:{st:'C',act:0.8},MRS:{st:'P'},SB:{st:'P'},AUT:{st:'P'},MFL:{st:'P'},EC:{st:'P'},ECC:{st:'P'}}},
+ {line:'Line-4',order:'FPO-26-0418',heat:'2526-16512',batch:'E120644',grade:'416',size:'23 Hex',bundles:5,bars:210,
+  u:{TRS:{st:'P'},MRS:{st:'P'},SB:{st:'P'},AUT:{st:'P'},MFL:{st:'P'},EC:{st:'P'},ECC:{st:'P'}}},
+ {line:'Line-4',order:'FPO-26-0396',heat:'2526-16455',batch:'E120598',grade:'17-4PH',size:'RO 55 Dia',bundles:2,bars:60,
+  u:{TRS:{st:'C',act:0.7},MRS:{st:'C',act:0.35},SB:{st:'C',ok:true,rem:''},AUT:{st:'C',insp:60,good:60,rej:0},MFL:{st:'C',insp:60,good:59,rej:1},EC:{st:'C',insp:59,good:59,rej:0},ECC:{st:'P'}}},
+ {line:'Line-3',order:'FPO-26-0389',heat:'2526-16430',batch:'B030755',grade:'316L',size:'RO 32 Dia',bundles:3,bars:105,
+  u:{TRS:{st:'C',act:0.9},MRS:{st:'C',act:0.45},SB:{st:'C',ok:true,rem:''},AUT:{st:'C',insp:105,good:98,rej:7},MFL:{st:'R',insp:98,good:83,rej:15},EC:{st:'P'},ECC:{st:'P'}}},
+ {line:'Line-4',order:'FPO-26-0378',heat:'2526-16402',batch:'B030698',grade:'304L',size:'RO 68 Dia',bundles:4,bars:118,
+  u:{TRS:{st:'C',act:0.5},MRS:{st:'C',act:0.3},SB:{st:'C',ok:true,rem:''},AUT:{st:'C',insp:118,good:118,rej:0},MFL:{st:'C',insp:118,good:117,rej:1},EC:{st:'C',insp:117,good:117,rej:0},ECC:{st:'C',len:60,reason:'End crack',ch:true}}}
+];
 
-/* ===== Completed cool-downs report (covers the SOW report row) =====
-   On-time = removed within [due, due+1h]; EARLY = pulled before spec hours completed (quality deviation);
-   LATE = removed more than 1 h after due-out. */
-function onTimeBadge(r){
-  const due=dueOf(r),o=dOf(r.out);
-  if(o<due)return '<span class="badge b-hold" title="Removed before the spec cooling hours completed — deviation">EARLY</span>';
-  if(o-due<=3600000)return '<span class="badge b-done">YES</span>';
-  return '<span class="badge b-pend" title="Removed more than 1 h after due-out">LATE</span>';
-}
-function renderReport(){
-  const done=PITS.filter(function(r){return !!r.out;});
-  const tb=document.getElementById('repBody');
-  if(!done.length){tb.innerHTML='<tr class="empty"><td colspan="9">No completed cool-downs yet.</td></tr>';}
-  else tb.innerHTML=done.map(function(r){
-    const dur=dOf(r.out)-dOf(r.entry);
-    return '<tr><td class="mono">'+r.heat+'</td><td class="mono">'+r.batch+'</td><td>'+r.pit+'</td><td>'+fmtDT(r.entry)+'</td><td>'+fmtDT(dueOf(r))+'</td><td>'+fmtDT(r.out)+'</td><td class="num">'+fmtDur(dur)+'</td><td>'+onTimeBadge(r)+'</td><td>'+(r.rem||'—')+'</td></tr>';
+let curLine='',curTab=0,curTake=-1;
+
+function lineOK(o){return !curLine||o.line===curLine;}
+function uSt(m,c){return m.u[c]||(m.u[c]={st:'P'});}
+function unitBy(c){for(let i=0;i<UNITS.length;i++)if(UNITS[i].code===c)return UNITS[i];return null;}
+function curIdx(m){for(let i=0;i<UNITS.length;i++){if(uSt(m,UNITS[i].code).st!=='C')return i;}return UNITS.length;}
+function matSt(m){for(let i=0;i<UNITS.length;i++){if(uSt(m,UNITS[i].code).st==='R')return 'REWORK';}return curIdx(m)>=UNITS.length?'CLEARED':'AT_UNIT';}
+
+/* ===== Line selector (lines are data, §26.2) ===== */
+function setLine(l){curLine=l;renderAll();}
+function renderLines(){
+  const chips=[{k:'',n:'All lines'}].concat(LINES.map(function(l){return {k:l,n:l};}));
+  document.getElementById('al-lsel').innerHTML=chips.map(function(c){
+    const n=MATS.filter(function(m){return (!c.k||m.line===c.k)&&matSt(m)!=='CLEARED';}).length;
+    return '<button class="al-lchip'+(curLine===c.k?' al-on':'')+'" title="Line selector — auto-line instances are configuration data (§26.1/§26.2), not hardcoded" onclick="setLine(\''+c.k+'\')">'+c.n+' · '+n+'</button>';
   }).join('');
-  const early=done.filter(function(r){return dOf(r.out)<dueOf(r);}).length;
-  const late=done.filter(function(r){return dOf(r.out)-dueOf(r)>3600000;}).length;
-  document.getElementById('repMeta').textContent=done.length+' completed · '+early+' early · '+late+' late';
 }
 
-/* ===== Mark out ===== */
-function openOut(i){
-  curOut=i;const r=PITS[i];const diff=dueOf(r)-NOW;
-  const state=diff<0?'<span class="badge b-hold">OVERDUE '+fmtDur(diff)+'</span>':'<span class="badge b-pend">due in '+fmtDur(diff)+'</span>';
-  document.getElementById('outCtx').innerHTML=
-    '<span class="chip">Heat <b>'+r.heat+'</b></span><span class="chip">Batch <b>'+r.batch+'</b></span>'+
-    '<span class="chip">Pit <b>'+r.pit+'</b></span><span class="chip">Entry <b>'+fmtDT(r.entry)+'</b></span>'+
-    '<span class="chip">Spec <b>'+r.spec+' h</b></span><span class="chip">Due out <b>'+fmtDT(dueOf(r))+'</b></span>'+
-    '<span class="chip">'+state+'</span>';
-  document.getElementById('oTime').value='2026-08-21T07:40';
-  document.getElementById('oBy').value='R. Sahoo';
-  document.getElementById('oRem').value='';
-  document.getElementById('outOv').classList.add('open');
+/* ===== Pending receipt (taking-over, mes_qc_handover — MQA 9) ===== */
+function renderPending(){
+  const host=document.getElementById('al-pendList');
+  const list=PENDING.map(function(p,i){return {p:p,i:i};}).filter(function(x){return lineOK(x.p);});
+  if(!list.length){host.innerHTML='<div class="al-empty">No materials awaiting taking-over'+(curLine?' on '+curLine:'')+'.</div>';}
+  else host.innerHTML=list.map(function(x){const p=x.p;
+    return '<div class="al-mat" title="Handed over by '+p.from+' — awaiting the taking-over leg (mes_qc_handover, MQA 9, §26.2)">'+
+      '<span class="al-tag">'+p.line+'</span>'+
+      '<span class="al-tag">Order <b>'+p.order+'</b></span>'+
+      '<span class="al-tag">Heat <b>'+p.heat+'</b></span>'+
+      '<span class="al-tag">Batch <b>'+p.batch+'</b></span>'+
+      '<span class="al-tag">'+p.grade+' · '+p.size+'</span>'+
+      '<span class="al-tag"><b>'+p.bundles+'</b> bundles / <b>'+p.bars+'</b> bars</span>'+
+      '<button class="btn btn-primary btn-sm al-take" title="Auto-line taking-over record — mes_qc_handover (MQA 9, §26.2)" onclick="openTake('+x.i+')"><i class="fa-solid fa-right-to-bracket"></i> Take over</button></div>';
+  }).join('');
+  document.getElementById('al-pendMeta').textContent=list.length+' awaiting taking-over';
 }
-function closeOut(){document.getElementById('outOv').classList.remove('open');}
-function saveOut(){
-  const r=PITS[curOut];
-  const v=document.getElementById('oTime').value;
-  if(!v||isNaN(new Date(v).getTime())){mesToast('Enter a valid actual out time','err');return;}
-  r.out=v;r.by=document.getElementById('oBy').value||'—';r.rem=document.getElementById('oRem').value.trim();
-  closeOut();render();
-  mesToast('Heat '+r.heat+' marked OUT of pit '+r.pit+' · '+fmtDT(v),'ok');
+function openTake(i){
+  curTake=i;const p=PENDING[i];
+  document.getElementById('al-toCtx').innerHTML=
+    '<span class="chip">Order <b>'+p.order+'</b></span><span class="chip">Heat <b>'+p.heat+'</b></span>'+
+    '<span class="chip">Batch <b>'+p.batch+'</b></span><span class="chip">'+p.grade+' · '+p.size+'</span>'+
+    '<span class="chip">From <b>'+p.from+'</b></span><span class="chip">To <b>'+p.line+'</b></span>';
+  document.getElementById('al-toBundles').value=p.bundles;
+  document.getElementById('al-toBars').value=p.bars;
+  document.getElementById('al-toBy').value='S. Prasad';
+  document.getElementById('al-toRem').value='';
+  document.getElementById('al-toOv').classList.add('open');
 }
+function closeTake(){document.getElementById('al-toOv').classList.remove('open');}
+function saveTake(){
+  const p=PENDING[curTake];
+  const bu=parseInt(document.getElementById('al-toBundles').value,10);
+  const ba=parseInt(document.getElementById('al-toBars').value,10);
+  if(!bu||bu<1){mesToast('Enter the bundles count received','err');return;}
+  if(!ba||ba<1){mesToast('Enter the bars count received','err');return;}
+  PENDING.splice(curTake,1);
+  const u={};UNITS.forEach(function(x){u[x.code]={st:'P'};});
+  MATS.push({line:p.line,order:p.order,heat:p.heat,batch:p.batch,grade:p.grade,size:p.size,bundles:bu,bars:ba,
+    recvBy:document.getElementById('al-toBy').value||'—',recvRem:document.getElementById('al-toRem').value.trim(),u:u});
+  closeTake();renderAll();
+  mesToast('Taking-over recorded — mes_qc_handover','ok');
+  if(bu!==p.bundles||ba!==p.bars)mesToast('Received counts differ from production ('+p.bundles+' bundles / '+p.bars+' bars) — cross-check flagged (MQA 9)','warn');
+}
+
+/* ===== Materials on line ===== */
+function renderLine(){
+  const tb=document.getElementById('al-lineBody');
+  const list=MATS.map(function(m,i){return {m:m,i:i};}).filter(function(x){return lineOK(x.m);});
+  if(!list.length){tb.innerHTML='<tr class="empty"><td colspan="11">No materials on the line'+(curLine?' ('+curLine+')':'')+'.</td></tr>';}
+  else tb.innerHTML=list.map(function(x){
+    const m=x.m,st=matSt(m),idx=curIdx(m);
+    const cu=st==='CLEARED'?'<span class="due-hint">— line complete</span>':UNITS[idx].name+' <span class="due-hint">('+(idx+1)+'/'+UNITS.length+')</span>';
+    const b=st==='CLEARED'?'b-done':st==='REWORK'?'b-hold':'b-info';
+    const tt=st==='REWORK'?'Rework decision at '+UNITS[idx].name+' — routed to salvage (§12)':st==='CLEARED'?'All units cleared in sequence (§26.2)':'Sequential clearance in progress (§26.2)';
+    return '<tr><td>'+m.line+'</td><td>'+m.order+'</td><td class="mono">'+m.heat+'</td><td class="mono">'+m.batch+'</td><td>'+m.grade+'</td><td>'+m.size+'</td><td class="num">'+m.bundles+'</td><td class="num">'+m.bars+'</td><td>'+cu+'</td><td><span class="badge '+b+'" title="'+tt+'">'+st+'</span></td><td class="actions"><button class="btn-icon" title="View" onclick="openViewEl(this)"><i class="fa-solid fa-eye"></i></button></td></tr>';
+  }).join('');
+  const at=list.filter(function(x){return matSt(x.m)==='AT_UNIT';}).length;
+  const cl=list.filter(function(x){return matSt(x.m)==='CLEARED';}).length;
+  const rw=list.filter(function(x){return matSt(x.m)==='REWORK';}).length;
+  document.getElementById('al-lineMeta').textContent=at+' at unit · '+rw+' rework · '+cl+' cleared';
+}
+
+/* ===== Unit tabs + queues (sequential clearance, §26.2) ===== */
+function selUnit(i){curTab=i;renderUnits();}
+function renderUnits(){
+  document.getElementById('al-utabs').innerHTML=UNITS.map(function(u,i){
+    const cnt=MATS.filter(function(m){return lineOK(m)&&matSt(m)!=='CLEARED'&&curIdx(m)===i;}).length;
+    const t='<div class="al-utab'+(i===curTab?' al-on':'')+'" title="Path stage '+(i+1)+' of '+UNITS.length+' — unit_group AUTOLINE, from the allocated inspection path (§26.1/§26.2)" onclick="selUnit('+i+')"><span class="al-seq">'+(i+1)+'</span><i class="fa-solid '+u.icon+' al-uic"></i>'+u.name+(cnt?'<span class="al-cnt" title="materials currently at this unit">'+cnt+'</span>':'')+'</div>';
+    return (i?'<i class="fa-solid fa-angle-right al-arrow"></i>':'')+t;
+  }).join('');
+  renderQueue();
+}
+function pfHTML(v,limit){
+  if(v===''||v==null||isNaN(parseFloat(v)))return '<span class="badge b-draft">PENDING</span>';
+  return parseFloat(v)<=limit
+    ?'<span class="badge b-done">PASS</span>'
+    :'<span class="badge b-hold" title="Above the straightness limit — clearance blocked, use Rework (§26.2)">FAIL</span>';
+}
+function numIn(mi,c,f,v,dis,step){return '<input type="number" min="0"'+(step?' step="'+step+'"':'')+' value="'+(v==null?'':v)+'"'+dis+' oninput="uSet('+mi+',\''+c+'\',\''+f+'\',this)">';}
+function uSet(mi,c,f,el){
+  const s=uSt(MATS[mi],c);
+  s[f]=el.type==='checkbox'?el.checked:el.value;
+  if(f==='act'){const u=unitBy(c);const pc=document.getElementById('al-pf-'+mi+'-'+c);if(pc)pc.innerHTML=pfHTML(el.value,u.limit);}
+}
+function entryHTML(m,mi,u,s,dis){
+  const c=u.code;
+  if(u.kind==='straight'){
+    return '<span class="al-entry" title="Straightness — actual vs limit at the '+u.name+' (MQA 10/11, §26.2)">Straightness '+numIn(mi,c,'act',s.act,dis,'0.05')+' mm/m <span class="al-vs">limit &le; <b>'+u.limit.toFixed(2)+'</b> mm/m</span> <span id="al-pf-'+mi+'-'+c+'">'+pfHTML(s.act,u.limit)+'</span></span>'+
+      '<a class="al-logchip" href="instrument-checklist.html" title="Machine log book — the shift instrument checklist bound to this machine (mes_qc_instrument_checklist.instrument_id; numeric readings supported) — §26.4, MQA 10/11"><i class="fa-solid fa-book"></i> Machine log book</a>';
+  }
+  if(u.kind==='shot'){
+    return '<label class="al-ck" title="Scale-removal check after shot blasting (MQA 12, §26.2)"><input type="checkbox"'+(s.ok?' checked':'')+dis+' onchange="uSet('+mi+',\''+c+'\',\'ok\',this)"> Scale removal OK</label>'+
+      '<span class="al-entry">Surface condition <input type="text" style="width:210px" placeholder="e.g. uniform matt, no residual scale" value="'+(s.rem||'')+'"'+dis+' oninput="uSet('+mi+',\''+c+'\',\'rem\',this)"></span>'+
+      '<a class="al-logchip" href="instrument-checklist.html" title="Machine log book — shift checklist bound to the shot-blast machine (§26.4, MQA 12)"><i class="fa-solid fa-book"></i> Machine log book</a>';
+  }
+  if(u.kind==='machine'){
+    return '<span class="al-entry" title="Per-piece results land over the machine interface (capture source MACHINE); good / rejected become the OK / Not-OK piece counts — §26.9, MQA 13/14/15">Bars inspected '+numIn(mi,c,'insp',s.insp,dis)+' Good '+numIn(mi,c,'good',s.good,dis)+' Rejected '+numIn(mi,c,'rej',s.rej,dis)+' <span class="srcchip" title="Results land over the machine interface — capture source MACHINE (§26.9, MQA 13/14/15)">MACHINE</span></span>';
+  }
+  if(u.kind==='endcut'){
+    const opts='<option value="">— end-cut reason —</option>'+REASONS.map(function(r){return '<option'+(s.reason===r?' selected':'')+'>'+r+'</option>';}).join('');
+    return '<span class="al-entry" title="End-cut length &amp; reason from the End Discard master (§25.5/§25.6, MQA 16)">End cut '+numIn(mi,c,'len',s.len,dis)+' mm <select'+dis+' onchange="uSet('+mi+',\''+c+'\',\'reason\',this)">'+opts+'</select></span>'+
+      '<label class="al-ck" title="Chamfer check at End Cut &amp; Chamfer (MQA 16, §26.2)"><input type="checkbox"'+(s.ch?' checked':'')+dis+' onchange="uSet('+mi+',\''+c+'\',\'ch\',this)"> Chamfer OK</label>';
+  }
+  return '';
+}
+function renderQueue(){
+  const u=UNITS[curTab],host=document.getElementById('al-uq');
+  const rows=[];
+  MATS.forEach(function(m,mi){
+    if(!lineOK(m))return;
+    if(matSt(m)==='CLEARED')return;
+    const s=uSt(m,u.code);
+    if(s.st==='C')return;
+    rows.push({m:m,mi:mi,s:s});
+  });
+  if(!rows.length){host.innerHTML='<div class="al-empty">No material queued at '+u.name+(curLine?' on '+curLine:'')+'.</div>';return;}
+  host.innerHTML=rows.map(function(x){
+    const m=x.m,mi=x.mi,s=x.s,idx=curIdx(m);
+    const state=s.st==='R'?'REWORK':(idx===curTab?'HERE':'LOCKED');
+    const dis=state==='HERE'?'':' disabled';
+    const chip=state==='HERE'?'<span class="badge b-info" title="Batch is at this unit — entry &amp; clearance open (§26.2)">AT UNIT</span>'
+      :state==='REWORK'?'<span class="badge b-hold" title="Rework decision — routed to salvage (§12)">REWORK</span>'
+      :'<span class="badge b-draft" title="previous unit not cleared — sequential clearance §26.2"><i class="fa-solid fa-lock"></i> AWAITING</span>';
+    const id='<span class="al-id">'+chip+
+      '<span class="al-tag">'+m.line+'</span>'+
+      '<span class="al-tag">Batch <b>'+m.batch+'</b></span>'+
+      '<span class="al-tag">Heat <b>'+m.heat+'</b></span>'+
+      '<span class="al-tag">'+m.grade+' · '+m.size+'</span>'+
+      '<span class="al-tag">'+m.bundles+' bnd / '+m.bars+' bars</span></span>';
+    let acts;
+    if(state==='REWORK'){
+      acts='<span class="al-note">Routed to salvage (§12) — resumes on the line after the salvage disposition.</span>';
+    }else{
+      const lock=state==='LOCKED';
+      acts=(lock
+        ?'<button class="btn btn-primary btn-sm al-clear" disabled title="previous unit not cleared — sequential clearance §26.2"><i class="fa-solid fa-lock"></i> Clear unit</button>'
+        :'<button class="btn btn-primary btn-sm al-clear" title="Clear '+u.name+' for '+m.batch+' — unlocks the next unit (sequential clearance, MQA 8, §26.2)" onclick="clearUnit('+mi+','+curTab+')"><i class="fa-solid fa-check"></i> Clear unit</button>')+
+        (lock
+        ?'<button class="btn btn-ghost btn-sm" disabled title="previous unit not cleared — sequential clearance §26.2"><i class="fa-solid fa-rotate-left"></i> Rework</button>'
+        :'<button class="btn btn-ghost btn-sm" title="Rework decision — routes to the salvage workflow (§12)" onclick="reworkUnit('+mi+','+curTab+')"><i class="fa-solid fa-rotate-left"></i> Rework</button>');
+    }
+    return '<div class="al-row'+(state==='LOCKED'?' al-locked':'')+'">'+id+'<span class="al-entrywrap">'+entryHTML(m,mi,u,s,dis)+'</span><span class="al-acts">'+acts+'</span></div>';
+  }).join('');
+}
+function clearUnit(mi,ci){
+  const m=MATS[mi],u=UNITS[ci],s=uSt(m,u.code);
+  if(u.kind==='straight'){
+    if(s.act===''||s.act==null||isNaN(parseFloat(s.act))){mesToast('Enter the measured straightness (mm/m) first','err');return;}
+    if(parseFloat(s.act)>u.limit){mesToast('Straightness '+s.act+' mm/m exceeds the '+u.limit.toFixed(2)+' mm/m limit — cannot clear, use Rework','err');return;}
+  }else if(u.kind==='shot'){
+    if(!s.ok){mesToast('Tick Scale removal OK to clear, or record a Rework decision','err');return;}
+  }else if(u.kind==='machine'){
+    if(s.insp==null||s.insp===''){mesToast('Bars inspected is required (machine feed / manual)','err');return;}
+    const g=parseInt(s.good||0,10),r=parseInt(s.rej||0,10);
+    if(g+r!==parseInt(s.insp,10)){mesToast('Good + Rejected must equal bars inspected ('+s.insp+')','err');return;}
+  }else if(u.kind==='endcut'){
+    if(s.len==null||s.len===''){mesToast('Enter the end-cut length (mm) first','err');return;}
+    if(!s.reason){mesToast('Select the end-cut reason (End Discard master)','err');return;}
+    if(!s.ch){mesToast('Tick Chamfer OK to clear, or record a Rework decision','err');return;}
+  }
+  s.st='C';
+  const n=curIdx(m);
+  if(n>=UNITS.length)mesToast(u.name+' cleared — '+m.batch+' complete on the line','ok');
+  else mesToast(u.name+' cleared — '+m.batch+' → next: '+UNITS[n].name,'ok');
+  renderAll();
+}
+function reworkUnit(mi,ci){
+  uSt(MATS[mi],UNITS[ci].code).st='R';
+  mesToast('Rework decision — routed to salvage (§12)','warn');
+  renderAll();
+}
+
+/* ===== Tracking summary (MQA 9 monitoring) ===== */
+function renderTrack(){
+  document.getElementById('al-trackBody').innerHTML=UNITS.map(function(u,i){
+    let p=0,c=0,r=0;
+    MATS.forEach(function(m){if(!lineOK(m))return;const s=uSt(m,u.code);if(s.st==='C')c++;else if(s.st==='R')r++;else p++;});
+    return '<tr><td>'+(i+1)+'. '+u.name+'</td><td class="num">'+(p||'—')+'</td><td class="num">'+(c||'—')+'</td><td class="num">'+(r?'<span class="badge b-hold">'+r+'</span>':'—')+'</td></tr>';
+  }).join('');
+  const on=MATS.filter(function(m){return lineOK(m)&&matSt(m)!=='CLEARED';});
+  let bu=0,ba=0;on.forEach(function(m){bu+=m.bundles;ba+=m.bars;});
+  document.getElementById('al-tot').innerHTML=
+    '<span class="al-tag" title="Materials taken over and not yet fully cleared (MQA 9)">Materials on line <b>'+on.length+'</b></span>'+
+    '<span class="al-tag" title="Total bundles on line — from the taking-over counts (mes_qc_handover, MQA 9)">Bundles <b>'+bu+'</b></span>'+
+    '<span class="al-tag" title="Total bars on line — from the taking-over counts (mes_qc_handover, MQA 9)">Bars <b>'+ba+'</b></span>'+
+    '<span class="al-tag">Awaiting taking-over <b>'+PENDING.filter(lineOK).length+'</b></span>';
+  document.getElementById('al-trackMeta').textContent=curLine||'all lines';
+}
+
+function renderAll(){renderLines();renderPending();renderLine();renderUnits();renderTrack();}
 
 /* ===== Toast helper (standalone — this screen has no shell toast) ===== */
 function mesToast(m,k){var h=document.getElementById('mesToastHost');if(!h){h=document.createElement('div');h.id='mesToastHost';h.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px';document.body.appendChild(h);}var t=document.createElement('div');t.textContent=m;t.style.cssText='padding:10px 14px;border-radius:8px;font:13px Roboto,sans-serif;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;background:'+({ok:'#2e7d32',warn:'#ed6c02',err:'#c62828'}[k]||'#333');h.appendChild(t);requestAnimationFrame(function(){t.style.opacity='1';});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},250);},2600);}
 
 /* ===== Init ===== */
-fill('fPit',[...new Set(PITS.map(function(r){return r.pit;}))].sort());
-buildHead();render();
+renderAll();
 </script>
 <script>
 function msToggle(e){e.preventDefault();e.stopPropagation();var g=document.getElementById('msGroup');if(g)g.classList.toggle('open');}
